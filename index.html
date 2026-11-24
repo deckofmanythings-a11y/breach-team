@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breach Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=1">
+<script type="importmap">
+{"imports":{"pixi.js":"https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.mjs"}}
+</script>
+</head>
+<body>
+<header id="topbar">
+  <div class="brand"><div class="logo">BREACH <span>TEAM</span></div><div id="ver" class="ver"></div></div>
+  <nav id="nav">
+    <button data-go="barracks">Barracks</button>
+    <button data-go="deploy">Deploy</button>
+    <button data-go="armory">Armory</button>
+    <button data-go="log">Mission Log</button>
+    <button data-go="memorial">Memorial</button>
+  </nav>
+  <div class="bucs" title="Basic Universal Credits: earned on missions"><b id="bucs">0</b> BUCs</div>
+</header>
+<main id="panel"></main>
+<div id="modal" hidden></div>
+<div id="toast" hidden></div>
+<script type="module" src="js/app/main.js?v=1"></script>
+</body>
+</html>
