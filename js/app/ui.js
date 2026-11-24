@@ -2,6 +2,21 @@
 import { STATS, STAT_INFO } from '../data/stats.js';
 import { ITEM_BY_ID, RARITY_BY_ID, AFFIX_BY_ID } from '../data/gear.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
+import { COMMENDATION_BY_ID } from '../data/commendations.js';
+import { xpToReach, MAX_LEVEL } from '../data/stats.js';
+
+// A small medal ribbon. earned=false draws it greyed out (for the "still to earn" list).
+export function ribbon(id, earned = true) {
+  const c = COMMENDATION_BY_ID[id]; if (!c) return '';
+  const bg = earned ? `linear-gradient(90deg,${c.ribbon[0]} 0 30%,${c.ribbon[1]} 30% 40%,${c.ribbon[0]} 40% 60%,${c.ribbon[1]} 60% 70%,${c.ribbon[0]} 70%)` : '#1c2733';
+  return `<span class="ribbon ${earned ? '' : 'unearned'}" style="background:${bg}" title="${esc(c.name)}: ${esc(c.desc)}"></span>`;
+}
+export function ribbons(ids) { return ids.length ? `<div class="ribbons">${ids.map(id => ribbon(id)).join('')}</div>` : ''; }
+export function xpPct(s) {
+  if (s.level >= MAX_LEVEL) return 100;
+  const lo = xpToReach(s.level), hi = xpToReach(s.level + 1);
+  return Math.max(0, Math.min(100, Math.floor(((s.xp - lo) * 100) / (hi - lo))));
+}
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }

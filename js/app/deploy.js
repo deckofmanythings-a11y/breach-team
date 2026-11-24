@@ -41,7 +41,7 @@ export function renderDeploy(panel) {
     <div class="section"><h3>4 · Tactic</h3>${optCards(TACTICS, 'tactic', t => `<div class="small dim">${esc(t.desc)}</div><div class="small" style="margin-top:4px">Retreats at ${t.retreatAt}% casualties</div>`)}</div>
     <div class="section"><h3>5 · Retreat plan</h3>${optCards(RETREATS, 'retreat', r => `<div class="small dim">${esc(r.desc)}</div>`)}
       <div class="small dim" style="margin-top:6px">The retreat happens automatically if casualties pass your tactic's limit, or if the bridge isn't taken in 90 seconds.</div></div>
-    <div class="launchbar"><span class="dim small">Permadeath is on: any Soldier who goes Down can die, on any ship.</span><button class="primary" id="go">Launch boarding action</button></div>
+    <div class="launchbar"><span class="small" id="warn"></span><span class="dim small">Permadeath is on: any Soldier who goes Down can die, on any ship.</span><button class="primary" id="go">Launch boarding action</button></div>
   </div>`);
 
   for (const c of wrap.querySelectorAll('.card[data-k]')) c.onclick = () => { p[c.dataset.k] = c.dataset.v; persist(); renderDeploy(panel.replaceChildren() || panel); };
@@ -63,6 +63,8 @@ export function renderDeploy(panel) {
   const unavailable = S.soldiers.length - ready.length;
   wrap.querySelector('#count').textContent = `${p.squad.length}/${entry.maxSquad} selected${unavailable ? ` · ${unavailable} recovering or missing` : ''}`;
 
+  const small = Math.min(3, entry.maxSquad);
+  if (p.squad.length && p.squad.length < small) wrap.querySelector('#warn').innerHTML = `<span class="warn">⚠ Only ${p.squad.length} Soldier${p.squad.length > 1 ? 's' : ''}: a squad this small is in serious danger.</span>`;
   const go = wrap.querySelector('#go');
   go.disabled = !p.squad.length;
   go.onclick = () => launch(panel);

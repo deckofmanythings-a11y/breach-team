@@ -1,6 +1,7 @@
 // Mission playback (placeholder graphics). The engine already decided everything; this only
 // replays its event log. Results stay hidden until playback ends (or the player skips).
-import { el, esc, avatar, itemLabel } from './ui.js';
+import { el, esc, avatar, itemLabel, ribbon } from './ui.js';
+import { COMMENDATION_BY_ID } from '../data/commendations.js';
 import * as G from './state.js';
 import { T_VOID, T_WALL, T_DOOR } from '../engine/mapgen.js';
 import { simulate } from '../engine/battle.js';
@@ -17,6 +18,8 @@ let PIXI = null;
 let current = null;   // active playback (destroyed when leaving)
 let exitTo = (r) => { location.hash = r; };
 export const setExit = (fn) => { exitTo = fn; };
+let openSoldierFn = null;
+export const setOpenSoldier = (fn) => { openSoldierFn = fn; };
 
 const HEX = (c) => parseInt(String(c).replace('#', ''), 16);
 const HAZARD_TINT = { radiation: 0x5dff6a, decompression: 0x9fd8ff, fire: 0xff7a1a };
@@ -278,7 +281,9 @@ function showReport(panel, battle, report, isReplay) {
       ${report.soldiers.map(s => `<tr><td><b>${esc(s.name)}</b><div class="small dim">${SPECIALTY_BY_ID[s.specialty].name} · ${s.kills} kills</div></td>
         <td>${fateTxt(s)}</td>
         <td>${s.injuries.length && s.fate !== 'kia' ? s.injuries.map(i => `${INJURY_BY_ID[i].name}${INJURY_BY_ID[i].severity === 2 ? ' <span class="small warn">(benched)</span>' : ''}`).join('<br>') : '<span class="dim">—</span>'}</td>
-        <td>+${s.xp}${s.levelUps.map(l => `<div class="small good">Level ${l.level}! ${Object.entries(l.gains).map(([k, v]) => `+${v} ${STAT_INFO[k].short}`).join(', ')}${l.breakthrough ? ' <b>BREAKTHROUGH</b>' : ''}</div>`).join('')}</td></tr>`).join('')}
+        <td>+${s.xp}${s.levelUps.map(l => `<div class="small good">Level ${l.level}! ${Object.entries(l.gains).map(([k, v]) => `+${v} ${STAT_INFO[k].short}`).join(', ')}${l.breakthrough ? ' <b>BREAKTHROUGH</b>' : ''}</div>`).join('')}
+          ${(s.perkPending || []).length && !isReplay ? `<div><button class="primary small" data-perk="${s.uid}" style="padding:3px 8px;margin-top:4px">Choose perk</button></div>` : ''}
+          ${(s.medals || []).map(id => `<div class="small" style="margin-top:3px">${ribbon(id)} <b>${COMMENDATION_BY_ID[id].name}</b>${s.fate === 'kia' ? ' (posthumous)' : ''}</div>`).join('')}</td></tr>`).join('')}
     </table>
     ${report.extras.map(x => x.kind === 'item' ? `<div class="good" style="margin-top:8px">Armory raid: found ${itemLabel(x.item)}</div>` : `<div class="good" style="margin-top:8px">The freed prisoner, ${esc(x.name)}, joined the team.</div>`).join('')}
     ${isReplay ? '<div class="dim small" style="margin-top:8px">Replay: nothing was changed.</div>' : ''}
@@ -288,4 +293,5 @@ function showReport(panel, battle, report, isReplay) {
   const close = (to) => { m.hidden = true; m.innerHTML = ''; if (current) current.destroy(); exitTo(to); };
   box.querySelector('#home').onclick = () => close('barracks');
   box.querySelector('#again').onclick = () => close('deploy');
+  for (const b of box.querySelectorAll('[data-perk]')) b.onclick = () => { m.hidden = true; m.innerHTML = ''; if (current) current.destroy(); openSoldierFn?.(b.dataset.perk); };
 }

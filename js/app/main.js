@@ -1,6 +1,9 @@
 // Breach Team client. Phase 3: local save, roster, deploy, mission playback, report.
 import * as G from './state.js';
-import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLeft } from './ui.js';
+import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLeft, ribbon, ribbons, xpPct } from './ui.js';
+import { COMMENDATIONS } from '../data/commendations.js';
+import { renderCodex } from './codex.js';
+import { showWhatsNew, initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_BY_ID, RARITY_ORDER } from '../data/gear.js';
@@ -9,9 +12,9 @@ import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { SHIP_BY_ID } from '../data/ships.js';
-import { replayMission, setExit } from './mission.js';
+import { replayMission, setExit, setOpenSoldier } from './mission.js';
 
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 G.load();
@@ -24,17 +27,23 @@ refreshTop();
 
 export function go(r) { route = r; location.hash = r; render(); }
 setExit(go);
+setOpenSoldier((uid) => { go('barracks'); const s = G.soldierById(uid); if (s) openSoldier(s); });
 window.addEventListener('hashchange', () => { const r = location.hash.slice(1); if (r && r !== route) { route = r; render(); } });
 document.getElementById('nav').addEventListener('click', e => { const b = e.target.closest('button[data-go]'); if (b) go(b.dataset.go); });
 
 export function render() {
   for (const b of document.querySelectorAll('#nav button')) b.classList.toggle('on', b.dataset.go === route);
   G.tick();
+  if (route === 'barracks' || route === 'deploy') {
+    const e = G.emergencyRecruit();
+    if (e) toast(`Fleet Command sends a replacement: ${e.name} (${SPECIALTY_BY_ID[e.specialty].name}).`);
+  }
   panel.innerHTML = '';
   if (route === 'deploy') return renderDeploy(panel);
   if (route === 'armory') return renderArmory();
   if (route === 'log') return renderLog();
   if (route === 'memorial') return renderMemorial();
+  if (route === 'codex') return renderCodex(panel);
   route = 'barracks'; renderBarracks();
 }
 
@@ -60,6 +69,8 @@ function soldierCard(s) {
       </div>
     </div>
     ${statGrid(st)}
+    <div class="bar xpbar" title="XP to next level"><i style="width:${xpPct(s)}%"></i></div>
+    ${ribbons(s.medals)}
   </div>`);
 }
 
@@ -70,6 +81,8 @@ function renderBarracks() {
     <button id="hire">Hire Rookie (${G.HIRE_PRICE} BUCs)</button></div></div><div class="grid" id="roster"></div>
     <p class="dim small" style="margin-top:20px">Booster packs and the Store arrive in Phase 5. For now you can hire level-1 Rookies of any specialty.</p></div>`);
   const roster = wrap.querySelector('#roster');
+  const perkers = S.soldiers.filter(s => s.pendingPerks.length);
+  if (perkers.length) roster.before(el(`<div class="banner">★ ${perkers.map(s => esc(s.name)).join(', ')} ${perkers.length > 1 ? 'have' : 'has'} a perk to choose. Open their page.</div>`));
   const order = { healthy: 0, wounded: 1, benched: 2, mia: 3 };
   for (const s of S.soldiers.slice().sort((a, b) => order[G.condition(a)] - order[G.condition(b)] || b.level - a.level)) {
     const card = soldierCard(s); card.onclick = () => openSoldier(s); roster.append(card);
@@ -105,6 +118,19 @@ export function openSoldier(s) {
     <div>${s.injuries.length ? s.injuries.map(i => `<div class="item"><span>${INJURY_BY_ID[i.id].name} <span class="dim small">(${INJURY_BY_ID[i.id].severity === 2 ? 'major: can\'t deploy' : 'minor'})</span></span><span data-until="${i.until}">${timeLeft(i.until)}</span></div>`).join('')
       : s.status === 'mia' ? `<div class="item"><span>Missing in action</span><span data-until="${s.miaUntil}">${timeLeft(s.miaUntil)}</span></div>` : '<span class="good">Healthy</span>'}</div>
     ${cost ? `<button id="heal" style="margin-top:6px" ${S.bucs < cost ? 'disabled' : ''}>Heal now (${cost} BUCs)</button>` : ''}
+
+    <h3 style="margin-top:14px">Service record</h3>
+    <div class="record">
+      <div><b>${s.missions}</b><span class="small dim">missions</span></div>
+      <div><b>${s.record.successes}</b><span class="small dim">ships taken</span></div>
+      <div><b>${s.kills}</b><span class="small dim">kills</span></div>
+      <div><b>${s.record.downed}</b><span class="small dim">times Downed</span></div>
+      <div><b>${s.record.deathRolls}</b><span class="small dim">death rolls survived</span></div>
+      <div><b>${s.record.revives}</b><span class="small dim">revives given</span></div>
+      <div><b>${s.record.injuries}</b><span class="small dim">injuries</span></div>
+    </div>
+    <h3 style="margin-top:14px">Commendations <span class="dim small">${s.medals.length}/${COMMENDATIONS.length}</span></h3>
+    <div>${COMMENDATIONS.map(c => `<div class="medal-row ${s.medals.includes(c.id) ? '' : 'dim'}">${ribbon(c.id, s.medals.includes(c.id))}<span><b>${c.name}</b> <span class="small">${c.desc}</span></span></div>`).join('')}</div>
 
     <h3 style="margin-top:14px">Perks</h3><div id="perks"></div>
     <h3 style="margin-top:14px">Gear</h3><div id="gear" style="display:grid;gap:6px"></div>
@@ -211,8 +237,11 @@ function renderMemorial() {
   if (!S.memorial.length) list.append(el('<div class="dim">No one has fallen. Yet.</div>'));
   for (const m of S.memorial) list.append(el(`<div class="card"><div class="soldier-head">${avatar(m)}<div><div class="name">${esc(m.name)} ${m.callsign ? `<span class="callsign">"${esc(m.callsign)}"</span>` : ''}</div>
     <div class="small dim">${SPECIALTY_BY_ID[m.specialty].name} · Lv ${m.level} · ${m.missions} missions · ${m.kills} kills</div>
-    <div class="small">Fell on the ${esc(m.diedOn)}, ${new Date(m.diedAt).toLocaleDateString()}${m.gearLost ? ' · <span class="bad">left aboard, gear lost</span>' : ''}</div></div></div></div>`));
+    <div class="small">${esc(m.diedHow || 'Fell on the ' + m.diedOn)}, ${new Date(m.diedAt).toLocaleDateString()}${m.gearLost ? ' · <span class="bad">gear lost</span>' : ''}</div>
+    <div class="small dim">${m.record?.successes || 0} ships taken · ${m.record?.revives || 0} revives · Downed ${m.record?.downed || 0}×</div>
+    ${ribbons(m.medals || [])}</div></div></div>`));
   panel.append(wrap);
 }
 
+initWhatsNew(APP_VERSION);
 render();

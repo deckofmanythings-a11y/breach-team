@@ -9,7 +9,7 @@ Starship boarding-party autobattler. Build a stable of Soldiers, pick a target s
 
 Check the data: `npm run check`
 
-Status: Phase 3 (playable loop, placeholder graphics, local save) done.
+Status: Phase 4 (service records, commendations, Codex tab) done. Ver. 0.2.0.
 
 Run locally: `python -m http.server 4395` in this folder, open http://localhost:4395 (launch config "breach-team").
 

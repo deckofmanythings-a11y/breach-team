@@ -290,6 +290,32 @@ How every perk and item special works in the engine (`node test/effects.mjs` pro
 | Personal Shield Belt | +30 Armor, but melee attacks ignore the wearer's armor completely |
 | Flamer (weapon type) | Each hit has a 15% chance to set the target's room on fire (Fire hazard) |
 
-## 12. Not implemented yet
+## 12. Service record and commendations
+
+Every Soldier keeps a service record: missions, ships taken, kills, times Downed, death rolls survived, revives given and injuries. Commendations are awarded automatically after a mission (posthumously, too).
+
+| Commendation | How to earn it |
+|---|---|
+| First Blood | First kill |
+| Combat Ribbon | 25 kills |
+| Centurion | 100 kills |
+| Boarding Badge | Part of 5 successful boardings |
+| Ship Breaker | Part of 25 successful boardings |
+| Veteran | 10 missions |
+| Old Guard | 30 missions |
+| Purple Star | Wounded in action |
+| Cheated Death | Went Down and survived the death roll |
+| Nine Lives | Survived 3 death rolls |
+| Guardian Angel | Revived 5 squadmates |
+| Last Out | Volunteered as rear guard |
+| Lone Survivor | The only one of a squad of 3 or more to come home |
+| Natural Talent | Had a Breakthrough level-up |
+| Lost and Found | Went Missing and found the way home |
+
+**Fleet Command replacement:** if you can't field 2 Soldiers and can't afford a Rookie (150 BUCs), a free Rookie arrives with a standard weapon and a Flak Vest. At most once every 10 minutes.
+
+**Gear of the fallen:** a Soldier who dies after being carried out comes home with their gear (it returns to the Armory). A Soldier left aboard loses their gear with them.
+
+## 13. Not implemented yet
 
 - Decompression does damage but doesn't pull anyone toward the breach yet.

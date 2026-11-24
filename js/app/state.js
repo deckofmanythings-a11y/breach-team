@@ -8,6 +8,11 @@ import { ITEM_BY_ID, ROLLABLE_ITEMS, SLOTS } from '../data/gear.js';
 import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '../data/injuries.js';
 import { MIA_RETURN_MIN } from '../data/entries.js';
 import { STATS, PERK_LEVELS } from '../data/stats.js';
+import { COMMENDATIONS } from '../data/commendations.js';
+
+// Per-Soldier service record (kills and missions live on the Soldier itself).
+const SERVICE_RECORD = () => ({ successes: 0, downed: 0, deathRolls: 0, revives: 0, rearGuards: 0, injuries: 0, breakthroughs: 0, mia: 0, loneSurvivor: 0 });
+export const EMERGENCY_COOLDOWN_MS = 10 * 60e3;
 
 const SAVE_KEY = 'bt_save_v1';
 export const HIRE_PRICE = GRADE_BY_ID.rookie.price;
@@ -25,6 +30,7 @@ export function save() { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); for 
 export function load() {
   try { S = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch { S = null; }
   if (!S || S.v !== 1) { S = newGame(); save(); }
+  for (const s of [...S.soldiers, ...S.memorial]) { if (!s.record) s.record = SERVICE_RECORD(); if (!s.medals) s.medals = []; }
   tick();
   return S;
 }
@@ -53,6 +59,7 @@ export function makeRecruit(rng, specialty, level = 1) {
     colors: COLOR_PRESETS[rng.int(COLOR_PRESETS.length)].slice(),
     specialty, level, xp: 0, stats: g.stats, perks: g.perks, pendingPerks: [],
     gear: {}, injuries: [], status: 'ready', miaUntil: 0, missions: 0, kills: 0, hired: Date.now(),
+    record: SERVICE_RECORD(), medals: [],
   };
 }
 export function addItem(inst) { const it = { uid: uid('i'), ...inst }; S.items.push(it); return it; }
@@ -67,7 +74,7 @@ export function tick() {
     const before = s.injuries.length;
     s.injuries = s.injuries.filter(i => i.until > now);
     if (s.injuries.length !== before) changed = true;
-    if (s.status === 'mia' && s.miaUntil <= now) { s.status = 'ready'; changed = true; }
+    if (s.status === 'mia' && s.miaUntil <= now) { s.status = 'ready'; s.record.mia++; awardMedals(s); changed = true; }
   }
   if (changed) save();
   return changed;
@@ -117,6 +124,29 @@ export function hireRookie(specialty) {
   const s = makeRecruit(createRng(randomSeed()), specialty, 1);
   S.soldiers.push(s); save(); return s;
 }
+// Award any commendations the record now qualifies for. Returns the new ones.
+export function awardMedals(s) {
+  const r = { ...s.record, kills: s.kills, missions: s.missions };
+  const fresh = COMMENDATIONS.filter(c => !s.medals.includes(c.id) && c.test(r)).map(c => c.id);
+  s.medals.push(...fresh);
+  return fresh;
+}
+
+// Fleet Command sends a free Rookie when you're broke and can't field 2 Soldiers (once every 10 min).
+export function emergencyRecruit() {
+  const ready = S.soldiers.filter(canDeploy).length;
+  if (ready >= 2 || S.bucs >= HIRE_PRICE || S.soldiers.length >= ROSTER_CAP) return null;
+  if (Date.now() - (S.lastEmergency || 0) < EMERGENCY_COOLDOWN_MS) return null;
+  const rng = createRng(randomSeed());
+  const sp = SPECIALTIES[rng.int(SPECIALTIES.length)];
+  const s = makeRecruit(rng, sp.id, 1);
+  const w = addItem({ base: sp.weapons[0] + '_std', rarity: 'standard', affixes: [] });
+  const a = addItem({ base: 'armor_light', rarity: 'standard', affixes: [] });
+  s.gear.weapon = w.uid; s.gear.armor = a.uid;
+  S.soldiers.push(s); S.lastEmergency = Date.now(); save();
+  return s;
+}
+
 export function dismiss(s) { S.soldiers = S.soldiers.filter(x => x !== s); save(); }
 
 // Gear instances for the engine (gear slot -> {base, rarity, affixes}).
@@ -143,23 +173,35 @@ export function applyMission(input, battle, after, shipName) {
     result: battle.result, bucs: after.bucs, soldiers: [], extras: [],
     input, colors: Object.fromEntries(input.squad.map(sq => [sq.uid, soldierById(sq.uid)?.colors])) };   // enough to re-run the replay
   S.bucs += after.bucs; S.missions++;
+  const survivors = after.soldiers.filter(a => a.fate !== 'kia');
+  const lone = after.soldiers.length >= 3 && survivors.length === 1 ? survivors[0].uid : null;
   after.soldiers.forEach((a, i) => {
     const s = soldierById(a.uid); if (!s) return;
     const rec = battle.soldiers[i];
-    const line = { uid: s.uid, name: s.name, specialty: s.specialty, state: a.state, fate: a.fate, kiaChance: a.kiaChance, xp: a.xp, injuries: a.injuries, kills: rec.kills, levelUps: [] };
+    const line = { uid: s.uid, name: s.name, specialty: s.specialty, state: a.state, fate: a.fate, kiaChance: a.kiaChance, xp: a.xp, injuries: a.injuries, kills: rec.kills, levelUps: [], perkPending: [], medals: [] };
     s.missions++; s.kills += rec.kills;
+    const R = s.record;
+    if (battle.result === 'success') R.successes++;
+    R.downed += rec.downed; R.revives += rec.revives;
+    if (rec.rearGuard) R.rearGuards++;
+    if ((a.state === 'downed' || a.state === 'left') && a.fate !== 'kia') R.deathRolls++;
+    if (lone === s.uid) R.loneSurvivor++;
     if (a.fate === 'kia') {
       const lost = a.state === 'left';   // left on board: their gear is lost with them
       if (lost) for (const slot in s.gear) S.items = S.items.filter(it => it.uid !== s.gear[slot]);
-      S.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: shipName, gearLost: lost });
+      line.medals = awardMedals(s);      // posthumous
+      const how = lost ? `Left aboard the ${shipName} during the retreat` : `Went Down on the ${shipName} and didn't make it (${a.kiaChance}% death roll)`;
+      S.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: shipName, diedHow: how, diedResult: battle.result, gearLost: lost });
       S.soldiers = S.soldiers.filter(x => x !== s);
       line.gearLost = lost;
     } else {
       const up = applyXp(rng, s, a.xp);
       s.level = up.level; s.xp = up.xp; s.stats = up.stats; s.pendingPerks.push(...up.perkPending);
-      line.levelUps = up.levelUps;
-      for (const id of a.injuries) if (s.injuries.length < MAX_INJURIES) s.injuries.push({ id, until: now + healMs(id, a.healTimePct) });
+      line.levelUps = up.levelUps; line.perkPending = up.perkPending;
+      R.breakthroughs += up.levelUps.filter(l => l.breakthrough).length;
+      for (const id of a.injuries) if (s.injuries.length < MAX_INJURIES) { s.injuries.push({ id, until: now + healMs(id, a.healTimePct) }); R.injuries++; }
       if (a.fate === 'mia') { s.status = 'mia'; s.miaUntil = now + MIA_RETURN_MIN * 60e3; }
+      line.medals = awardMedals(s);
     }
     report.soldiers.push(line);
   });
