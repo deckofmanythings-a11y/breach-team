@@ -136,9 +136,10 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
 // Weekly Contract + stats
 {
   const L = await import('../js/game/ladder.js');
-  const c1 = L.weeklyContract(Date.parse('2026-11-24T20:00:00Z')), c2 = L.weeklyContract(Date.parse('2026-11-29T20:00:00Z')), c3 = L.weeklyContract(Date.parse('2026-12-01T20:00:00Z'));
-  ok(c1.week === '2026-11-23' && c2.week === '2026-11-23' && c3.week === '2026-11-30', `contract weeks start Monday Pacific (${c1.week}, ${c2.week}, ${c3.week})`);
-  ok(c1.mapSeed === c2.mapSeed && c1.mapSeed !== c3.mapSeed, 'same contract all week, new one next week');
+  const c1 = L.weeklyContract(Date.parse('2026-11-24T08:00:00Z')), c2 = L.weeklyContract(Date.parse('2026-11-27T07:59:00Z')), c3 = L.weeklyContract(Date.parse('2026-11-27T08:00:00Z')), c0 = L.weeklyContract(Date.parse('2026-11-24T07:59:00Z'));
+  ok(c1.week === '2026-11-24' && c2.week === '2026-11-24' && c3.week === '2026-11-27' && c0.week === '2026-11-21', `72-hour contracts reset at midnight Pacific every 3 days (${c0.week}, ${c1.week}, ${c2.week}, ${c3.week})`);
+  ok(c1.mapSeed === c2.mapSeed && c1.mapSeed !== c3.mapSeed, 'same contract for 72 hours, new one after');
+  ok(c1.endsAt === Date.parse('2026-11-27T08:00:00Z') && L.weeklyContract(Date.parse('2027-07-01T06:00:00Z')).endsAt === Date.parse('2027-07-01T07:00:00Z'), 'contract end is midnight Pacific (standard and daylight time)');
   const a = R.newGame(), b = R.newGame();
   const ra = R.runMission(a, { contract: true, ship: 'corvette', entry: 'shuttle', tactic: 'balanced', retreat: 'teleport_recall', squad: a.soldiers.map(s => s.uid) });
   const rb = R.runMission(b, { contract: true, entry: 'teleport', tactic: 'blitz', retreat: 'teleport_recall', squad: b.soldiers.map(s => s.uid) });

@@ -27,7 +27,7 @@ export const ENTRIES = [
     maxSquad: 4, spawn: 'hull', alarmStart: 1, setupTicks: 15, scramblePct: 0, stunTicks: 40, hazard: 'decompression',
     mods: { dmgPct: 5 } },
   { id: 'vent_crawl', name: 'Vent Crawl',
-    desc: 'Squeeze in through maintenance ducts. Silent, close to the objective, tiny squad.',
+    desc: 'Stealth insertion. A handful of small one-man pods make entry via the hull into the service tunnels of the ship.',
     maxSquad: 3, spawn: 'vents', alarmStart: 0, setupTicks: 40, scramblePct: 0, stunTicks: 0,
     mods: { stl: 15, dmgPct: 15, critPct: 10 }, startsHidden: true },
 ];

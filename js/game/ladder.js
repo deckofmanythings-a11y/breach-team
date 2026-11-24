@@ -1,5 +1,5 @@
-// Weekly Contract + scoring + lifetime stats. Shared by the browser and boarding-api.
-// The contract for a week is derived from the week itself (Pacific time), so nobody can pick it:
+// 72-hour Contract + scoring + lifetime stats. Shared by the browser and boarding-api.
+// Each contract is derived from its 72-hour period itself (Pacific time), so nobody can pick it:
 // every player boards the same ship on the same map (mapSeed); the fight itself still rolls fresh.
 import { hashString } from '../engine/rng.js';
 import { SHIPS, SHIP_BY_ID, OBJECTIVES } from '../data/ships.js';
@@ -16,26 +16,30 @@ export const SCORE = {
 };
 export const TICKS_PER_SEC_FOR_SCORE = 8;
 
-// Monday 00:00 America/Los_Angeles starts each contract week. Returns { id: 'YYYY-MM-DD' (that Monday), endsAt (ms) }.
+// 72-hour contracts: a new one starts at 00:00 America/Los_Angeles every 3rd Pacific calendar day,
+// counted from CONTRACT_ANCHOR. Returns { id: 'YYYY-MM-DD' (the Pacific date it started), endsAt (ms) }.
+// (Still called contractWeek / `week` in the API and bp_missions.contract_week for compatibility.)
+export const CONTRACT_DAYS = 3;
+const CONTRACT_ANCHOR = Date.UTC(2026, 10, 24);   // 2026-11-24, the first 72-hour contract
+const PT = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+function ptParts(t) { return Object.fromEntries(PT.formatToParts(new Date(t)).map(p => [p.type, +p.value || 0])); }
+function ptOffset(t) { const p = ptParts(t); return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - Math.floor(t / 1000) * 1000; }
+// The real instant of 00:00 Pacific on the given UTC-midnight date stamp.
+function ptMidnight(dayUtc) { return dayUtc - ptOffset(dayUtc + 12 * 3600e3); }
 export function contractWeek(now = Date.now()) {
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
-  const parts = Object.fromEntries(fmt.formatToParts(new Date(now)).map(p => [p.type, p.value]));
-  const dow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(parts.weekday);
-  const today = Date.UTC(+parts.year, +parts.month - 1, +parts.day);
-  const monday = new Date(today - dow * 86400e3);
-  const id = monday.toISOString().slice(0, 10);
-  // End: next Monday 00:00 Pacific. Approximate the offset from "now" (DST-safe enough for a countdown).
-  const ptNow = new Date(new Date(now).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  const msIntoWeek = dow * 86400e3 + ptNow.getHours() * 3600e3 + ptNow.getMinutes() * 60e3 + ptNow.getSeconds() * 1e3;
-  return { id, endsAt: now + 7 * 86400e3 - msIntoWeek };
+  const p = ptParts(now);
+  const today = Date.UTC(p.year, p.month - 1, p.day);
+  const idx = Math.floor((today - CONTRACT_ANCHOR) / (CONTRACT_DAYS * 86400e3));
+  const start = CONTRACT_ANCHOR + idx * CONTRACT_DAYS * 86400e3;
+  return { id: new Date(start).toISOString().slice(0, 10), endsAt: ptMidnight(start + CONTRACT_DAYS * 86400e3) };
 }
 
-// The contract itself: which ship, which map, which week.
+// The contract itself: which ship, which map, which 72-hour period.
 export function weeklyContract(now = Date.now()) {
   const w = contractWeek(now);
   const h = hashString('contract:' + w.id);
   const ship = SHIPS[h % SHIPS.length];
-  return { week: w.id, endsAt: w.endsAt, ship: ship.id, shipName: ship.name, mapSeed: (h ^ 0x9e3779b9) >>> 0, tier: ship.tier };
+  return { week: w.id, days: CONTRACT_DAYS, endsAt: w.endsAt, ship: ship.id, shipName: ship.name, mapSeed: (h ^ 0x9e3779b9) >>> 0, tier: ship.tier };
 }
 
 // Score a finished contract run (from the server's battle record + aftermath).

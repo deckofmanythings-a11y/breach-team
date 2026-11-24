@@ -148,7 +148,7 @@ Some special items have fixed rarity and unique flavour. You'll find them in pac
 | Teleport | 4 | A room 3 doors from the bridge (closer if none) | Calm | 6% per Soldier to scatter to a random room, 5 s late (more vs shields) |
 | Boarding Shuttle | 6 | Airlock | Alert | +5 Grit, +5 Armor; shuttle stays docked for the retreat |
 | Breaching Pod | 4 | Hull room nearest the bridge (never the bridge itself) | Alert | +5% damage; stuns the room 5 s; vacuum in that room for 7.5 s (2 dmg every 1.25 s) |
-| Vent Crawl | 3 | 2–4 doors from the bridge | Calm | Starts hidden; +15 Stealth, +15% damage, +10% crit |
+| Vent Crawl (stealth pods through the hull into the service tunnels) | 3 | 2–4 doors from the bridge | Calm | Starts hidden; +15 Stealth, +15% damage, +10% crit |
 
 3. **Squad**: up to the entry's cap. Soldiers with a major injury can't deploy.
 4. **Tactic**
@@ -253,9 +253,9 @@ Alien natural weapons (claws, acid spit, crystal beams, psychic screams) never a
 
 ## 9b. Ladder
 
-**Weekly Contract.** Each week (Monday 00:00 to Monday 00:00, Pacific time) one ship is chosen from the Deploy list by the week itself, along with a fixed map. Every commander boards that same ship on that same map; you choose the squad, entry, tactic and retreat, and the fight itself rolls fresh each time. Contract runs are ordinary missions (normal BUCs, injuries and permadeath) and can never turn out to be an unknown contact.
+**72-Hour Contract.** A new contract starts at midnight Pacific time every 3 days and runs for 72 hours. Its ship is chosen from the Deploy list by the contract period itself, along with a fixed map. Every commander boards that same ship on that same map; you choose the squad, entry, tactic and retreat, and the fight itself rolls fresh each time. Contract runs are ordinary missions (normal BUCs, injuries and permadeath) and can never turn out to be an unknown contact.
 
-Your **best** run of the week is your leaderboard entry. Score:
+Your **best** run of the contract is your leaderboard entry. Score:
 
 | | Points |
 |---|---|

@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.6.1', date: '2026-11-24', items: [
+    'The Weekly Contract is now a 72-Hour Contract: a new ship and map every 3 days, resetting at midnight Pacific.',
+    'Vent Crawl, explained: a stealth insertion where a handful of small one-man pods enter through the hull into the service tunnels of the ship.',
+  ] },
   { v: '0.6.0', date: '2026-11-24', items: [
     "New Ladder tab. The Weekly Contract: every commander boards the same ship on the same map each week (it changes Monday, Pacific). Your best run is scored and ranked.",
     "Watch any run on the contract leaderboard: it replays the exact mission in your browser.",

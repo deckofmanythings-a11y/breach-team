@@ -8,7 +8,7 @@ import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js?v=6';
 import { renderStore } from './store.js';
-import { renderLadder } from './ladder.js';
+import { renderLadder } from './ladder.js?v=2';
 import { setContract } from './deploy.js?v=6';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
@@ -21,7 +21,7 @@ import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.6.1';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');

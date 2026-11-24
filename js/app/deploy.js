@@ -12,7 +12,7 @@ import { playMission } from './mission.js';
 
 const LAST = 'bt_last_deploy';
 let pick = null;
-// Weekly Contract mode: the ship (and map) are fixed by the week; set from the Ladder tab.
+// 72-hour Contract mode: the ship (and map) are fixed by the contract period; set from the Ladder tab.
 let contractMode = null;
 export const setContract = (c) => { contractMode = c; };
 
@@ -35,7 +35,7 @@ export function renderDeploy(panel) {
   const optCards = (list, key, body) => `<div class="opt">${list.map(o => `<div class="card click ${p[key] === o.id ? 'sel' : ''}" data-k="${key}" data-v="${o.id}"><h4>${o.name}</h4>${body(o)}</div>`).join('')}</div>`;
   const wrap = el(`<div>
     <h2>Deploy</h2>
-    ${contractMode ? `<div class="section banner info"><h3 style="margin:0">1 · Weekly Contract: ${esc(contractMode.shipName)}</h3><div class="small">Same ship and map for every commander this week. Your best score goes on the Ladder. <a href="#" id="nocontract">Cancel contract</a></div></div>` : `<div class="section"><h3>1 · Target ship</h3>${optCards(SHIPS, 'ship', s => `
+    ${contractMode ? `<div class="section banner info"><h3 style="margin:0">1 · 72-Hour Contract: ${esc(contractMode.shipName)}</h3><div class="small">Same ship and map for every commander for 72 hours. Your best score goes on the Ladder. <a href="#" id="nocontract">Cancel contract</a></div></div>` : `<div class="section"><h3>1 · Target ship</h3>${optCards(SHIPS, 'ship', s => `
       <div class="small">${'★'.repeat(s.tier)}${'☆'.repeat(3 - s.tier)} · ${FACTION_BY_ID[s.faction].name}</div>
       <div class="small dim">${esc(s.desc)}</div><div class="small" style="margin-top:4px">Reward <b style="color:var(--accent)">${s.reward}</b> BUCs</div>`)}</div>`}
     <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${e.maxSquad}</b></div><div class="small dim">${esc(e.desc)}</div>`)}</div>

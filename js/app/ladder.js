@@ -1,4 +1,4 @@
-// Ladder tab: this week's Weekly Contract, its leaderboard (with replays), and the career board.
+// Ladder tab: the current 72-hour Contract, its leaderboard (with replays), and the career board.
 import * as api from './api.js';
 import { el, esc, toast } from './ui.js';
 import { SHIP_BY_ID } from '../data/ships.js';
@@ -29,21 +29,21 @@ export async function renderLadder(panel, { boardContract }) {
   wrap.innerHTML = `
     <h2>Ladder</h2>
     <div class="card section" style="max-width:900px">
-      <div class="spread"><div><h3 style="margin:0">Weekly Contract · ${esc(ship.name)}</h3>
-        <div class="small">${'★'.repeat(ship.tier)}${'☆'.repeat(3 - ship.tier)} · ${esc(fac.name)} · ends in <b>${countdown(k.endsAt - Date.now())}</b> (Monday, Pacific)</div></div>
+      <div class="spread"><div><h3 style="margin:0">72-Hour Contract · ${esc(ship.name)}</h3>
+        <div class="small">${'★'.repeat(ship.tier)}${'☆'.repeat(3 - ship.tier)} · ${esc(fac.name)} · ends in <b>${countdown(k.endsAt - Date.now())}</b> (resets midnight Pacific, every 3 days)</div></div>
         <button class="primary" id="board">Board the Contract</button></div>
       <div class="small dim" style="margin-top:6px">${esc(ship.desc)}</div>
-      <div class="small" style="margin-top:8px">Every commander boards the <b>same ship on the same map</b> this week; you pick the squad, entry, tactic and retreat. Your best run counts. It's a real mission: normal rewards, and Soldiers can die.</div>
+      <div class="small" style="margin-top:8px">Every commander boards the <b>same ship on the same map</b> for 72 hours; you pick the squad, entry, tactic and retreat. Your best run counts. It's a real mission: normal rewards, and Soldiers can die.</div>
       <div class="small dim" style="margin-top:6px">Score: take the ship +${SCORE.success} (+${SCORE.speedPerSec} per second under 90 s) · optional objective +${SCORE.objective} · kill +${SCORE.kill} · Soldier Downed ${SCORE.downed} · left aboard ${SCORE.left} · killed ${SCORE.kia}</div>
       ${c.mine ? `<div style="margin-top:8px">Your best: <b>${c.mine.score}</b> (rank ${c.mine.rank} of ${c.board.length}, ${c.mine.runs} run${c.mine.runs > 1 ? 's' : ''})</div>` : '<div style="margin-top:8px" class="dim">You haven\'t run this contract yet.</div>'}
     </div>
-    <div class="section" style="max-width:900px"><h3>This week's leaderboard</h3>
+    <div class="section" style="max-width:900px"><h3>This contract's leaderboard</h3>
       ${c.board.length ? `<table class="rep"><tr><th>#</th><th>Commander</th><th>Score</th><th>Result</th><th>Lost</th><th>Plan</th><th></th></tr>
         ${c.board.map(b => `<tr${b.me ? ' style="background:#1a2a12"' : ''}><td>${b.rank}</td><td><b>${esc(b.name)}</b>${b.me ? ' <span class="small dim">(you)</span>' : ''}<div class="small dim">${b.runs} run${b.runs > 1 ? 's' : ''}</div></td>
           <td><b>${b.score}</b></td><td>${RESULT[b.result] || esc(b.result)}</td><td>${b.kia ? `<span class="bad">${b.kia}</span>` : '0'}</td>
           <td class="small">${b.squad} · ${esc(ENTRY_BY_ID[b.entry]?.name || b.entry)} · ${esc(TACTIC_BY_ID[b.tactic]?.name || b.tactic)}</td>
           <td><button data-watch="${b.mission}">Watch</button></td></tr>`).join('')}</table>`
-      : '<div class="dim">Nobody has run this week\'s contract yet. Be the first.</div>'}
+      : '<div class="dim">Nobody has run this contract yet. Be the first.</div>'}
     </div>
     <div class="section" style="max-width:900px"><div class="spread"><h3>Career board</h3>
       <label class="small">Sort by <select id="sort">${CAREER_COLUMNS.map(cl => `<option value="${cl.id}" ${cl.id === sortBy ? 'selected' : ''}>${cl.name}</option>`).join('')}</select></label></div>
