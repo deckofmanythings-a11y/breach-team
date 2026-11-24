@@ -104,7 +104,15 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
     if (out.report.extras.some(x => x.egg === 'loot_cat')) cat++;
   }
   ok(secrets > 4 && secrets < 40, `secret encounters ~4% (${secrets}/400)`);
-  ok(xeno > 0, `Xeno drops from alien ships (${xeno} drops, ${alienWins} non-secret wins)`);
+  // Xeno drops: a fresh, strong squad each time so wins (and therefore drops) actually happen.
+  for (let i = 0; i < 80; i++) {
+    const f = R.newGame();
+    for (const s of f.soldiers) { s.level = 12; s.stats = { hp: 160, aim: 90, arm: 40, spd: 70, grit: 80, tech: 60, stl: 30 }; }
+    const out = R.runMission(f, { ship: 'gravity_vessel', entry: 'shuttle', tactic: 'balanced', retreat: 'teleport_recall', squad: f.soldiers.map(s => s.uid) });
+    if (out.report.result === 'success') alienWins++;
+    if (out.report.extras.some(x => x.xeno)) { xeno++; ok(out.report.extras.find(x => x.xeno).item.rarity === 'xeno', 'Xeno drop has Xeno rarity'); }
+  }
+  ok(xeno > 0, `Xeno drops from alien ships (${xeno} drops, ${alienWins} wins)`);
   ok(cat <= 1, `the ship's cat can only be found once (${cat})`);
   ok(new Set(t.discovered).size === t.discovered.length, 'discovered list has no duplicates');
   console.log('  achievements earned in that run: ' + (t.achievements.join(', ') || 'none'));
