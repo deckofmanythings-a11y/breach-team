@@ -8,9 +8,10 @@ Engine v1 · run `npm run check` to validate the data and regenerate the sample 
 
 ## 1. Time
 
-- The simulation runs in **ticks**. 10 ticks = 1 second of playback at 1×.
-- Missions are designed to last **60–90 seconds** (600–900 ticks).
-- Hard cap: **900 ticks**. If the bridge isn't taken by then, the squad retreats automatically.
+- The simulation runs in **ticks**. 8 ticks = 1 second of playback at 1×.
+- Missions are designed to last **60–90 seconds**.
+- At **90 seconds** (720 ticks), if the bridge isn't taken, the squad retreats automatically.
+- At **105 seconds** (840 ticks) the mission ends. Anyone still on board is left behind.
 
 ## 2. Stats
 
@@ -28,7 +29,7 @@ Caps: HP 400, Speed 120, all others 150.
 
 ## 3. Combat formulas
 
-**Hit chance** = 55 + AIM/2 + weapon accuracy − target evasion − cover − (tiles beyond range × falloff) − 20 if Suppressed. Clamped to 5–95%.
+**Hit chance** = 50 + AIM/2 + weapon accuracy − target evasion − cover − (tiles beyond range × falloff) − 20 if Suppressed. Clamped to 5–95%.
 
 - Cover: none 0, half 20, full 40 (cover bonuses scale this up).
 - Evasion = SPD/5 + evasion bonuses.
@@ -37,13 +38,13 @@ Caps: HP 400, Speed 120, all others 150.
 
 **Damage** = weapon roll × (100 + damage% + vs-type%)/100 → ×150% if crit → minus (target ARM/10 − Pierce) → × (100 + damage-taken%)/100. Minimum 1.
 
-**Movement**: ticks per tile = 8 − (SPD/20), between 2 and 8. Speed 35 → 7 ticks, 55 → 6, 65 → 5.
+**Movement**: ticks per tile = 8 − (SPD/20), between 2 and 8. Speed 35 → 7 ticks, 55 → 6, 65 → 5. Tactics speed this up or slow it down. Soldiers falling back to an exit move 1 tick per tile faster.
 
 **Panic** (when hit hard, an ally goes Down nearby, or a hazard triggers): chance = 25 + pressure − GRT/2, reduced by morale bonuses, clamped 0–75%.
 
 **Spotting a stealthed unit** (per check, in line of sight): 40 + observer TEC/4 + detection bonus − target STL − 3 per tile. Clamped 3–90%.
 
-Examples (Aim-50 rifleman vs Speed-45 target): open ground at 5 tiles 79%, half cover 59%, full cover 39%, open at 12 tiles 63%. A 15-damage rifle shot into 20 Armor deals 13 (20 on a crit).
+Examples (Aim-50 rifleman vs Speed-45 target): open ground at 5 tiles 74%, half cover 54%, full cover 34%, open at 12 tiles 58%. A 15-damage rifle shot into 20 Armor deals 13 (20 on a crit).
 
 ## 4. Soldiers
 
@@ -94,7 +95,7 @@ At the end of a mission each Soldier is in one state:
 | Left behind | Couldn't be carried out | 60% death; survivors come back Missing with a major injury |
 | Missing | Escape pod drifted | Returns after 30 minutes |
 
-**Death chance when Downed** = base by ship tier (12% / 18% / 25%) + 1% per 3 seconds spent Down (max +20%) + up to 15% for overkill damage, then reduced by survival bonuses. It **never goes below 5%**. Max 85%.
+**Death chance when Downed** = base by ship tier (12% / 18% / 25%) + 1% per 30 ticks (about 4 seconds) spent Down (max +20%) + up to 15% for overkill damage, then reduced by survival bonuses. It **never goes below 5%**. Max 85%.
 
 Rear Guard volunteers who fall get 80% of the left-behind death chance.
 
@@ -144,19 +145,19 @@ Some special items have fixed rarity and unique flavour. You'll find them in pac
 
 | Entry | Squad | Arrives | Alarm | Notes |
 |---|---|---|---|---|
-| Teleport | 4 | Room nearest the objective | Calm | 6% per Soldier to scatter to a random room (more vs shields) |
-| Boarding Shuttle | 6 | Airlock | Alert | Shuttle stays docked for the retreat |
-| Breaching Pod | 4 | Hull room nearest objective | Alert | Stuns the room 4 s; opens it to vacuum |
-| Vent Crawl | 2 | Within 3 rooms of objective | Calm | Starts hidden, +15 Stealth |
+| Teleport | 4 | A room 3 doors from the bridge (closer if none) | Calm | 6% per Soldier to scatter to a random room, 5 s late (more vs shields) |
+| Boarding Shuttle | 6 | Airlock | Alert | +5 Grit, +5 Armor; shuttle stays docked for the retreat |
+| Breaching Pod | 4 | Hull room nearest the bridge (never the bridge itself) | Alert | +5% damage; stuns the room 5 s; vacuum in that room for 7.5 s (2 dmg every 1.25 s) |
+| Vent Crawl | 3 | 2–4 doors from the bridge | Calm | Starts hidden; +15 Stealth, +15% damage, +10% crit |
 
 3. **Squad**: up to the entry's cap. Soldiers with a major injury can't deploy.
 4. **Tactic**
 
 | Tactic | Style | Modifiers | Retreats at |
 |---|---|---|---|
-| Balanced | Even | none | 50% casualties |
+| Balanced | Even | +5 Aim, +10 Grit | 50% casualties |
 | Blitz | Fast, close, loud | +10% damage, +15% damage taken, −5 Aim | 60% |
-| Slow & Steady | Room by room, cover | +25% cover, −10% damage taken | 40% |
+| Slow & Steady | Room by room, cover | +40% cover, −15% damage taken, +10 Grit | 40% |
 | Stealthy | Avoid fights, go for objective | +20 Stealth, +10% crit, −10 Grit; starts hidden | 50% |
 | Sharpshooting | Hold sightlines | +10 Aim, +1 range, −15% damage at 2 tiles or less | 50% |
 
@@ -164,20 +165,26 @@ Some special items have fixed rarity and unique flavour. You'll find them in pac
 
 | Retreat | Exit | Risk |
 |---|---|---|
-| Teleport Recall | Anywhere, 2 s | 8% per Soldier of a misfire (stuck 6 s longer); worse near shields |
-| Back to the Shuttle | Airlock | Shuttle takes 8 s to arrive unless you came by shuttle |
-| Escape Pods | Pod bay | 10% per Soldier to drift: Missing for 30 min |
-| Rear Guard | Arrival room | Highest-Grit Soldier stays 12 s to cover everyone else |
+| Teleport Recall | Anywhere, 2.5 s | 8% per standing Soldier of a misfire (stuck 7.5 s longer). Downed Soldiers are harder to lock onto: 16% each to be **left behind**. Shields add to both. |
+| Back to the Shuttle | Airlock if you came by shuttle, otherwise the hull room nearest the squad | Shuttle takes 10 s to arrive unless already docked. Soldiers take 25% less damage while falling back. Nobody gets lost. |
+| Escape Pods | Pod bay | Soldiers take 45% less damage while running for the pods. 10% per Soldier to drift: Missing for 30 min. |
+| Rear Guard | Everyone else gets out in under a second | The highest-Grit Soldier stays and fights for 15 s, then tries to get out. |
+
+For Shuttle and Escape Pods, the squad drags its Downed along: as soon as one Soldier reaches the exit, every Downed squadmate comes out with them. If nobody makes it, everyone Downed is left behind.
+
+**Pairing tip:** Blitz doesn't retreat until 60% casualties. With a walk-out retreat (Shuttle, Pods) that can mean one Soldier trying to get everyone home.
 
 ## 8. Ships
 
 | Ship | Faction | Tier | Rooms | Crew | Reinforcements | Turrets | Locked doors | Reward |
 |---|---|---|---|---|---|---|---|---|
-| Cargo Hauler | Corporate Security | 1 | 8–10 | 14 pts + Chief + 2–4 crew | 1 wave | 1 | 10% | 220 |
-| Pirate Raider | Void Pirates | 2 | 9–11 | 26 pts + Captain | 2 waves | 1 | 15% | 380 |
-| Patrol Corvette | Fleet Marines | 3 | 10–12 | 34 pts + Lieutenant | 3 waves | 3 | 30% | 600 |
+| Cargo Hauler | Corporate Security | 1 | 8–10 | 8 pts + Chief + 2–4 crew | 1 wave (4 pts) | 1 | 10% | 220 |
+| Pirate Raider | Void Pirates | 2 | 9–11 | 18 pts + Captain | 2 waves (6 pts) | 1 | 15% | 380 |
+| Patrol Corvette | Fleet Marines | 3 | 10–12 | 19 pts + Lieutenant | 3 waves (5 pts) | 2 | 30% | 600 |
 
-- Primary objective: **take the bridge** and hold the console for 6 seconds.
+- Crew is spread through the ship; about 1 in 5 starts on the bridge. Reinforcements only arrive once the ship is at full alarm.
+- **Alarm:** gunfire, breaching and being spotted raise it. Level 1 (alert) wakes nearby crew; level 2 (full alarm) sends everyone hunting the squad and starts reinforcements.
+- Primary objective: **take the bridge**: have a Soldier on the bridge with no defenders left there for 15 seconds in total (the timer pauses while defenders are present).
 - Optional objectives (1–2 per mission) add bonus BUCs: Seize the Cargo +30%, Pull the Data Core +25%, Capture the Captain +35%, Free the Prisoner +20%, Raid the Armory +20% and a guaranteed item.
 - Pirates break when their Captain goes Down: every pirate makes a panic check.
 - The Patrol Corvette is shielded: teleport entry and recall are 10% more likely to go wrong.
@@ -196,9 +203,9 @@ Every ship can also mount hackable **Defense Turrets**.
 
 | Hazard | Effect |
 |---|---|
-| Decompression | 3 dmg/s, drags units toward the breach, 12 s |
-| Radiation Leak | 1 dmg/s, whole mission (reactor rooms) |
-| Fire | 4 dmg/s, panic checks, 8 s |
+| Decompression | 2 dmg every 1.25 s for 7.5 s (Breaching Pod arrival room) |
+| Radiation Leak | 1 dmg every 2.5 s, whole mission (reactor rooms) |
+| Fire | 4 dmg every 1.25 s, panic checks, 10 s (not started by anything yet) |
 
 ## 9. BUCs
 
@@ -225,3 +232,20 @@ Every ship can also mount hackable **Defense Turrets**.
 - Item prices: Standard 60, Mil-Spec 150, Prototype 400, Relic 1,100. Xeno is never sold.
 - Soldier prices: Rookie 150, Seasoned 400, Veteran 900, Elite 2,000.
 - Selling returns 25%. Roster cap: 24 Soldiers.
+
+## 10. Balance targets and current results
+
+From `node test/balance.mjs 80` (Engine v1). Each ship is tested with the squad a player would realistically bring.
+
+| Ship | Test squad | Success (all entries and tactics) | KIA per mission | Successful mission length |
+|---|---|---|---|---|
+| Cargo Hauler | Starter squad, level 1, Standard gear | 66% | 0.20 | 53–71 s |
+| Pirate Raider | Level 5, Mil-Spec | 59% | 0.21 | 57–76 s |
+| Patrol Corvette | Level 9, Prototype | 47% | 0.40 | 58–78 s |
+
+- Every entry method and tactic lands between 35% and 78% on every ship, so there's no dead option.
+- Vent Crawl is the riskiest entry; the Boarding Shuttle is the safest on small ships and the weakest against the Corvette (the Marines expect it).
+
+## 11. Not implemented yet
+
+These effects exist in the data but don't do anything in the engine yet (`npm run check` lists them): Chain Breach, Hazard Control, Door Ram, Combat Drone, grenades, Killing Spree, Martial Arts Download, Run and Gun, Saboteur, the Shield Belt's slow-blade weakness, smoke grenades, Smoke Cover, Spearhead, Combat Stims, Motion Tracker. Fire is defined but nothing starts one. Decompression does damage but doesn't pull anyone toward the breach yet.

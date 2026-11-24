@@ -1,6 +1,6 @@
 // Pure, deterministic progression + loot rolls. Used by the server (boarding-api) for real rolls
 // and by tests/codex for distributions. Integer-only.
-import { STATS, STAT_POINT_VALUE, POINTS_PER_LEVEL, BREAKTHROUGH_PCT, BREAKTHROUGH_POINTS, PERK_LEVELS, STAT_CAP, STAT_FLOOR, MOD_KEYS } from '../data/stats.js';
+import { STATS, STAT_POINT_VALUE, POINTS_PER_LEVEL, BREAKTHROUGH_PCT, BREAKTHROUGH_POINTS, PERK_LEVELS, STAT_CAP, STAT_FLOOR, MOD_KEYS, levelForXp } from '../data/stats.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { RARITIES, RARITY_BY_ID, RARITY_ORDER, ITEM_BY_ID, WEAPON_TYPES, AFFIXES, AFFIX_BY_ID } from '../data/gear.js';
 
@@ -39,6 +39,22 @@ export function growSoldier(rng, specialtyId, level) {
     if (pi >= 0) { const pair = sp.perks[pi]; perks.push(pair[rng.int(pair.length)].id); }
   }
   return { stats, perks, breakthroughs };
+}
+
+// Apply mission XP to a stored soldier. Returns { level, xp, levelUps: [{level, gains, breakthrough}], perkPending: [levels] }.
+// Perks at PERK_LEVELS are NOT auto-picked for the player's own Soldiers: the UI asks.
+export function applyXp(rng, soldier, xpGain) {
+  const xp = (soldier.xp || 0) + xpGain;
+  const target = levelForXp(xp);
+  const levelUps = [], perkPending = [];
+  const stats = { ...soldier.stats };
+  for (let L = soldier.level + 1; L <= target; L++) {
+    const up = rollLevelUp(rng, soldier.specialty);
+    for (const s in up.gains) stats[s] += up.gains[s];
+    levelUps.push({ level: L, ...up });
+    if (PERK_LEVELS.includes(L)) perkPending.push(L);
+  }
+  return { level: Math.max(soldier.level, target), xp, stats, levelUps, perkPending };
 }
 
 // ---------- Effective stats ----------

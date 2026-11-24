@@ -11,7 +11,7 @@
 //   affects  'all' | 'organic' (synthetic units ignore it)
 
 export const HAZARDS = {
-  decompression: { name: 'Decompression', every: 10, dmg: 3, effect: 'pull', ticks: 120, affects: 'organic', hackable: true,
+  decompression: { name: 'Decompression', every: 10, dmg: 2, effect: 'pull', ticks: 60, affects: 'organic', hackable: true,
     desc: 'The hull is open to space. Everyone in the room takes damage and gets dragged toward the breach until the emergency seal closes.' },
   radiation:     { name: 'Radiation Leak', every: 20, dmg: 2, effect: null, ticks: 0, affects: 'organic', hackable: true,
     desc: 'A leaky reactor. Slow, steady damage to anything with a pulse.' },

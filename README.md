@@ -9,4 +9,6 @@ Starship boarding-party autobattler. Build a stable of Soldiers, pick a target s
 
 Check the data: `npm run check`
 
-Status: Phase 1 (data + codex) done. No UI yet.
+Status: Phase 2 (headless engine) done. No UI yet.
+
+Tests: `npm run check` (data), `node test/determinism.mjs`, `node test/balance.mjs [runs] [ship]`, `node test/retreats.mjs [runs] [tactic]`

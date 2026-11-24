@@ -1,0 +1,916 @@
+// The boarding-action simulation. Pure, deterministic, integer-only.
+// simulate(input) -> { result, ticks, events, soldiers, objectives, ... , hash }
+// The same input always gives the same output (server re-simulates ladder runs and compares hash).
+//
+// input = {
+//   seed, ship, entry, tactic, retreat,         // ids from js/data
+//   squad: [{ uid, name, specialty, level, stats, perks, gear: {weapon, armor, utility, implant}, injuries }],
+//   mothership,                                 // ZERO_BONUSES until Phase 9
+//   mapSeed?                                    // optional: separate map seed (Weekly Contract = same map)
+// }
+import { createRng, hashString, fnv1a } from './rng.js';
+import { generateShip, T_FLOOR, T_DOOR } from './mapgen.js';
+import { sumMods, applyStatMods, itemMods, weaponProfile } from './progression.js';
+import { hitChance, critChance, applyDamage, evasionOf, ticksPerTile, panicChance, detectChance, RETREAT_AT_TICK, HARD_END_TICK } from '../data/stats.js';
+import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
+import { ITEM_BY_ID, SLOTS } from '../data/gear.js';
+import { TACTIC_BY_ID } from '../data/tactics.js';
+import { ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
+import { FACTION_BY_ID, UNIT_BY_ID } from '../data/factions.js';
+import { SHIP_BY_ID, OBJECTIVES } from '../data/ships.js';
+import { HAZARDS } from '../data/hazards.js';
+import { INJURY_BY_ID } from '../data/injuries.js';
+import { ZERO_BONUSES } from '../data/mothership.js';
+import { ENGINE_VERSION } from '../data/version.js';
+
+// Special-effect flags (perks, gear, tactics) the engine actually implements. test/data-check.mjs
+// warns about any flag in the data that isn't listed here, so nothing silently does nothing.
+export const IMPLEMENTED_FLAGS = ['chargeKnockdown', 'adrenaline', 'longStun', 'closeQuarters', 'silentShot', 'killZone',
+  'squadSurvival', 'squadHealTime', 'turnTurrets', 'stopReinforcements', 'noPanic', 'fortressAura', 'bulletStorm',
+  'stealthCrit', 'autoCloak', 'longCloak', 'closeRangePenalty'];
+
+const PERK_BY_ID = {};
+for (const sp of SPECIALTIES) for (const pair of sp.perks) for (const p of pair) PERK_BY_ID[p.id] = p;
+
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+const SIGHT = 16;
+const COHESION = 6;            // squad members don't get more than this many steps ahead of the rearmost
+const ALARM_1 = 30, ALARM_2 = 100;
+const SPOT_NOISE = 40;         // alarm added when an enemy first spots the squad
+const FORCE_DOOR_TICKS = 80;   // anyone can force a locked door, slowly
+const OPEN_DOOR_TICKS = 3;
+const REVIVE_HP_PCT = 30;
+const ENEMY_AI = {
+  grunt:   { aggression: 50, coverUse: 50, rangePct: 80, hunts: true },
+  rusher:  { aggression: 100, coverUse: 0, rangePct: 10, hunts: true },
+  anchor:  { aggression: 10, coverUse: 80, rangePct: 100, hunts: false, stayInRoom: true },
+  sniper:  { aggression: 0, coverUse: 70, rangePct: 120, hunts: false, stayInRoom: true },
+  support: { aggression: 40, coverUse: 60, rangePct: 90, hunts: true },
+  leader:  { aggression: 20, coverUse: 80, rangePct: 100, hunts: false, stayInRoom: true },
+};
+
+export function simulate(input) {
+  const ship = SHIP_BY_ID[input.ship];
+  const tactic = TACTIC_BY_ID[input.tactic];
+  const entry = ENTRY_BY_ID[input.entry];
+  const retreatDef = RETREAT_BY_ID[input.retreat];
+  const faction = FACTION_BY_ID[ship.faction];
+  const mothership = input.mothership || ZERO_BONUSES;
+  if (!ship || !tactic || !entry || !retreatDef) throw new Error('bad mission input');
+  if (!input.squad?.length || input.squad.length > entry.maxSquad) throw new Error('bad squad size');
+
+  const seed = input.seed >>> 0;
+  const map = generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id);
+  const rng = createRng(hashString('sim:' + seed));
+  const W = map.w, idx = (x, y) => y * W + x;
+  const events = [];
+  const ev = (...a) => events.push(a);
+  let t = 0;
+
+  // ---------- Map helpers ----------
+  const doorAt = new Int16Array(W * map.h).fill(-1);
+  for (const d of map.doors) doorAt[idx(d.x, d.y)] = d.id;
+  const roomAdj = map.rooms.map(() => []);
+  for (const d of map.doors) { roomAdj[d.a].push(d.b); roomAdj[d.b].push(d.a); }
+  const passable = (x, y) => { const v = map.tiles[idx(x, y)]; return v === T_FLOOR || v === T_DOOR; };
+  const occ = new Int16Array(W * map.h).fill(-1);
+  const cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+  function los(x0, y0, x1, y1) {
+    let dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
+    let x = x0, y = y0;
+    while (!(x === x1 && y === y1)) {
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x += sx; }
+      if (e2 <= dx) { err += dx; y += sy; }
+      if (x === x1 && y === y1) break;
+      const v = map.tiles[idx(x, y)];
+      if (v === T_FLOOR) continue;
+      if (v === T_DOOR && map.doors[doorAt[idx(x, y)]].open) continue;
+      return false;
+    }
+    return true;
+  }
+
+  // Distance fields (BFS, 8-dir, no corner cutting). Cached by target tile.
+  const fieldCache = new Map();
+  function field(tx, ty) {
+    const key = idx(tx, ty);
+    let f = fieldCache.get(key);
+    if (f) return f;
+    f = new Int32Array(W * map.h).fill(-1);
+    f[key] = 0; const q = [key]; let qi = 0;
+    while (qi < q.length) {
+      const c = q[qi++], cx = c % W, cy = (c - cx) / W;
+      for (const [ddx, ddy] of DIRS) {
+        const nx = cx + ddx, ny = cy + ddy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= map.h) continue;
+        const n = idx(nx, ny);
+        if (f[n] >= 0 || !passable(nx, ny)) continue;
+        if (ddx && ddy && (!passable(cx + ddx, cy) || !passable(cx, cy + ddy))) continue;
+        f[n] = f[c] + 1; q.push(n);
+      }
+    }
+    if (fieldCache.size > 96) fieldCache.delete(fieldCache.keys().next().value);
+    fieldCache.set(key, f);
+    return f;
+  }
+  const consoleField = () => field(map.console[0], map.console[1]);
+
+  // ---------- Units ----------
+  const units = [];
+  function addUnit(u) {
+    u.id = units.length; u.state = 'active'; u.busy = u.busy || 0; u.cd = 0;
+    u.stunUntil = 0; u.panicUntil = 0; u.suppUntil = 0; u.cloakUntil = 0; u.owUntil = 0; u.owShots = 0;
+    u.task = null; u.hidden = !!u.hidden;
+    u.tally = { kills: 0, dmgDealt: 0, dmgTaken: 0, minHp: u.hp, downed: 0, ticksDown: 0, overkillPct: 0, revives: 0, hacks: 0, breaches: 0, assists: 0, shots: 0, hits: 0 };
+    units.push(u);
+    if (u.state === 'active') occ[idx(u.x, u.y)] = u.id;
+    return u;
+  }
+  const flagsOf = (list) => { const f = {}; for (const x of list) if (x) f[x] = true; return f; };
+
+  function soldierUnit(s) {
+    const sp = SPECIALTY_BY_ID[s.specialty];
+    const gear = SLOTS.map(sl => s.gear?.[sl]).filter(Boolean);
+    const perks = (s.perks || []).map(id => PERK_BY_ID[id]).filter(Boolean);
+    const mods = sumMods([...gear.map(itemMods), ...perks.map(p => p.mods), tactic.mods, entry.mods, mothership.mods,
+      ...(s.injuries || []).map(id => INJURY_BY_ID[id]?.mods)]);
+    const st = applyStatMods(s.stats, mods);
+    const wInst = s.gear?.weapon || { base: 'pistol_std', rarity: 'standard', affixes: [] };
+    const w = weaponProfile(wInst); w.range += mods.rangeAdd || 0; w.type = ITEM_BY_ID[wInst.base].type;
+    return {
+      side: 'S', uid: s.uid, name: s.name, kind: s.specialty, spec: sp, ai: 'squad', tags: ['human'],
+      st, m: mods, w, hp: st.hp, maxHp: st.hp, x: 0, y: 0,
+      flags: flagsOf([...perks.map(p => p.flag), ...gear.map(g => ITEM_BY_ID[g.base].flag), tactic.flag]),
+      ability: sp.ability, hidden: !!(tactic.hidden || entry.startsHidden),
+    };
+  }
+  function enemyUnit(unitId, x, y, extra = {}) {
+    const def = UNIT_BY_ID[unitId];
+    const wInst = def.weapon ? { base: def.weapon, rarity: def.rarity || 'standard', affixes: [] } : null;
+    const mods = wInst ? itemMods(wInst) : {};
+    const base = { ...def.stats, grit: def.stats.grit + (def.faction === 'system' ? 0 : (FACTION_BY_ID[def.faction].morale || 0)) };
+    const st = applyStatMods(base, mods);
+    let w = null;
+    if (wInst) { w = weaponProfile(wInst); w.range += mods.rangeAdd || 0; w.type = ITEM_BY_ID[wInst.base].type; }
+    return addUnit({
+      side: 'E', name: def.name, kind: unitId, ai: def.ai, tags: def.tags, st, m: mods, w,
+      hp: st.hp, maxHp: st.hp, x, y, flags: {}, aura: def.aura || 0, alerted: false,
+      leader: def.tags.includes('leader'), civilian: def.tags.includes('civilian'), turret: def.ai === 'turret',
+      deploysTurret: !!def.deploysTurret, ...extra,
+    });
+  }
+
+  function freeTileIn(roomId, preferCover = false) {
+    const r = map.rooms[roomId];
+    const cands = [];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+      const k = idx(x, y);
+      if (occ[k] < 0 && doorAt[k] < 0) cands.push(k);
+    }
+    if (!cands.length) return null;
+    let pool = cands;
+    if (preferCover) { const c = cands.filter(k => map.cover[k]); if (c.length) pool = c; }
+    const k = pool[rng.int(pool.length)];
+    return [k % W, (k - (k % W)) / W];
+  }
+  function freeTileNear(x0, y0) {
+    for (let r = 0; r < 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = x0 + dx, y = y0 + dy;
+      if (x < 0 || y < 0 || x >= W || y >= map.h) continue;
+      if (map.tiles[idx(x, y)] === T_FLOOR && occ[idx(x, y)] < 0) return [x, y];
+    }
+    return null;
+  }
+
+  // ---------- Squad spawn ----------
+  const nonBridge = map.rooms.filter(r => r.id !== map.bridge);
+  let spawnRoom;
+  if (entry.spawn === 'airlock') spawnRoom = map.airlock;
+  else if (entry.spawn === 'any_room') {
+    let c = []; for (const d of [3, 2, 1]) { if (!c.length) c = nonBridge.filter(r => map.distFromBridge[r.id] === d); } spawnRoom = c[rng.int(c.length)].id;
+  } else if (entry.spawn === 'hull') {
+    const c = nonBridge.filter(r => r.outer && map.distFromBridge[r.id] >= 2).sort((a, b) => map.distFromBridge[a.id] - map.distFromBridge[b.id] || a.id - b.id);
+    const best = c.filter(r => map.distFromBridge[r.id] === map.distFromBridge[c[0].id]);
+    spawnRoom = best[rng.int(best.length)].id;
+  } else {
+    let c = nonBridge.filter(r => map.distFromBridge[r.id] >= 2 && map.distFromBridge[r.id] <= 4 && r.features.some(f => f.kind === 'vent'));
+    if (!c.length) c = nonBridge.filter(r => map.distFromBridge[r.id] >= 1 && map.distFromBridge[r.id] <= 4);
+    spawnRoom = c[rng.int(c.length)].id;
+  }
+
+  const squad = [];
+  for (const s of input.squad) {
+    const u = soldierUnit(s);
+    let room = spawnRoom, late = 0;
+    if (entry.scramblePct + (entry.id === 'teleport' ? ship.scrambleAdd : 0) > 0 && rng.roll(entry.scramblePct + ship.scrambleAdd)) {
+      room = nonBridge[rng.int(nonBridge.length)].id; late = 40;
+    }
+    const pos = freeTileIn(room) || freeTileIn(spawnRoom);
+    u.x = pos[0]; u.y = pos[1]; u.busy = entry.setupTicks + late; u.scrambled = late > 0;
+    squad.push(addUnit(u));
+    ev(0, 'spawn', u.id, 'S', u.kind, u.x, u.y);
+    if (late) ev(0, 'scramble', u.id, room);
+  }
+
+  // ---------- Enemy spawn ----------
+  const enemies = [];
+  {
+    const lp = freeTileNear(map.console[0], map.console[1]);
+    enemies.push(enemyUnit(ship.leader, lp[0], lp[1]));
+    let budget = ship.crewBudget;
+    const weights = Object.entries(ship.unitWeights).filter(([id]) => UNIT_BY_ID[id].cost > 0);
+    const cheapest = Math.min(...weights.map(([id]) => UNIT_BY_ID[id].cost));
+    const crewRooms = map.rooms.filter(r => r.id !== map.airlock && r.id !== spawnRoom);
+    let guard = 0;
+    while (budget >= cheapest && guard++ < 100) {
+      let total = 0; for (const [, w] of weights) total += w;
+      let r = rng.int(total), pick = weights[0][0];
+      for (const [id, w] of weights) { if (r < w) { pick = id; break; } r -= w; }
+      const cost = UNIT_BY_ID[pick].cost;
+      if (cost > budget) continue;
+      budget -= cost;
+      const room = rng.roll(20) ? map.bridge : crewRooms[rng.int(crewRooms.length)].id;
+      const p = freeTileIn(room, true); if (p) enemies.push(enemyUnit(pick, p[0], p[1]));
+    }
+    const civ = ship.civilians[0] + rng.int(ship.civilians[1] - ship.civilians[0] + 1);
+    const civId = Object.keys(ship.unitWeights).find(id => UNIT_BY_ID[id].ai === 'flee');
+    for (let i = 0; i < civ && civId; i++) {
+      const p = freeTileIn(crewRooms[rng.int(crewRooms.length)].id); if (p) enemies.push(enemyUnit(civId, p[0], p[1]));
+    }
+    for (const f of map.features) if (f.kind === 'turret' && f.active && occ[idx(f.x, f.y)] < 0) enemies.push(enemyUnit('sys_turret', f.x, f.y));
+    for (const e of enemies) ev(0, 'spawn', e.id, 'E', e.kind, e.x, e.y);
+  }
+  if (entry.stunTicks) for (const e of enemies) if (map.roomAt[idx(e.x, e.y)] === spawnRoom) e.stunUntil = entry.setupTicks + entry.stunTicks;
+
+  // ---------- Objectives ----------
+  const objectives = [{ id: 'take_bridge', def: OBJECTIVES.take_bridge, room: map.bridge, x: map.console[0], y: map.console[1], progress: 0, done: false }];
+  {
+    const avail = ship.optional.filter(o => map.rooms.some(r => r.type === OBJECTIVES[o].room));
+    const n = Math.min(avail.length, rng.roll(50) ? 2 : 1);
+    for (let i = 0; i < n; i++) {
+      const id = avail.splice(rng.int(avail.length), 1)[0];
+      const def = OBJECTIVES[id];
+      const rooms = map.rooms.filter(r => r.type === def.room);
+      const room = rooms[rng.int(rooms.length)];
+      const p = def.kind === 'leaderDown' ? [room.cx, room.cy] : (freeTileIn(room.id) || [room.cx, room.cy]);
+      objectives.push({ id, def, room: room.id, x: p[0], y: p[1], progress: 0, done: false, worker: -1 });
+    }
+    for (const o of objectives) ev(0, 'objective', o.id, o.room, o.x, o.y);
+  }
+  const captureActive = objectives.some(o => o.id === 'capture_leader');
+
+  // ---------- Hazards ----------
+  const hazards = [];
+  for (const r of map.rooms) if (r.hazard) hazards.push({ room: r.id, def: HAZARDS[r.hazard], until: 1e9 });
+  if (entry.hazard) hazards.push({ room: spawnRoom, def: HAZARDS[entry.hazard], until: entry.setupTicks + HAZARDS[entry.hazard].ticks });
+
+  // ---------- Alarm ----------
+  let alarm = [0, ALARM_1, ALARM_2][entry.alarmStart];
+  let alarmLevel = alarm >= ALARM_2 ? 2 : alarm >= ALARM_1 ? 1 : 0;
+  let alarm2At = alarmLevel === 2 ? 0 : -1;
+  let huntTile = null, huntRefresh = 0;
+  function addAlarm(n, x, y) {
+    alarm += n;
+    const lvl = alarm >= ALARM_2 ? 2 : alarm >= ALARM_1 ? 1 : 0;
+    if (lvl > alarmLevel) {
+      alarmLevel = lvl; ev(t, 'alarm', lvl);
+      if (lvl === 2) { alarm2At = t; for (const e of units) if (e.side === 'E') e.alerted = true; }
+    }
+    if (x !== undefined) {
+      const r = map.roomAt[idx(x, y)];
+      if (r >= 0) { const near = [r, ...roomAdj[r]]; for (const e of units) if (e.side === 'E' && e.state === 'active' && near.includes(map.roomAt[idx(e.x, e.y)])) e.alerted = true; }
+      if (!huntTile || alarmLevel < 2) huntTile = [x, y];
+    }
+  }
+
+  // ---------- Combat ----------
+  const activeOf = (side) => units.filter(u => u.side === side && u.state === 'active');
+  const isTargetable = (u) => u.state === 'active' && !u.civilian && !u.off;
+
+  function canSee(o, tg) {
+    if (cheb(o, tg) > SIGHT || !los(o.x, o.y, tg.x, tg.y)) return false;
+    if (tg.hidden && t >= 0) {
+      if (cheb(o, tg) <= 1) return true;
+      return rng.roll(detectChance(o.st.tech, o.m.detectPct || 0, tg.st.stl, cheb(o, tg)));
+    }
+    return true;
+  }
+  function visibleFoes(u) {
+    const out = [];
+    for (const v of units) if (v.side !== u.side && isTargetable(v) && canSee(u, v)) out.push(v);
+    return out;
+  }
+  function moraleAura(u) {
+    let a = u.m.moralePct || 0;
+    const r = map.roomAt[idx(u.x, u.y)];
+    for (const v of units) if (v.side === u.side && v.state === 'active' && v.aura && map.roomAt[idx(v.x, v.y)] === r) a = Math.max(a, v.aura);
+    return a;
+  }
+  function panicCheck(u, pressure) {
+    if (u.state !== 'active' || u.turret || u.flags.noPanic || u.panicUntil > t) return;
+    if (rng.roll(panicChance(u.st.grit, pressure, moraleAura(u)))) { u.panicUntil = t + 30; u.task = null; ev(t, 'panic', u.id); }
+  }
+
+  function setPos(u, x, y) {
+    occ[idx(u.x, u.y)] = -1; u.x = x; u.y = y; occ[idx(x, y)] = u.id;
+  }
+
+  function goDown(u, overkill) {
+    occ[idx(u.x, u.y)] = -1;
+    u.task = null;
+    if (u.side === 'S') {
+      u.state = 'down'; u.downAt = t; u.tally.downed++;
+      u.tally.overkillPct = Math.max(u.tally.overkillPct, Math.floor((overkill * 100) / u.maxHp));
+      ev(t, 'down', u.id);
+      for (const v of activeOf('S')) if (cheb(u, v) <= 5) panicCheck(v, 20);
+    } else if (u.leader && captureActive) {
+      u.state = 'down'; ev(t, 'captured', u.id);
+    } else {
+      u.state = 'dead'; ev(t, 'dead', u.id);
+    }
+    if (u.side === 'E' && u.leader && ship.leaderBreaksMorale) for (const v of activeOf('E')) panicCheck(v, 30);
+  }
+
+  function hurt(tg, dmg, src) {
+    tg.hp -= dmg; tg.tally.dmgTaken += dmg;
+    if (src) src.tally.dmgDealt += dmg;
+    if (tg.hp < tg.tally.minHp) tg.tally.minHp = tg.hp;
+    if (tg.hp <= 0) { if (src) src.tally.kills++; goDown(tg, -tg.hp); return; }
+    if (dmg * 4 >= tg.maxHp) panicCheck(tg, 10);
+    if (tg.flags.autoCloak && tg.hp * 10 < tg.maxHp * 3 && t >= tg.cd) cloak(tg);
+  }
+
+  function fortressAura(tg) {
+    for (const v of units) if (v.side === tg.side && v.state === 'active' && v.flags.fortressAura && v !== tg && cheb(v, tg) <= 2) return -15;
+    return 0;
+  }
+
+  function shoot(u, tg, bonusDmg = 0, dmgScale = 100) {
+    const w = u.w; if (!w) return;
+    const dist = cheb(u, tg);
+    const coverVal = dist > 1 ? [0, 20, 40][map.cover[idx(tg.x, tg.y)]] : 0;
+    const hit = hitChance({ aim: u.st.aim, weaponAcc: w.acc, targetEvasion: evasionOf(tg.st.spd, tg.m.evasion || 0),
+      cover: coverVal, coverPct: tg.m.coverPct || 0, distTiles: dist, range: w.range, falloff: w.falloff, suppressed: u.suppUntil > t });
+    u.tally.shots++;
+    const wasHidden = u.hidden;
+    if (u.hidden && !(u.flags.silentShot && u.cloakUntil <= t) ) { u.hidden = false; ev(t, 'reveal', u.id); }
+    if (w.noise) addAlarm(Math.floor((w.noise * 4 * (u.side === 'S' ? tactic.noisePct : 100)) / 100), u.x, u.y);
+    const rof = Math.max(2, Math.floor((w.rof * 100) / (100 + (u.m.rofPct || 0))));
+    u.busy = t + rof;
+    if (w.suppress || u.suppressNext) applySuppress(u, tg);
+    if (!rng.roll(hit)) { ev(t, 'shot', u.id, tg.id, 0, 0); return; }
+    u.tally.hits++;
+    let raw = rng.range(w.dmg[0], w.dmg[1]);
+    let vs = 0;
+    for (const tag of tg.tags) { vs += (u.m.dmgVs?.[tag] || 0) + (w.vs?.[tag] || 0); }
+    let dmgPct = (u.m.dmgPct || 0) + bonusDmg;
+    if (u.flags.adrenaline && u.hp * 2 < u.maxHp) dmgPct += 15;
+    if (u.flags.closeQuarters && dist <= 2) dmgPct += 15;
+    if (u.flags.closeRangePenalty && dist <= 2) dmgPct -= 15;
+    if (u.cloakBonus) { dmgPct += ABILITIES.cloak.power.dmgPct; u.cloakBonus = false; }
+    const crit = rng.roll(critChance(u.st.aim, w.crit, u.m.critPct || 0)) || (u.flags.stealthCrit && wasHidden);
+    let d = applyDamage({ raw, dmgPct, vsPct: vs, crit, critDmgPct: u.m.critDmgPct || 0, targetArm: tg.st.arm, pierce: (w.pierce || 0) + (u.m.pierce || 0),
+      dmgTakenPct: (tg.m.dmgTakenPct || 0) + fortressAura(tg) + (tg.side === 'S' && retreat.on ? (retreatDef.cover || 0) : 0) });
+    d = Math.max(1, Math.floor((d * dmgScale) / 100));
+    ev(t, 'shot', u.id, tg.id, d, crit ? 1 : 0);
+    hurt(tg, d, u);
+    if (w.splash || w.chain) {
+      const extra = units.filter(v => v !== tg && v.side === tg.side && isTargetable(v) && cheb(v, tg) <= (w.chain ? 2 : 1));
+      const n = w.chain ? Math.min(w.chain, extra.length) : extra.length;
+      for (let i = 0; i < n; i++) { const half = Math.max(1, d >> 1); ev(t, 'splash', u.id, extra[i].id, half); hurt(extra[i], half, u); }
+    }
+  }
+
+  function applySuppress(u, tg) {
+    if (tg.state !== 'active' || tg.turret) return;
+    if (rng.roll(Math.floor(tg.st.grit / 3))) return;
+    const dur = Math.floor((20 * (100 + (u.m.suppressPct || 0))) / 100);
+    tg.suppUntil = Math.max(tg.suppUntil, t + dur);
+  }
+
+  function cloak(u) {
+    const ab = ABILITIES.cloak;
+    u.hidden = true; u.cloakBonus = true;
+    u.cloakUntil = t + (u.flags.longCloak ? Math.floor(ab.dur * 3 / 2) : ab.dur);
+    u.cd = t + Math.floor((ab.cd * (100 + (u.m.abilityCdPct || 0))) / 100);
+    ev(t, 'ability', u.id, 'cloak');
+  }
+  const cdFor = (u, ab) => t + Math.floor((ABILITIES[ab].cd * (100 + (u.m.abilityCdPct || 0))) / 100);
+
+  // ---------- Movement ----------
+  function moveTicks(u) {
+    let tp = ticksPerTile(u.st.spd, 0);
+    if (u.side === 'S' && !retreat.on) tp = Math.max(2, Math.floor((tp * 100) / tactic.advancePct));
+    if (u.side === 'S' && retreat.on) tp = Math.max(2, tp - 1);
+    if (u.suppUntil > t) tp += 2;
+    return tp;
+  }
+
+  // Try to step along field f. Returns true if the unit did something (moved, opened, waited on a door).
+  function stepAlong(u, f) {
+    const here = f[idx(u.x, u.y)];
+    if (here <= 0) return false;
+    let best = null, bestV = here;
+    for (const [dx, dy] of DIRS) {
+      const nx = u.x + dx, ny = u.y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= map.h) continue;
+      const k = idx(nx, ny), v = f[k];
+      if (v < 0 || v >= bestV) continue;
+      if (dx && dy && (!passable(u.x + dx, u.y) || !passable(u.x, u.y + dy))) continue;
+      if (occ[k] >= 0) continue;
+      best = [nx, ny]; bestV = v;
+    }
+    if (!best) { u.busy = t + 3; return true; }   // blocked: wait a moment
+    const di = doorAt[idx(best[0], best[1])];
+    if (di >= 0) {
+      const d = map.doors[di];
+      if (!d.open) {
+        if (d.locked && u.side === 'S') return workDoor(u, d);
+        d.open = true; d.locked = false; u.busy = t + OPEN_DOOR_TICKS; ev(t, 'door', d.id, 'open', u.id);
+        return true;
+      }
+    }
+    setPos(u, best[0], best[1]);
+    u.busy = t + moveTicks(u);
+    ev(t, 'move', u.id, u.x, u.y);
+    onEnter(u);
+    return true;
+  }
+
+  function workDoor(u, d) {
+    if (d.workBy >= 0 && d.workBy !== u.id && units[d.workBy].state === 'active' && units[d.workBy].task) { u.busy = t + 5; return true; }
+    let ticks, kind;
+    if (u.ability === 'breach_charge' && t >= u.cd) {
+      ticks = Math.max(5, Math.floor((ABILITIES.breach_charge.power.setTicks * 100) / (100 + (u.m.breachSpeedPct || 0)))); kind = 'breach';
+      u.cd = cdFor(u, 'breach_charge');
+    } else if (u.ability === 'hack' && t >= u.cd) {
+      ticks = Math.max(8, Math.floor((ABILITIES.hack.power.hackTicks * 100) / (100 + (u.m.hackSpeedPct || 0) + (u.st.tech >> 1)))); kind = 'hack';
+      u.cd = cdFor(u, 'hack');
+    } else { ticks = FORCE_DOOR_TICKS; kind = 'force'; }
+    d.workBy = u.id;
+    u.task = { kind: 'door', door: d.id, how: kind, until: t + ticks };
+    u.busy = t + ticks;
+    ev(t, 'work', u.id, 'door', d.id, kind, ticks);
+    return true;
+  }
+
+  function finishTask(u) {
+    const k = u.task; u.task = null;
+    if (k.kind === 'door') {
+      const d = map.doors[k.door]; d.open = true; d.locked = false; d.workBy = -1;
+      ev(t, 'door', d.id, k.how, u.id);
+      if (k.how === 'breach') {
+        u.tally.breaches++;
+        addAlarm(20, d.x, d.y);
+        const stun = ABILITIES.breach_charge.power.stunTicks * (u.flags.longStun ? 2 : 1);
+        for (const e of units) if (e.side === 'E' && e.state === 'active' && (map.roomAt[idx(e.x, e.y)] === d.a || map.roomAt[idx(e.x, e.y)] === d.b)) { e.stunUntil = t + stun; ev(t, 'stun', e.id, stun); }
+      } else if (k.how === 'hack') u.tally.hacks++;
+      else addAlarm(10, d.x, d.y);
+    } else if (k.kind === 'hackTurret') {
+      const tr = units[k.target];
+      if (tr.state === 'active') {
+        u.tally.hacks++;
+        if (u.flags.turnTurrets) { tr.side = 'S'; ev(t, 'turret', tr.id, 'turned'); }
+        else { tr.off = true; ev(t, 'turret', tr.id, 'off'); }
+      }
+    } else if (k.kind === 'obj') {
+      const o = objectives[k.obj];
+      o.done = true; ev(t, 'objdone', o.id);
+      if (o.def.kind === 'hack') u.tally.hacks++;
+      for (const v of squad) if (v.state === 'active' && map.roomAt[idx(v.x, v.y)] === o.room) v.tally.assists++;
+    } else if (k.kind === 'deployTurret') {
+      const p = freeTileNear(u.x, u.y);
+      if (p) { const tr = enemyUnit('sys_turret', p[0], p[1]); tr.alerted = true; ev(t, 'spawn', tr.id, 'E', tr.kind, tr.x, tr.y); }
+    }
+  }
+
+  const visited = new Set([spawnRoom]);
+  let lootCrates = 0;
+  function onEnter(u) {
+    if (u.side !== 'S') return;
+    const r = map.roomAt[idx(u.x, u.y)];
+    if (r >= 0 && !visited.has(r)) {
+      visited.add(r);
+      const loot = map.rooms[r].features.filter(f => f.kind === 'loot').length;
+      if (loot) { lootCrates += loot; ev(t, 'loot', r, loot); }
+    }
+  }
+
+  // Overwatch: called after an enemy moves.
+  function checkOverwatch(mover) {
+    for (const s of squad) {
+      if (s.state !== 'active' || s.owUntil <= t || s.owShots <= 0 || !isTargetable(mover)) continue;
+      if (cheb(s, mover) <= s.w.range + 4 && los(s.x, s.y, mover.x, mover.y)) {
+        s.owShots--; ev(t, 'ability', s.id, 'overwatch_fire');
+        const keepBusy = s.busy; shoot(s, mover); s.busy = keepBusy;
+      }
+    }
+  }
+
+  function fleeStep(u, foes) {
+    if (!foes.length) { u.busy = t + 5; return; }
+    let best = null, bestD = -1;
+    for (const [dx, dy] of DIRS) {
+      const nx = u.x + dx, ny = u.y + dy;
+      if (!passable(nx, ny) || occ[idx(nx, ny)] >= 0 || doorAt[idx(nx, ny)] >= 0) continue;
+      let d = 99; for (const f of foes) d = Math.min(d, Math.max(Math.abs(f.x - nx), Math.abs(f.y - ny)));
+      if (d > bestD) { bestD = d; best = [nx, ny]; }
+    }
+    if (best) { setPos(u, best[0], best[1]); ev(t, 'move', u.id, u.x, u.y); }
+    u.busy = t + moveTicks(u);
+  }
+
+  // Step toward the nearest cover tile within 2 tiles that still has a line of sight to `tg`.
+  function seekCover(u, tg, stayRoom) {
+    if (map.cover[idx(u.x, u.y)]) return false;
+    let best = null, bestD = 99;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const x = u.x + dx, y = u.y + dy;
+      if (x < 0 || y < 0 || x >= W || y >= map.h) continue;
+      const k = idx(x, y);
+      if (!map.cover[k] || occ[k] >= 0 || map.tiles[k] !== T_FLOOR) continue;
+      if (stayRoom && map.roomAt[k] !== map.roomAt[idx(u.x, u.y)]) continue;
+      if (!los(x, y, tg.x, tg.y)) continue;
+      const d = Math.max(Math.abs(dx), Math.abs(dy));
+      if (d < bestD) { bestD = d; best = [x, y]; }
+    }
+    if (!best) return false;
+    return stepAlong(u, field(best[0], best[1]));
+  }
+
+  function pickTarget(u, foes) {
+    let best = null, bestS = 1e9;
+    for (const f of foes) {
+      let s = cheb(u, f) * 4 + Math.floor((f.hp * 10) / f.maxHp);
+      if (f.turret) s += 6;
+      if (u.side === 'S' && f.leader && u.m.dmgVs?.leader) s -= 8;
+      if (s < bestS) { bestS = s; best = f; }
+    }
+    return best;
+  }
+
+  // ---------- Squad AI ----------
+  function squadDecide(u) {
+    if (retreat.on) return retreatDecide(u);
+    const foes = visibleFoes(u);
+    if (u.panicUntil > t) return fleeStep(u, foes);
+
+    // Medic: revive / heal.
+    if (u.ability === 'patch_up' && t >= u.cd) {
+      const downed = squad.filter(v => v.state === 'down' && cheb(u, v) <= 8).sort((a, b) => cheb(u, a) - cheb(u, b) || a.id - b.id)[0];
+      if (downed) {
+        if (cheb(u, downed) <= 1) return revive(u, downed);
+        if (stepAlong(u, field(downed.x, downed.y))) return;
+      }
+      const hurtAlly = squad.filter(v => v.state === 'active' && v !== u && v.hp * 2 < v.maxHp && cheb(u, v) <= 4 && los(u.x, u.y, v.x, v.y))
+        .sort((a, b) => a.hp * 100 / a.maxHp - b.hp * 100 / b.maxHp || a.id - b.id)[0];
+      if (hurtAlly) return heal(u, hurtAlly);
+    }
+
+    if (foes.length) {
+      const tg = pickTarget(u, foes);
+      const dist = cheb(u, tg);
+      // Stealth: slip past enemies that haven't noticed us.
+      if (u.hidden && !tg.alerted && dist > 1 && tactic.aggression < 30) return advance(u);
+      // Abilities.
+      if (u.ability === 'cloak' && t >= u.cd && !u.hidden) return cloak(u);
+      if (u.ability === 'hack' && t >= u.cd) {
+        const tr = foes.find(f => f.turret && cheb(u, f) <= 6);
+        if (tr) {
+          const ticks = Math.max(8, Math.floor((ABILITIES.hack.power.hackTicks * 100) / (100 + (u.m.hackSpeedPct || 0) + (u.st.tech >> 1))));
+          u.cd = cdFor(u, 'hack'); u.task = { kind: 'hackTurret', target: tr.id, until: t + ticks }; u.busy = t + ticks;
+          ev(t, 'work', u.id, 'turret', tr.id, 'hack', ticks); return;
+        }
+      }
+      if (u.ability === 'suppressing_fire' && t >= u.cd && foes.length >= 2 && dist <= u.w.range + 2) {
+        u.cd = cdFor(u, 'suppressing_fire'); ev(t, 'ability', u.id, 'suppressing_fire');
+        for (const f of foes) if (cheb(u, f) <= ABILITIES.suppressing_fire.power.coneTiles + 2) applySuppress(u, f);
+        return shoot(u, tg, 0, u.flags.bulletStorm ? 100 : 50);
+      }
+      if (u.ability === 'charge' && t >= u.cd && dist >= 2 && dist <= 5) {
+        u.cd = cdFor(u, 'charge'); ev(t, 'ability', u.id, 'charge');
+        const f = field(tg.x, tg.y);
+        for (let i = 0; i < ABILITIES.charge.power.tiles && cheb(u, tg) > 1; i++) {
+          const before = [u.x, u.y]; stepAlong(u, f); if (before[0] === u.x && before[1] === u.y) break;
+        }
+        if (u.flags.chargeKnockdown) tg.stunUntil = Math.max(tg.stunUntil, t + 15);
+        return shoot(u, tg, ABILITIES.charge.power.dmgPct);
+      }
+      // Engage.
+      const melee = u.w.melee;
+      const pref = Math.max(1, Math.floor((u.w.range * tactic.rangePct) / 100));
+      if (melee ? dist > 1 : dist > u.w.range + 3) { if (stepAlong(u, field(tg.x, tg.y))) return; }
+      if (!melee && rng.roll(tactic.coverUse) && seekCover(u, tg, false)) return;
+      if (!melee && dist > pref && rng.roll(tactic.aggression) && stepAlong(u, field(tg.x, tg.y))) return;
+      if (melee && dist > 1) { u.busy = t + 3; return; }
+      return shoot(u, tg);
+    }
+
+    // No enemies in sight.
+    if (u.ability === 'overwatch' && t >= u.cd && alarmLevel >= 1) {
+      u.cd = cdFor(u, 'overwatch'); u.owUntil = t + ABILITIES.overwatch.dur; u.owShots = u.flags.killZone ? 3 : 1;
+      ev(t, 'ability', u.id, 'overwatch');
+    }
+    if (u.ability === 'hack' && u.flags.stopReinforcements && map.roomAt[idx(u.x, u.y)] === map.bridge) reinforcementsCut = true;
+    // Optional objectives on the way.
+    if (tactic.objectiveFocus < 80 && u.ability !== 'patch_up') {
+      for (let i = 1; i < objectives.length; i++) {
+        const o = objectives[i];
+        if (o.done || o.def.kind === 'leaderDown' || (o.worker >= 0 && o.worker !== u.id && units[o.worker].state === 'active')) continue;
+        const f = field(o.x, o.y), d = f[idx(u.x, u.y)];
+        if (d < 0 || d > 14) continue;
+        o.worker = u.id;
+        if (d === 0) {
+          const speed = o.def.kind === 'hack' ? 100 + (u.m.hackSpeedPct || 0) + (u.st.tech >> 1) : 100;
+          const ticks = Math.max(5, Math.floor((o.def.ticks * 100) / speed));
+          u.task = { kind: 'obj', obj: i, until: t + ticks }; u.busy = t + ticks; ev(t, 'work', u.id, 'obj', o.id, o.def.kind, ticks); return;
+        }
+        if (stepAlong(u, f)) return;
+      }
+    }
+    advance(u);
+  }
+
+  function advance(u) {
+    const f = consoleField();
+    const d = f[idx(u.x, u.y)];
+    if (map.roomAt[idx(u.x, u.y)] === map.bridge && d <= 2) { u.busy = t + 4; return; }
+    // Cohesion: wait for the rearmost squadmate.
+    let rear = 0;
+    for (const v of squad) if (v.state === 'active' && v !== u) rear = Math.max(rear, f[idx(v.x, v.y)]);
+    const coh = COHESION + (tactic.id === 'blitz' ? 3 : 0);
+    if (rear > 0 && d < rear - coh) { u.busy = t + 4; return; }
+    if (!stepAlong(u, f)) u.busy = t + 4;
+  }
+
+  function revive(u, v) {
+    u.cd = cdFor(u, 'patch_up');
+    const chance = Math.min(95, ABILITIES.patch_up.power.revive + (u.m.reviveChance || 0) + Math.floor(u.st.tech / 5));
+    u.busy = t + 15;
+    if (rng.roll(chance)) {
+      v.tally.ticksDown += t - v.downAt; v.state = 'active'; v.revived = true;
+      v.hp = Math.max(1, Math.floor((v.maxHp * REVIVE_HP_PCT) / 100));
+      const p = occ[idx(v.x, v.y)] < 0 ? [v.x, v.y] : freeTileNear(v.x, v.y);
+      v.x = p[0]; v.y = p[1]; occ[idx(v.x, v.y)] = v.id; v.busy = t + 10;
+      u.tally.revives++; ev(t, 'revive', u.id, v.id, 1);
+    } else ev(t, 'revive', u.id, v.id, 0);
+  }
+  function heal(u, v) {
+    u.cd = cdFor(u, 'patch_up');
+    const p = ABILITIES.patch_up.power;
+    const amt = Math.floor(((p.heal + Math.floor((u.st.tech * p.techScale) / 10)) * (100 + (u.m.healPct || 0))) / 100);
+    v.hp = Math.min(v.maxHp, v.hp + amt);
+    u.busy = t + 10; ev(t, 'heal', u.id, v.id, amt);
+  }
+
+  // ---------- Enemy AI ----------
+  let reinforcementsCut = false;
+  function enemyDecide(e) {
+    if (e.off) { e.busy = t + 50; return; }
+    const foes = visibleFoes(e);
+    if (e.turret) {
+      if (!foes.length || (alarmLevel === 0 && !foes.length)) { e.busy = t + 5; return; }
+      const tg = pickTarget(e, foes); if (cheb(e, tg) > 10) { e.busy = t + 5; return; }
+      return shoot(e, tg);
+    }
+    if (e.civilian) {
+      if (squad.some(s => s.state === 'active' && cheb(s, e) <= 1)) { e.state = 'surr'; occ[idx(e.x, e.y)] = -1; ev(t, 'surrender', e.id); return; }
+      if (foes.length || alarmLevel >= 1) {
+        const pods = map.rooms.find(r => r.type === 'pod_bay');
+        if (map.roomAt[idx(e.x, e.y)] === pods.id) { e.state = 'fled'; occ[idx(e.x, e.y)] = -1; ev(t, 'fled', e.id); return; }
+        if (stepAlong(e, field(pods.cx, pods.cy))) return;
+      }
+      e.busy = t + 10; return;
+    }
+    if (e.panicUntil > t) return fleeStep(e, foes);
+    const prof = ENEMY_AI[e.ai] || ENEMY_AI.grunt;
+    if (foes.length) {
+      if (!e.alerted) { e.alerted = true; addAlarm(SPOT_NOISE, foes[0].x, foes[0].y); ev(t, 'spotted', e.id, foes[0].id); }
+      for (const f of foes) if (f.hidden && f.cloakUntil <= t) { f.hidden = false; ev(t, 'reveal', f.id); }
+      if (e.deploysTurret && !e.deployed) {
+        e.deployed = true; e.task = { kind: 'deployTurret', until: t + 25 }; e.busy = t + 25; ev(t, 'work', e.id, 'deploy', 0, 'turret', 25); return;
+      }
+      const tg = pickTarget(e, foes);
+      const dist = cheb(e, tg);
+      const melee = e.w?.melee;
+      if (melee) {
+        if (dist <= 1) return shoot(e, tg);
+        if (stepAlong(e, field(tg.x, tg.y))) return;
+        e.busy = t + 3; return;
+      }
+      if (dist > e.w.range + 3 && !prof.stayInRoom) { if (stepAlong(e, field(tg.x, tg.y))) return; }
+      if (rng.roll(prof.coverUse) && seekCover(e, tg, prof.stayInRoom)) return;
+      const pref = Math.max(1, Math.floor((e.w.range * prof.rangePct) / 100));
+      if (!prof.stayInRoom && dist > pref && rng.roll(prof.aggression) && stepAlong(e, field(tg.x, tg.y))) return;
+      if (dist > e.w.range + 6) { e.busy = t + 5; return; }
+      return shoot(e, tg);
+    }
+    // Nothing visible.
+    if (e.alerted && prof.hunts && alarmLevel >= 1 && huntTile) {
+      if (stepAlong(e, field(huntTile[0], huntTile[1]))) { checkOverwatch(e); return; }
+    }
+    e.busy = t + 8;
+  }
+
+  // ---------- Retreat ----------
+  const retreat = { on: false, at: -1, reason: null, shuttleAt: 0, exitRoom: -1, exitTile: null };
+  function startRetreat(reason) {
+    retreat.on = true; retreat.at = t; retreat.reason = reason;
+    ev(t, 'retreat', reason, retreatDef.id);
+    const fail = retreatDef.failPct + (retreatDef.id === 'teleport_recall' ? ship.scrambleAdd : 0);
+    if (retreatDef.exit === 'anywhere') {
+      for (const s of squad) if (s.state === 'active' || s.state === 'down') {
+        // Downed Soldiers are harder to lock onto: double the misfire chance, and a miss leaves them behind.
+        if (s.state === 'down') { if (rng.roll(fail * 2)) { ev(t, 'misfire', s.id, 'lost'); continue; } s.extractAt = t + retreatDef.extractTicks; continue; }
+        s.extractAt = t + retreatDef.extractTicks + (rng.roll(fail) ? 60 : 0);
+        if (s.extractAt > t + retreatDef.extractTicks) ev(t, 'misfire', s.id, 'delayed');
+      }
+    } else if (retreatDef.rearGuard) {
+      const vol = squad.filter(s => s.state === 'active').sort((a, b) => b.st.grit - a.st.grit || a.id - b.id)[0];
+      for (const s of squad) if (s.state === 'active' || s.state === 'down') {
+        if (s === vol) { s.rearGuard = true; s.holdUntil = t + retreatDef.rearGuardHoldTicks; ev(t, 'rearguard', s.id); }
+        else s.extractAt = t + retreatDef.extractTicks;
+      }
+    } else {
+      let exitRoom;
+      if (retreatDef.exit === 'dock') {
+        if (entry.shuttleDocked) exitRoom = map.rooms[map.airlock];
+        else {
+          // Nearest hull room to the squad (by walking distance from the first active Soldier).
+          const lead = squad.find(s => s.state === 'active') || squad[0];
+          let best = null, bestD = 1e9;
+          for (const r of map.rooms) {
+            if (!r.outer || r.id === map.bridge) continue;
+            const d = field(r.cx, r.cy)[idx(lead.x, lead.y)];
+            if (d >= 0 && (d < bestD || (d === bestD && r.id < best.id))) { bestD = d; best = r; }
+          }
+          exitRoom = best || map.rooms[map.airlock];
+        }
+        ev(t, 'dock', exitRoom.id);
+      } else exitRoom = map.rooms.find(r => r.type === 'pod_bay');
+      retreat.exitRoom = exitRoom.id;
+      const pf = exitRoom.features.find(f => f.kind === 'pods');
+      retreat.exitTile = pf ? [pf.x, pf.y] : [exitRoom.cx, exitRoom.cy];
+      retreat.shuttleAt = retreatDef.needsDock && !entry.shuttleDocked ? t + retreatDef.arriveTicks : t;
+    }
+  }
+
+  function extract(s, mia = false) {
+    if (s.state === 'down') s.tally.ticksDown += t - s.downAt;
+    s.wasDown = s.state === 'down';
+    occ[idx(s.x, s.y)] = -1;
+    s.state = 'out'; s.mia = mia; ev(t, 'extract', s.id, mia ? 1 : 0);
+  }
+
+  function retreatDecide(u) {
+    const foes = visibleFoes(u);
+    // Teleport recall / rear guard: hold and shoot until extracted.
+    if (retreatDef.exit === 'anywhere' || retreatDef.rearGuard) {
+      if (foes.length && u.w) return shoot(u, pickTarget(u, foes));
+      u.busy = t + 4; return;
+    }
+    // Shuttle / pods: fight back to the exit. The squad drags its Downed along as a group, so
+    // whoever reaches the exit brings every Downed squadmate out with them.
+    if (map.roomAt[idx(u.x, u.y)] === retreat.exitRoom) {
+      if (t < retreat.shuttleAt) { if (foes.length) return shoot(u, pickTarget(u, foes)); u.busy = t + 4; return; }
+      if (u.extractAt === undefined) { u.extractAt = t + retreatDef.extractTicks; u.busy = t + 1; return; }
+      return;  // extraction handled in the main loop
+    }
+    if (foes.length && rng.roll(30)) return shoot(u, pickTarget(u, foes));
+    if (!stepAlong(u, field(retreat.exitTile[0], retreat.exitTile[1]))) u.busy = t + 4;
+  }
+
+  // ---------- Main loop ----------
+  let result = null;
+  const deployed = squad.length;
+  const retreatAtCount = Math.max(1, Math.ceil((deployed * tactic.retreatAt) / 100));
+  const bridgeObj = objectives[0];
+  let wave = 0;
+
+  for (t = 0; t <= HARD_END_TICK; t++) {
+    // Hazards.
+    for (const h of hazards) {
+      if (t > h.until || t % h.def.every) continue;
+      for (const u of units) {
+        if (u.state !== 'active' || map.roomAt[idx(u.x, u.y)] !== h.room) continue;
+        if (h.def.affects === 'organic' && u.tags.includes('synthetic')) continue;
+        const d = Math.floor((h.def.dmg * (100 - Math.min(100, u.m.hazardResistPct || 0))) / 100);
+        if (d > 0) { ev(t, 'hazard', u.id, h.room, d); hurt(u, d, null); }
+        if (h.def.effect === 'panic') panicCheck(u, h.def.pressure || 10);
+      }
+    }
+    // Reinforcements.
+    const rf = ship.reinforce;
+    if (alarm2At >= 0 && wave < rf.waves && !reinforcementsCut) {
+      const due = Math.max(alarm2At, rf.firstAt) + wave * rf.every;
+      if (t === due || (t > due && rf.every === 0 && wave === 0)) {
+        wave++;
+        const lead = squad.find(s => s.state === 'active') || squad[0];
+        const rooms = map.rooms.filter(r => r.id !== map.bridge && r.id !== map.roomAt[idx(lead.x, lead.y)])
+          .sort((a, b) => cheb({ x: b.cx, y: b.cy }, lead) - cheb({ x: a.cx, y: a.cy }, lead) || a.id - b.id);
+        const room = (rooms.find(r => r.type === 'quarters') || rooms[0]).id;
+        let budget = rf.budget;
+        const weights = Object.entries(ship.unitWeights).filter(([id]) => UNIT_BY_ID[id].cost > 0);
+        ev(t, 'reinforce', wave, room);
+        for (let g = 0; g < 30 && budget > 0; g++) {
+          const [id] = weights[rng.int(weights.length)];
+          if (UNIT_BY_ID[id].cost > budget) continue;
+          budget -= UNIT_BY_ID[id].cost;
+          const p = freeTileIn(room); if (!p) break;
+          const e = enemyUnit(id, p[0], p[1], { alerted: true }); ev(t, 'spawn', e.id, 'E', e.kind, e.x, e.y);
+        }
+      }
+    }
+    // Hunting target at full alarm: the squad member closest to the bridge.
+    if (alarmLevel === 2 && t >= huntRefresh) {
+      huntRefresh = t + 40;
+      const f = consoleField();
+      const lead = squad.filter(s => s.state === 'active' && !s.hidden).sort((a, b) => f[idx(a.x, a.y)] - f[idx(b.x, b.y)] || a.id - b.id)[0];
+      if (lead) huntTile = [lead.x, lead.y];
+    }
+
+    // Units act.
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.state !== 'active') continue;
+      if (u.cloakUntil && u.cloakUntil === t && u.hidden) { u.hidden = false; ev(t, 'reveal', u.id); }
+      if (u.busy > t || u.stunUntil > t) continue;
+      if (u.task) { if (t >= u.task.until) finishTask(u); else continue; }
+      if (u.side === 'S' && !u.turret) squadDecide(u);
+      else if (u.turret && u.side === 'S') { const foes = visibleFoes(u); if (foes.length) shoot(u, pickTarget(u, foes)); else u.busy = t + 5; }
+      else { enemyDecide(u); if (u.state === 'active' && !u.turret) checkOverwatch(u); }
+    }
+
+    // Objective: hold the bridge.
+    if (!retreat.on && !result) {
+      const inBridge = squad.some(s => s.state === 'active' && map.roomAt[idx(s.x, s.y)] === map.bridge);
+      const defenders = units.some(e => e.side === 'E' && isTargetable(e) && map.roomAt[idx(e.x, e.y)] === map.bridge);
+      if (inBridge && !defenders) {
+        bridgeObj.progress++;
+        if (bridgeObj.progress % 10 === 0) ev(t, 'hold', bridgeObj.progress, bridgeObj.def.ticks);
+        if (bridgeObj.progress >= bridgeObj.def.ticks) { bridgeObj.done = true; result = 'success'; ev(t, 'objdone', 'take_bridge'); }
+      }
+    }
+    if (result) break;
+
+    // Retreat trigger.
+    const casualties = squad.filter(s => s.state === 'down').length;
+    const activeCount = squad.filter(s => s.state === 'active').length;
+    if (!retreat.on) {
+      if (casualties >= retreatAtCount && deployed > 1) startRetreat('casualties');
+      else if (activeCount === 0) startRetreat('casualties');
+      else if (t >= RETREAT_AT_TICK) startRetreat('time');
+    }
+    // Extraction.
+    if (retreat.on) {
+      for (const s of squad) {
+        if (s.rearGuard && s.state === 'active' && t >= s.holdUntil && s.extractAt === undefined) s.extractAt = t + retreatDef.extractTicks;
+        if (s.extractAt === undefined || t < s.extractAt || (s.state !== 'active' && s.state !== 'down')) continue;
+        if (retreat.exitRoom >= 0) {
+          if (s.state !== 'active' || map.roomAt[idx(s.x, s.y)] !== retreat.exitRoom) { if (s.state !== 'active') continue; s.extractAt = undefined; continue; }
+          extract(s, retreatDef.failResult === 'mia' && rng.roll(retreatDef.failPct));
+          for (const d of squad) if (d.state === 'down') { ev(t, 'dragged', s.id, d.id); extract(d, retreatDef.failResult === 'mia' && rng.roll(retreatDef.failPct)); }
+        } else extract(s);
+      }
+      // Anyone still able to get out?
+      const pending = squad.some(s => (s.state === 'active') || (s.state === 'down' && s.extractAt !== undefined));
+      if (!pending) break;
+    }
+  }
+  const endT = Math.min(t, HARD_END_TICK);
+  if (!result) result = squad.some(s => s.state === 'out') ? 'retreat' : 'wipe';
+
+  // ---------- Outcome ----------
+  const soldiers = squad.map(s => {
+    let state;
+    if (result === 'success' && (s.state === 'active' || s.state === 'down')) {
+      if (s.state === 'down') s.tally.ticksDown += endT - s.downAt;
+      state = s.state === 'down' ? 'downed' : (s.revived ? 'revived' : 'fine');
+    } else if (s.state === 'out') {
+      state = s.mia ? 'mia' : s.wasDown ? 'downed' : (s.revived ? 'revived' : 'fine');
+    } else {
+      if (s.state === 'down') s.tally.ticksDown += endT - s.downAt;
+      state = 'left';
+    }
+    const hpLostPct = Math.max(0, Math.min(100, Math.floor(((s.maxHp - Math.max(0, s.tally.minHp)) * 100) / s.maxHp)));
+    return { uid: s.uid, unit: s.id, state, rearGuard: !!s.rearGuard, hpLostPct, ...s.tally };
+  });
+  const leader = units.find(e => e.side === 'E' && e.leader);
+  for (const o of objectives) if (o.def.kind === 'leaderDown' && result === 'success' && leader.state === 'down') { o.done = true; ev(endT, 'objdone', o.id); }
+  const progressPct = Math.floor((visited.size * 100) / map.rooms.length);
+
+  const out = {
+    engineVersion: ENGINE_VERSION, seed, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: retreatDef.id,
+    result, ticks: endT, retreatReason: retreat.reason, retreatAt: retreat.at,
+    soldiers, objectives: objectives.map(o => ({ id: o.id, done: o.done })),
+    progressPct, lootCrates, alarmLevel, reinforcementWaves: wave,
+    enemies: { total: units.filter(u => u.side === 'E' || u.turret).length, killed: units.filter(u => u.state === 'dead').length },
+    units: units.map(u => ({ id: u.id, side: u.side, kind: u.kind, name: u.name, maxHp: u.maxHp })),
+    events,
+  };
+  out.hash = fnv1a(JSON.stringify([out.result, out.ticks, out.soldiers, out.objectives, events]));
+  out.map = map;
+  return out;
+}

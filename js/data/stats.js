@@ -57,14 +57,15 @@ export const MOD_KEYS = {
 };
 
 // ---------- Simulation clock ----------
-export const TICKS_PER_SEC = 10;       // playback at 1x = 10 ticks per second
-export const TARGET_TICKS = [600, 900]; // design target: 60-90 s at 1x
-export const MAX_TICKS = 900;          // hard cap. If the objective isn't taken by then, the squad retreats.
+export const TICKS_PER_SEC = 8;        // playback at 1x = 8 ticks per second
+export const TARGET_TICKS = [480, 720]; // design target: 60-90 s at 1x
+export const RETREAT_AT_TICK = 720;    // if the bridge isn't taken by now, the squad retreats automatically
+export const HARD_END_TICK = 840;      // absolute end. Anyone still on board is left behind.
 
 // ---------- Combat formulas (integer) ----------
 export const COVER = { none: 0, half: 20, full: 40 };     // hit-chance penalty for shooting INTO cover
 export const HIT_MIN = 5, HIT_MAX = 95;
-export const BASE_HIT = 55;
+export const BASE_HIT = 50;
 export const CRIT_BASE_DMG = 150;                         // crit = 150% damage
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);

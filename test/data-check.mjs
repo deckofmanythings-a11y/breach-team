@@ -13,6 +13,7 @@ import { PACKS, GRADES, STARTER_SQUAD, ITEM_PRICE, successReward, failReward } f
 import { EASTER_EGGS, EGG_BY_ID } from '../js/data/easter-eggs.js';
 import { FACILITIES } from '../js/data/mothership.js';
 import { createRng } from '../js/engine/rng.js';
+import { IMPLEMENTED_FLAGS } from '../js/engine/battle.js';
 import { growSoldier, rollItem, itemMods, rollRarity } from '../js/engine/progression.js';
 
 const errors = [];
@@ -166,5 +167,9 @@ const sample = rollItem(createRng(7), 'rifle_std', { rarityBoost: 160, floor: 'r
 console.log('\nSample relic rifle:', JSON.stringify(sample), '->', JSON.stringify(itemMods(sample)));
 
 console.log(`\n${ITEMS.length} items (${ROLLABLE_ITEMS.length} rollable), ${AFFIXES.length} affixes, ${SPECIALTIES.length} specialties, ${allPerkIds.length} perks, ${Object.keys(UNIT_BY_ID).length} enemy units, ${SHIPS.length} ships, ${EASTER_EGGS.length} easter eggs`);
+const usedFlags = new Set([...SPECIALTIES.flatMap(s => s.perks.flat().map(p => p.flag)), ...ITEMS.map(i => i.flag), ...TACTICS.map(t => t.flag)].filter(Boolean));
+const todo = [...usedFlags].filter(f => !IMPLEMENTED_FLAGS.includes(f)).sort();
+if (todo.length) console.log(`
+WARNING: ${todo.length} special-effect flags not implemented in the engine yet: ${todo.join(', ')}`);
 if (errors.length) { console.error('\nDATA ERRORS:\n  ' + errors.join('\n  ')); process.exit(1); }
 console.log('\nOK: no data errors.');

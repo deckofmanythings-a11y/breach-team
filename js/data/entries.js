@@ -21,25 +21,27 @@ export const ENTRIES = [
   { id: 'shuttle', name: 'Boarding Shuttle',
     desc: 'Dock at the airlock with the whole squad. Loud: the ship knows you are coming.',
     maxSquad: 6, spawn: 'airlock', alarmStart: 1, setupTicks: 30, scramblePct: 0, stunTicks: 0,
-    mods: { grit: 5 }, shuttleDocked: true },
+    mods: { grit: 5, arm: 5 }, shuttleDocked: true },
   { id: 'breach_pod', name: 'Breaching Pod',
     desc: 'Punch through the hull close to the objective. Stuns the room, but tears it open to vacuum.',
     maxSquad: 4, spawn: 'hull', alarmStart: 1, setupTicks: 15, scramblePct: 0, stunTicks: 40, hazard: 'decompression',
     mods: { dmgPct: 5 } },
   { id: 'vent_crawl', name: 'Vent Crawl',
     desc: 'Squeeze in through maintenance ducts. Silent, close to the objective, tiny squad.',
-    maxSquad: 2, spawn: 'vents', alarmStart: 0, setupTicks: 40, scramblePct: 0, stunTicks: 0,
-    mods: { stl: 15 }, startsHidden: true },
+    maxSquad: 3, spawn: 'vents', alarmStart: 0, setupTicks: 40, scramblePct: 0, stunTicks: 0,
+    mods: { stl: 15, dmgPct: 15, critPct: 10 }, startsHidden: true },
 ];
 
 // Retreat fields
 //   extractTicks  ticks a Soldier must survive at the exit point (or anywhere, for 'anywhere')
-//   exit          'anywhere' | 'airlock' | 'pod_bay' | 'entry' (the room the squad arrived in)
+//   exit          'anywhere' | 'dock' (airlock if the shuttle is docked there, else the outer room
+//                 nearest the squad) | 'pod_bay' | 'entry' (the room the squad arrived in)
 //   needsDock     shuttle has to come back first unless the entry was 'shuttle' (arriveTicks)
 //   failPct       chance PER SOLDIER the exit goes wrong; ships add `scrambleAdd` to teleport
 //   failResult    what a failure means: 'delayed' (stuck 60 more ticks), 'mia' (lost in space,
 //                 comes home after MIA_RETURN_MIN), 'left' (left on board -> aftermath decides)
 //   carriesDowned whether Downed Soldiers can be carried out (else they're left behind)
+//   cover         damage-taken % for Soldiers while falling back to an exit (smoke, covering fire)
 //   rearGuard     one Soldier (highest Grit) stays behind to cover; everyone else extracts fast
 
 export const RETREATS = [
@@ -47,11 +49,11 @@ export const RETREATS = [
     desc: 'Instant beam-out from wherever the squad stands. Can misfire, especially near shields.',
     exit: 'anywhere', extractTicks: 20, failPct: 8, failResult: 'delayed', carriesDowned: true },
   { id: 'shuttle', name: 'Back to the Shuttle',
-    desc: 'Fight back to the airlock and fly out. Reliable, if the squad can reach it.',
-    exit: 'airlock', extractTicks: 10, needsDock: true, arriveTicks: 80, failPct: 0, carriesDowned: true },
+    desc: 'The shuttle docks at the nearest hull section (or waits at the airlock if you came by shuttle). Slow to arrive, but nobody gets lost.',
+    exit: 'dock', extractTicks: 10, needsDock: true, arriveTicks: 80, failPct: 0, carriesDowned: true, cover: -25 },
   { id: 'escape_pods', name: 'Escape Pods',
     desc: "Use the ship's own pods. Quick, but the pods scatter: someone may drift for a while.",
-    exit: 'pod_bay', extractTicks: 5, failPct: 10, failResult: 'mia', carriesDowned: true },
+    exit: 'pod_bay', extractTicks: 5, failPct: 10, failResult: 'mia', carriesDowned: true, cover: -45 },
   { id: 'rear_guard', name: 'Rear Guard',
     desc: 'One volunteer holds the line so the rest get out clean. Brave, and very dangerous for them.',
     exit: 'entry', extractTicks: 5, failPct: 0, carriesDowned: true, rearGuard: true, rearGuardHoldTicks: 120 },
