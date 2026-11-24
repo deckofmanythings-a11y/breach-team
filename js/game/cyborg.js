@@ -38,6 +38,6 @@ export function rebuild(rng, fallen, mkUid, serviceRecord, now) {
     gear: {}, injuries: [], status: 'ready', miaUntil: 0, missions: 0, kills: 0, hired: now,
     record: serviceRecord(), medals: [],
     portrait: 'egg-cyborg-' + (fallen.sex === 'f' ? 'f' : 'm'), egg: CYBORG_EGG, cyborg: true, origin: fallen.uid,
-    bio: `Recovered from the ${fallen.diedOn || 'void'}. Prior service record sealed. Sometimes stops at the Memorial Wall, and nobody can say why.`,
+    bio: 'All records sealed. Sometimes stops at the Memorial Wall, and nobody can say why.',
   };
 }

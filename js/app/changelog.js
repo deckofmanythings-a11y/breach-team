@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.6.3', date: '2026-11-24', items: [
+    'Small text fixes.',
+  ] },
   { v: '0.6.2', date: '2026-11-24', items: [
     'Fleet R&D has requested access to the Memorial Wall records. Request approved.',
   ] },
