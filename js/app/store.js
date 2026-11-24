@@ -1,4 +1,5 @@
 // Store: Booster Packs + today's stock. Everything is bought on the server (boarding-api).
+import * as sfx from '../audio/sfx.js';
 import * as G from './state.js?v=3';
 import { el, esc, avatar, itemLabel, modal, closeModal, statGrid, toast } from './ui.js';
 import { PACKS, PITY_RELIC_AFTER, GRADE_BY_ID, ROSTER_CAP } from '../data/economy.js';
@@ -71,6 +72,7 @@ export function renderStore(panel, run) {
 }
 
 function reveal(pack, r) {
+  sfx.packOpen(!!((r.rare || []).length || (r.cyborg || []).length || r.items.some(it => ['relic', 'xeno'].includes(it.rarity))));
   const items = r.items.map(it => G.itemById(it.uid) || it);
   const soldiers = r.soldiers.map(id => G.soldierById(id)).filter(Boolean);
   const box = el(`<div class="box"><h2>${esc(pack.name)}</h2>

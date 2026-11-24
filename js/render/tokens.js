@@ -13,7 +13,7 @@ export const FACTION_RING = { pirates: '#c4581c', corpsec: '#1fb5a8', military: 
   hive: '#9b5cff', mycelid: '#9ee86a', lattice: '#7f8cff', wraith: '#e8e8ff', drifters: '#3dd6ff', thrall: '#5dff6a' };
 export const tokenSrc = (id) => new URL(`../../assets/tokens/${id}.jpg?v=${ASSET_V}`, import.meta.url).href;
 export const floorSrc = (faction) => new URL(`../../assets/floors/floor-${faction}.jpg?v=${ASSET_V}`, import.meta.url).href;
-export const soldierTokenId = (s) => s.portrait || `soldier-${s.specialty}-${s.sex === 'f' ? 'f' : 'm'}`;
+export const soldierTokenId = (s) => s.portrait || `soldier-${s.specialty}-${s.sex === 'f' ? 'f' : 'm'}${+s.look ? '-' + +s.look : ''}`;
 
 const imgCache = new Map();
 export function loadImage(src) {
@@ -105,7 +105,7 @@ const urlCache = new Map();
 export function hydrateAvatars(root = document) {
   for (const el of root.querySelectorAll('.avatar[data-tok]:not([data-done])')) {
     el.dataset.done = '1';
-    const s = { specialty: el.dataset.spec, sex: el.dataset.sex, portrait: el.dataset.portrait || undefined, colors: [el.dataset.a, el.dataset.b] };
+    const s = { specialty: el.dataset.spec, sex: el.dataset.sex, look: +el.dataset.look || 0, portrait: el.dataset.portrait || undefined, colors: [el.dataset.a, el.dataset.b] };
     const key = `${soldierTokenId(s)}|${s.colors.join('|')}`;
     const p = urlCache.get(key) || soldierToken(s, { size: 96 }).then(c => c.toDataURL('image/png'));
     urlCache.set(key, p);

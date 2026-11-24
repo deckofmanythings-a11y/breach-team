@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import * as R from '../_shared/breach/game/rules.js';
 import { ENGINE_VERSION } from '../_shared/breach/data/version.js';
 import { weeklyContract, backfillStats } from '../_shared/breach/game/ladder.js';
+import { restartAccount, newCommander } from '../_shared/breach/game/commander.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -49,11 +50,13 @@ async function loadRow(uid: string): Promise<Row | null> {
 
 // Load the save, run `fn` on it (plus upkeep), write it back with an optimistic lock.
 // Retries if another request changed the save in between.
-async function withSave(uid: string, fn: (g: any, now: number) => any) {
+// After a Game Over only `me`, `restart` and `newCommander` may touch the save.
+async function withSave(uid: string, fn: (g: any, now: number) => any, allowGameOver = false) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const row = await loadRow(uid);
     if (!row) throw new Fail('No commander profile yet.', 409);
     const g = R.migrate(row.save);
+    if (g.gameOver && !allowGameOver) throw new Fail('Game over: your commander has no Soldiers left. Start a new commander first.', 409);
     const now = Date.now();
     const notes = R.upkeep(g, now);
     let out: any;
@@ -117,7 +120,7 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
   async me(uid) {
     const row = await loadRow(uid);
     if (!row) return { needsName: true };
-    return withSave(uid, (g, now) => ({ store: storeView(g, now) }));
+    return withSave(uid, (g, now) => ({ store: storeView(g, now) }), true);
   },
   async register(uid, b) {
     const name = String(b.display_name || '').trim();
@@ -128,6 +131,8 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
     if (r.error) throw new Fail(r.error.code === '23505' ? 'That name is taken.' : 'Could not create profile: ' + r.error.message, r.error.code === '23505' ? 400 : 500);
     return { save: g, name, notes: [], store: storeView(g, Date.now()) };
   },
+  restart: (uid) => withSave(uid, (g, now) => ({ ...restartAccount(g, now), store: storeView(g, now) }), true),
+  newCommander: (uid) => withSave(uid, (g, now) => ({ ...newCommander(g, now), store: storeView(g, now) }), true),
   heal: (uid, b) => withSave(uid, (g, now) => R.heal(g, b.soldier, now)),
   equip: (uid, b) => withSave(uid, (g) => R.equip(g, b.soldier, b.slot, b.item || null)),
   perk: (uid, b) => withSave(uid, (g) => R.choosePerk(g, b.soldier, b.perk)),

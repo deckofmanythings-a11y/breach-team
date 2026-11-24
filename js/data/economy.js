@@ -69,10 +69,13 @@ export const DISMISS_REFUND = 0;       // dismissing a Soldier refunds nothing
 
 // ---------- Names for generated recruits ----------
 export const FIRST_NAMES = {
-  m: ['Marcus', 'Diego', 'Kenji', 'Tomas', 'Ezra', 'Malik', 'Ivan', 'Owen', 'Rafael', 'Dmitri', 'Jonah', 'Kofi', 'Silas', 'Arjun', 'Bram', 'Cole'],
-  f: ['Ana', 'Yara', 'Mei', 'Freya', 'Imani', 'Zoe', 'Lena', 'Priya', 'Sasha', 'Noor', 'Talia', 'Rosa', 'Kira', 'Elena', 'Jun', 'Maeve'],
+  m: ['Marcus', 'Diego', 'Kenji', 'Tomas', 'Ezra', 'Malik', 'Ivan', 'Owen', 'Rafael', 'Dmitri', 'Jonah', 'Kofi', 'Silas', 'Arjun', 'Bram', 'Cole',
+      'Tariq', 'Wei', 'Chidi', 'Mateo', 'Ravi', 'Hemi', 'Takoda', 'Omar', 'Jin-ho', 'Kwame', 'Luis', 'Sanjay', 'Tavita', 'Yusuf', 'Hiroshi', 'Ayo', 'Nayeli', 'Bao', 'Elias', 'Kai'],
+  f: ['Ana', 'Yara', 'Mei', 'Freya', 'Imani', 'Zoe', 'Lena', 'Priya', 'Sasha', 'Noor', 'Talia', 'Rosa', 'Kira', 'Elena', 'Jun', 'Maeve',
+      'Amara', 'Leilani', 'Ximena', 'Aiyana', 'Fatima', 'Hana', 'Zainab', 'Lucia', 'Anjali', 'Malia', 'Nia', 'Soo-ah', 'Ayasha', 'Layla', 'Thandi', 'Linh', 'Valentina', 'Kalani', 'Ines', 'Wren'],
 };
-export const LAST_NAMES = ['Vance', 'Okafor', 'Reyes', 'Tanaka', 'Kowalski', 'Haddad', 'Mbeki', 'Novak', 'Castillo', 'Lindqvist', 'Park', 'Duarte', 'Brennan', 'Sato', 'Volkov', 'Achebe', 'Moreau', 'Quinn'];
+export const LAST_NAMES = ['Vance', 'Okafor', 'Reyes', 'Tanaka', 'Kowalski', 'Haddad', 'Mbeki', 'Novak', 'Castillo', 'Lindqvist', 'Park', 'Duarte', 'Brennan', 'Sato', 'Volkov', 'Achebe', 'Moreau', 'Quinn',
+  'Nguyen', 'Mensah', 'Patel', 'Kealoha', 'Begay', 'Al-Amin', 'Hernandez', 'Kim', 'Adeyemi', 'Singh', 'Tupou', 'Redcloud', 'Chen', 'Mahmoud', 'Ortiz', 'Nakamura', 'Diallo', 'Rangi', 'Iyer', 'Santos', 'Yazzie', 'Farouk'];
 export const CALLSIGNS = ['Ghost', 'Hammer', 'Doc', 'Sparks', 'Tank', 'Viper', 'Patch', 'Bishop', 'Rook', 'Static', 'Brick', 'Echo', 'Wraith', 'Lucky', 'Fuse', 'Sarge', 'Hex', 'Moth'];
 export const SEXES = ['m', 'f'];
 // Default armor/accent colour pairs for new recruits (player can change them freely).

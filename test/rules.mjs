@@ -189,5 +189,45 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   }
 }
 
+// Faces, Game Over and starting over
+{
+  const C = await import('../js/game/commander.js');
+  const { LOOK_COUNT } = await import('../js/data/looks.js');
+  const looks = new Set();
+  for (let i = 0; i < 40; i++) for (const s of R.newGame().soldiers) looks.add(s.look);
+  ok(looks.size === LOOK_COUNT, `recruits get every face (${looks.size}/${LOOK_COUNT})`);
+  const g0 = R.newGame(); const s0 = g0.soldiers[0];
+  R.customize(g0, s0.uid, { look: 3 }); ok(s0.look === 3, 'face can be chosen');
+  R.customize(g0, s0.uid, { look: 99 }); ok(s0.look === 3, 'bad face rejected');
+  ok(R.engineSoldier(g0, s0).look === 3, 'face rides along in the engine input (for playback)');
+
+  // Game Over: send everyone on a doomed run until the roster is empty.
+  let g = R.newGame(), over = null, tries = 0;
+  g.memorial.push({ uid: 'old', name: 'Old Timer', specialty: 'assault', stats: {}, kills: 1 });
+  g.mothership = { level: 2 };
+  while (!g.gameOver && tries++ < 400) {
+    for (const s of g.soldiers) { s.injuries = []; s.status = 'ready'; s.stats = { hp: 1, aim: 1, arm: 0, spd: 1, grit: 0, tech: 0, stl: 0 }; }
+    const squad = g.soldiers.slice(0, 4).map(s => s.uid);
+    if (!squad.length) break;
+    const m = R.runMission(g, { ship: 'corvette', entry: 'vent_crawl', tactic: 'blitz', retreat: 'shuttle', squad: squad.slice(0, 3) });
+    if (m.report.gameOver) over = m.report;
+    if (!g.gameOver) g.soldiers = g.soldiers.filter(s => squad.slice(0, 3).includes(s.uid));   // keep only the doomed squad
+  }
+  ok(g.gameOver && over && g.soldiers.length === 0, `a mission with no survivors ends the game (${tries} runs)`);
+  R.upkeep(g, Date.now() + 3600e3);
+  ok(g.soldiers.length === 0, 'no free replacement after a Game Over');
+  const fallen = g.memorial.length;
+  g.bucs = 99999;
+  const r = C.newCommander(g);
+  ok(r.newCommander === 2 && g.generation === 2 && !g.gameOver, 'a new commander takes over');
+  ok(g.memorial.length === fallen && g.memorial.some(m => m.uid === 'old'), 'the Memorial Wall carries over');
+  ok(g.mothership && g.mothership.level === 2, 'the Mothership carries over');
+  ok(g.soldiers.length === 4 && g.missions === 0 && g.stats.missions === 0 && g.bucs !== 99999, 'fresh crew, fresh BUCs, fresh record');
+  let threw = false; try { C.newCommander(g); } catch { threw = true; }
+  ok(threw, 'no new commander without a Game Over');
+  C.restartAccount(g);
+  ok(g.memorial.length === 0 && !g.mothership && !g.generation && g.soldiers.length === 4, 'Restart Account wipes everything');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

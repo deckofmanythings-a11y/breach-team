@@ -4,6 +4,7 @@ import { ITEM_BY_ID, RARITY_BY_ID, AFFIX_BY_ID } from '../data/gear.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { COMMENDATION_BY_ID } from '../data/commendations.js';
 import { xpToReach, MAX_LEVEL } from '../data/stats.js';
+import { itemTipText } from './itemtip.js';   // new file: item + affix tooltips (hover / long-press)
 
 // A small medal ribbon. earned=false draws it greyed out (for the "still to earn" list).
 export function ribbon(id, earned = true) {
@@ -35,7 +36,7 @@ export function closeModal() { const m = document.getElementById('modal'); m.hid
 const ICON = { assault: 'AS', breacher: 'BR', marksman: 'MK', medic: 'MD', tech: 'TC', heavy: 'HV', infiltrator: 'IN' };
 export function avatar(s, size = 44) {
   const [a, b] = s.colors || ['#456', '#fb0'];
-  return `<div class="avatar" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}" data-b="${b}" style="width:${size}px;height:${size}px;background-color:${a};border-color:${b}" title="${SPECIALTY_BY_ID[s.specialty]?.name || ''}">${ICON[s.specialty] || '?'}</div>`;
+  return `<div class="avatar" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}" data-look="${s.look || 0}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}" data-b="${b}" style="width:${size}px;height:${size}px;background-color:${a};border-color:${b}" title="${SPECIALTY_BY_ID[s.specialty]?.name || ''}">${ICON[s.specialty] || '?'}</div>`;
 }
 export function statGrid(st) {
   return `<div class="stats">${STATS.map(k => `<div title="${STAT_INFO[k].name}: ${STAT_INFO[k].desc}"><b>${st[k]}</b><span>${STAT_INFO[k].short}</span></div>`).join('')}</div>`;
@@ -45,7 +46,7 @@ export function itemLabel(it, plain = false) {
   const aff = (it.affixes || []).map(a => AFFIX_BY_ID[a.id].name);
   const name = (aff.length ? aff.join(' ') + ' ' : '') + base.name;
   if (plain) return `${name} [${r.name}]`;
-  return `<span class="rar-${it.rarity}"><b>${esc(name)}</b></span> <span class="small rar-${it.rarity}">${r.name}</span>`;
+  return `<span class="has-tip" data-tip="${esc(itemTipText(it))}"><span class="rar-${it.rarity}"><b>${esc(name)}</b></span> <span class="small rar-${it.rarity}">${r.name}</span>${aff.length ? ' <span class="tip-i">ⓘ</span>' : ''}</span>`;
 }
 export function timeLeft(until) {
   const ms = Math.max(0, until - Date.now()); const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);

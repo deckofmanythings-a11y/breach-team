@@ -3,6 +3,14 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.0', date: '2026-11-24', items: [
+    'New Home page: your commander at a glance, with your top Soldiers, service record, the current contract, your last mission and quick links.',
+    'Restart Account (on the Home page): wipe all progress and start over with a fresh squad.',
+    'Game Over: if a mission ends with no living Soldiers, your commander is relieved. A new commander takes over with a fresh crew and starting BUCs, and the Memorial Wall carries over.',
+    'Sound effects: gunfire for every weapon type, breaching charges, alarms, alien screams, pack openings, victory and defeat stingers. Use the speaker button in the top bar to mute or set the volume.',
+    'Hover over (or long-press) any item to see exactly what it and each of its affixes do. The equipped item’s affixes also show under each gear slot.',
+    "Eight faces for every Soldier: recruits now come from all over Earth, with many more names. Pick a Soldier's face on their page.",
+  ] },
   { v: '0.6.4', date: '2026-11-24', items: [
     'Bigger Barracks cards: each Soldier now shows their full painted portrait in their own colours, with larger, easier-to-read stats.',
   ] },

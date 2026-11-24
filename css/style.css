@@ -134,3 +134,67 @@ table.rep { width: 100%; border-collapse: collapse; } table.rep td, table.rep th
 .scard-xp .bar { flex: 1; height: 7px; }
 .scard-foot { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: #b6c6d4; }
 .scard .ribbons { margin-top: 8px; }
+
+/* Big square portraits outside the Barracks (Home, Game Over, sign-in strip) */
+.portrait.face { aspect-ratio: 1 / 1; border-radius: 10px; background: linear-gradient(160deg, var(--sa, #345), #0b0f14) center / cover no-repeat; border: 2px solid var(--line); }
+.portrait.face.loaded { background-color: transparent; }
+button.big { padding: 10px 18px; font-size: 15px; font-weight: 700; }
+
+/* Sign-in landing */
+.landing { max-width: 980px; margin: 10px auto 18px; text-align: center; }
+.landing-title { font: 700 clamp(40px, 8vw, 76px)/1 Rajdhani, sans-serif; letter-spacing: .14em; text-shadow: 0 4px 18px #000; }
+.landing-title span { color: var(--accent); }
+.landing-sub { margin: 8px 0 18px; font-size: 17px; color: #c8d6e2; }
+.face-strip { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+@media (max-width: 700px) { .face-strip { grid-template-columns: repeat(4, 1fr); } }
+
+/* Home */
+.home { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; padding: 18px; align-items: center;
+  background: linear-gradient(120deg, #142233, var(--panel) 60%); }
+.hero-faces { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hero .kicker { font: 700 14px Rajdhani, sans-serif; letter-spacing: .2em; text-transform: uppercase; color: var(--accent2); }
+.hero h1 { font-size: clamp(32px, 5vw, 52px); line-height: 1.05; margin: 2px 0 8px; }
+.hero-sub { font-size: 16px; color: #c8d6e2; }
+.hero-actions { margin-top: 16px; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.home-grid .card { padding: 14px 16px; } .home-grid ul { margin: 0; padding-left: 18px; } .home-grid li { margin-bottom: 4px; }
+.home-record { grid-template-columns: repeat(2, 1fr) !important; }
+.danger-zone { border-color: #5a1f1f; background: #1a1012; }
+
+/* Game Over */
+.gameover { max-width: 900px; margin: 10px auto; text-align: center; display: grid; gap: 16px; }
+.go-title { font: 700 clamp(48px, 10vw, 96px)/1 Rajdhani, sans-serif; letter-spacing: .12em; color: var(--bad); text-shadow: 0 0 30px rgba(239, 68, 68, .45), 0 4px 10px #000; }
+.go-sub { font-size: 17px; color: #c8d6e2; margin: 0; }
+.go-fallen { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.go-soldier { width: 150px; } .go-soldier .portrait { filter: grayscale(.9) brightness(.75); margin-bottom: 6px; }
+.go-card { text-align: center; padding: 18px; } .go-card p { color: #c8d6e2; }
+
+/* Face picker */
+.face-pick { flex-wrap: wrap; gap: 6px; }
+.face-btn { padding: 2px; border-radius: 50%; background: transparent; border: 2px solid transparent; }
+.face-btn.on { border-color: var(--accent); }
+.go-record { grid-template-columns: repeat(4, minmax(110px, 140px)) !important; justify-content: center; }
+
+/* Sound control */
+.sound-ctl { position: relative; display: flex; gap: 2px; }
+.sound-ctl button { padding: 6px 9px; }
+.sound-pop { position: absolute; top: 110%; right: 0; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; white-space: nowrap; box-shadow: 0 6px 20px #000a; }
+.sound-pop input { vertical-align: middle; width: 140px; }
+
+/* Item tooltips (hover / long-press) */
+.has-tip { cursor: help; -webkit-touch-callout: none; user-select: none; }
+.tip-i { font-size: 11px; color: var(--accent2); }
+.tip { position: fixed; z-index: 100; max-width: 320px; padding: 9px 12px; background: #0a1118f2; border: 1px solid var(--accent2); border-radius: 8px;
+  color: var(--text); font-size: 13px; line-height: 1.5; white-space: pre-line; pointer-events: none; box-shadow: 0 8px 24px #000c; }
+.gear-cur { margin: -2px 0 4px 70px; }
+
+/* Phones: nav becomes one full-width row you can swipe sideways, under the logo / BUCs */
+@media (max-width: 760px) {
+  #topbar { gap: 8px; }
+  #nav { order: 10; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  #nav::-webkit-scrollbar { display: none; }
+  #topbar .ver { display: none; }
+  #acct { font-size: 12px; padding: 5px 8px; }
+}

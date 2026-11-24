@@ -17,6 +17,8 @@ import { soldierToken, unitToken, FACTION_RING, loadImage, floorSrc } from '../r
 import { computeBarks } from './barks.js';
 import { EGG_BY_ID } from '../data/easter-eggs.js';
 import { SHIP_BY_ID as SHIPS_ALL } from '../data/ships.js';
+import { ITEM_BY_ID } from '../data/gear.js';
+import * as sfx from '../audio/sfx.js';
 
 let PIXI = null;
 let current = null;   // active playback (destroyed when leaving)
@@ -133,8 +135,8 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   let alarm = 0, hold = 0, holdNeed = OBJECTIVES.take_bridge.ticks, tick = 0, ei = 0, speed = 1, done = false;
   const colorsByUnit = {}, sexByUnit = {};
   const squadIn = report.input?.squad || [];
-  const portraitByUnit = {};
-  battle.soldiers.forEach((s, i) => { colorsByUnit[s.unit] = colors[s.uid] || ['#3a5a8c', '#f2c14e']; sexByUnit[s.unit] = squadIn[i]?.sex || 'm'; portraitByUnit[s.unit] = squadIn[i]?.portrait; });
+  const portraitByUnit = {}, lookByUnit = {};
+  battle.soldiers.forEach((s, i) => { colorsByUnit[s.unit] = colors[s.uid] || ['#3a5a8c', '#f2c14e']; sexByUnit[s.unit] = squadIn[i]?.sex || 'm'; portraitByUnit[s.unit] = squadIn[i]?.portrait; lookByUnit[s.unit] = squadIn[i]?.look || 0; });
   const eggs = map.features.filter(f => f.kind === 'eggs').map(f => ({ x: f.x, y: f.y, hatched: false }));
   const confusedUntil = {};
   let gravity = 'normal';
@@ -154,10 +156,10 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     if (info[u.id].shellOf !== undefined) {
       // A possessed Soldier: their own portrait in a sickly green ring.
       const host = info[u.id].shellOf;
-      const s = { specialty: u.kind, sex: sexByUnit[host], portrait: portraitByUnit[host], colors: [colorsByUnit[host]?.[0] || '#3a5a8c', '#5dff6a'] };
+      const s = { specialty: u.kind, sex: sexByUnit[host], look: lookByUnit[host], portrait: portraitByUnit[host], colors: [colorsByUnit[host]?.[0] || '#3a5a8c', '#5dff6a'] };
       mk = (grey) => soldierToken(s, { grey });
     } else if (info[u.id].side === 'S' && u.kind !== 'sys_drone') {
-      const s = { specialty: u.kind, sex: sexByUnit[u.id], portrait: portraitByUnit[u.id], colors: colorsByUnit[u.id] };
+      const s = { specialty: u.kind, sex: sexByUnit[u.id], look: lookByUnit[u.id], portrait: portraitByUnit[u.id], colors: colorsByUnit[u.id] };
       mk = (grey) => soldierToken(s, { grey });
     } else {
       const ring = u.side === 'S' ? '#3dd6ff' : (FACTION_RING[def?.faction] || '#9aa4ad');
@@ -336,11 +338,42 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const endTick = battle.ticks;
   const clock = wrap.querySelector('#clock'), alarmEl = wrap.querySelector('#alarm'), holdEl = wrap.querySelector('#hold'), gravEl = wrap.querySelector('#grav');
   if (report.secret) say(0, `⚠ Contact mismatch: this isn't the ${esc(SHIPS_ALL[report.plannedShip]?.name || 'ship you picked')}. It's the <b>${esc(ship.name)}</b>.`, 'bad');
+  // Sound: weapon type per unit (squad from their gear, enemies from their unit definition).
+  const wtype = {};
+  battle.soldiers.forEach((s, i) => { wtype[s.unit] = ITEM_BY_ID[squadIn[i]?.gear?.weapon?.base]?.type || 'pistol'; });
+  for (const u of battle.units) if (wtype[u.id] === undefined) wtype[u.id] = ITEM_BY_ID[UNIT_BY_ID[u.kind]?.weapon]?.type || null;
+  function sound(e) {
+    const [, k] = e;
+    switch (k) {
+      case 'shot': if (wtype[e[2]]) sfx.shot(wtype[e[2]], { hit: e[4] > 0, crit: e[5], enemy: info[e[2]]?.side === 'E' }); break;
+      case 'ricochet': sfx.shot('pistol', { enemy: true }); break;
+      case 'door': if (e[3] === 'breach') sfx.boom(); break;
+      case 'grenade': sfx.boom(true); break;
+      case 'alarm': sfx.alarm(e[2]); break;
+      case 'down': if (info[e[2]]?.side === 'S') sfx.down(); else sfx.enemyDown(); break;
+      case 'dead': if (info[e[2]]?.side === 'E') sfx.enemyDown(); break;
+      case 'heal': sfx.heal(); break;
+      case 'revive': if (e[4]) sfx.revive(); break;
+      case 'extract': sfx.teleport(); break;
+      case 'objdone': sfx.objective(e[2] === 'take_bridge'); break;
+      case 'retreat': sfx.retreat(); break;
+      case 'hatch': sfx.hatch(); break;
+      case 'acid': sfx.sizzle(); break;
+      case 'fire': sfx.fire(); break;
+      case 'smoke': sfx.sizzle(); break;
+      case 'gravity': sfx.gravity(e[2]); break;
+      case 'spores': sfx.spores(); break;
+      case 'turret': case 'sabotage': case 'hazard_off': sfx.blip(true); break;
+      case 'misfire': case 'scramble': sfx.blip(false); break;
+      case 'ability': if (e[3] === 'cloak') sfx.teleport(); break;
+    }
+  }
+  const stopHum = sfx.hum();
   let lastSquad = 0;
   function step(dt) {
     if (!done) {
       tick = Math.min(endTick, tick + (dt / 1000) * TICKS_PER_SEC * speed);
-      while (ei < events.length && events[ei][0] <= tick) apply(events[ei++]);
+      while (ei < events.length && events[ei][0] <= tick) { const e = events[ei++]; apply(e); if (tick - e[0] < 4) sound(e); }   // no sound for events skipped past
       while (bi < barks.length && barks[bi].t <= tick) showBark(barks[bi++]);
       for (const c of [...bubbles.children]) if (c.until <= tick) c.destroy();
       if (tick >= endTick && ei >= events.length) { done = true; setTimeout(() => finish(), 900); }
@@ -360,7 +393,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   wrap.querySelector('#skip').onclick = () => { tick = endTick; };
 
   let finished = false;
-  function finish() { if (finished) return; finished = true; drawSquad(); showReport(panel, battle, report, isReplay); }
+  function finish() { if (finished) return; finished = true; stopHum(); drawSquad(); showReport(panel, battle, report, isReplay); }
   current = { destroy() { app.destroy(true, { children: true }); current = null; } };
   const stop = () => { G.holdBucs(0); if (current) current.destroy(); window.removeEventListener('hashchange', stop); };
   window.addEventListener('hashchange', stop);
@@ -369,6 +402,9 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
 // ---------- Report ----------
 function showReport(panel, battle, report, isReplay) {
   G.holdBucs(0);
+  sfx.stopHum();
+  if (report.gameOver) sfx.gameOver(); else if (battle.result === 'success') sfx.victory(); else sfx.defeat();
+  if (report.soldiers?.some(s => s.levelUps?.length)) setTimeout(() => sfx.levelUp(), 1300);
   const title = { success: 'SHIP TAKEN', retreat: 'RETREAT', wipe: 'SQUAD LOST' }[battle.result];
   const fateTxt = (s) => {
     if (s.fate === 'kia') return `<span class="bad"><b>KILLED IN ACTION</b></span>${s.state === 'left' ? ' (left aboard, gear lost)' : ''}${s.kiaChance ? ` <span class="dim small">${s.kiaChance}% chance</span>` : ''}`;
@@ -380,6 +416,7 @@ function showReport(panel, battle, report, isReplay) {
     <h2 class="result-${battle.result}" style="font-size:34px">${title}</h2>
     <div class="dim">${esc(report.shipName)} · ${(battle.ticks / TICKS_PER_SEC).toFixed(0)} s · ${battle.enemies.killed} enemies killed${battle.objectives.filter(o => o.done && o.id !== 'take_bridge').map(o => ' · ✔ ' + OBJECTIVES[o.id].name).join('')}</div>
     <div style="font:700 26px Rajdhani;margin:10px 0">+${report.bucs} BUCs</div>
+    ${report.gameOver ? '<div class="banner bad"><b>No Soldiers left.</b> This was your commander&rsquo;s last mission.</div>' : ''}
     ${report.contract ? `<div class="banner info">Contract score: <b>${report.contract.score}</b>. Check the Ladder to see where it ranks.</div>` : ''}
     <table class="rep"><tr><th>Soldier</th><th>Outcome</th><th>Injuries</th><th>XP</th></tr>
       ${report.soldiers.map(s => `<tr><td><b>${esc(s.name)}</b><div class="small dim">${SPECIALTY_BY_ID[s.specialty].name} · ${s.kills} kills</div></td>

@@ -79,7 +79,7 @@ Average stats by level (from `npm run check`):
 
 ### Customization
 
-Name, sex (picks the body sprite set), primary and accent colour, optional callsign. Purely cosmetic.
+Name, sex, face (eight faces from all over Earth for every specialty), primary and accent colour, optional callsign. Purely cosmetic. Recruits arrive with a random face; change it on the Soldier's page.
 
 ## 5. Injuries, death and healing
 
@@ -102,6 +102,10 @@ Rear Guard volunteers who fall get 80% of the left-behind death chance.
 **Injuries** heal in real minutes (10–60, never more than 60). Minor injuries apply penalties but the Soldier can still deploy. **A major injury benches the Soldier until healed.** Instant heal costs 20 BUCs (minor) or 60 BUCs (major) at full time, pro-rated by time left.
 
 Fallen Soldiers go to the **Memorial Wall**.
+
+**Game Over.** If a mission ends and you have **no living Soldiers left** (Missing Soldiers count as alive), your commander is relieved. A new commander takes over with a fresh starter squad and starting BUCs; gear, records, stats and the Mission Log start over. The **Memorial Wall** (and, once it exists, the **Mothership**) carries over. Fleet Command does not send a free replacement after a Game Over.
+
+**Restart Account** (Home page) wipes everything, Memorial Wall included, and starts a brand-new commander under the same name. Contract runs already on the current leaderboard stay there.
 
 ## 6. Equipment
 

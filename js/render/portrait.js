@@ -20,7 +20,7 @@ export function portraitURL(s, size = 256) {
 export function hydratePortraits(root = document) {
   for (const el of root.querySelectorAll('.portrait[data-tok]:not([data-done])')) {
     el.dataset.done = '1';
-    const s = { specialty: el.dataset.spec, sex: el.dataset.sex, portrait: el.dataset.portrait || undefined, colors: [el.dataset.a] };
+    const s = { specialty: el.dataset.spec, sex: el.dataset.sex, look: +el.dataset.look || 0, portrait: el.dataset.portrait || undefined, colors: [el.dataset.a] };
     portraitURL(s).then(url => { el.style.backgroundImage = `url(${url})`; el.classList.add('loaded'); }).catch(() => {});
   }
 }

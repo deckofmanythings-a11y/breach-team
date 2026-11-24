@@ -24,6 +24,16 @@ export const TOKENS = [];
 for (const [spec, look] of Object.entries(SPECIALTY_LOOK)) for (const [sx, word] of Object.entries(SEX)) {
   TOKENS.push({ id: `soldier-${spec}-${sx}`, group: 'soldier', prompt: `a ${word}, starship boarding trooper, ${look}, ${SOLDIER_ARMOR}`, negative: 'helmet, visor, face mask, gas mask, respirator, covered face' });
 }
+// Extra faces (js/data/looks.js): the same Soldier art in many ethnicities.
+import { LOOKS } from '../../js/data/looks.js';
+// The Tech's cyan visor turned the whole armor teal on new faces (breaks the recolor): tamer look for them.
+const LOOK_SPEC = { ...SPECIALTY_LOOK,
+  marksman: 'sniper, bare head with short hair, no hood, a targeting monocle over one eye, a long rifle over the shoulder, calm eyes',
+  breacher: 'breacher, bare head with short hair, demolition charges strapped to the chest, soot-smudged face',
+  tech: 'tech specialist, bare head, a small earpiece and a cable-linked data pad on the forearm, focused eyes' };
+for (const L of LOOKS.slice(1)) for (const [spec, look] of Object.entries(LOOK_SPEC)) for (const [sx, word] of Object.entries(SEX)) {
+  TOKENS.push({ id: `soldier-${spec}-${sx}-${L.id}`, group: 'soldier', prompt: `a ${word} ${L.prompt}, starship boarding trooper, ${look}, ${SOLDIER_ARMOR}`, negative: 'helmet, visor, face mask, gas mask, respirator, covered face, green skin, hood over the head, skull' + (spec === 'tech' ? ', cyan, teal, blue armor, glowing visor' : '') + (L.id === 7 ? ', face paint, war paint, tribal markings, feathers, headdress, copper armor, bronze armor' : '') });
+}
 
 const ENEMY = {
   // Void Pirates: rust/orange, ragged, mismatched

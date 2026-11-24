@@ -10,6 +10,10 @@ import { renderDeploy } from './deploy.js?v=6';
 import { renderStore } from './store.js?v=2';
 import { renderLadder } from './ladder.js?v=2';
 import './../render/portrait.js';
+import { renderHome, renderGameOver, faceStrip } from './home.js';
+import { LOOKS } from '../data/looks.js';
+import * as sfx from '../audio/sfx.js';
+import { itemTipText, affixSummary } from './itemtip.js';
 import { setContract } from './deploy.js?v=6';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
@@ -22,13 +26,13 @@ import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 
-export const APP_VERSION = '0.6.4';
+export const APP_VERSION = '0.7.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
 const nav = document.getElementById('nav');
 const acct = document.getElementById('acct');
-let route = location.hash.slice(1).split('&')[0] || 'barracks';
+let route = location.hash.slice(1).split('&')[0] || 'home';
 let authMode = api.isRecoveryLink ? 'recover' : 'signin';
 
 function refreshTop() {
@@ -38,6 +42,23 @@ function refreshTop() {
   acct.hidden = !on; acct.textContent = on ? `${G.playerName()} · Sign out` : '';
 }
 G.onChange(refreshTop);
+
+// Sound: a speaker button in the top bar (click = mute/unmute, the arrow opens a volume slider),
+// and a soft click on every button press.
+{
+  const box = el(`<div class="sound-ctl"><button id="snd" title="Sound on/off"></button><button id="sndv" title="Volume">▾</button>
+    <div class="sound-pop" hidden><label class="small">Volume <input type="range" min="0" max="100" id="sndr"></label></div></div>`);
+  document.getElementById('whatsnew').after(box);
+  const btn = box.querySelector('#snd'), pop = box.querySelector('.sound-pop'), range = box.querySelector('#sndr');
+  const sync = () => { btn.textContent = sfx.isMuted() || !sfx.getVolume() ? '🔇' : '🔊'; range.value = Math.round(sfx.getVolume() * 100); };
+  sync(); sfx.onSettings(sync);
+  btn.onclick = () => { sfx.setMuted(!sfx.isMuted()); if (!sfx.isMuted()) sfx.click(); };
+  box.querySelector('#sndv').onclick = () => { pop.hidden = !pop.hidden; };
+  range.oninput = () => { sfx.setMuted(false); sfx.setVolume(range.value / 100); };
+  range.onchange = () => sfx.click();
+  document.addEventListener('click', (e) => { if (!box.contains(e.target)) pop.hidden = true; });
+  document.addEventListener('pointerdown', (e) => { if (e.target.closest('button') && !box.contains(e.target)) setTimeout(() => sfx.click(), 0); }, true);
+}
 
 export function go(r) { route = r; if (location.hash.slice(1) !== r) location.hash = r; render(); }
 setExit(go);
@@ -55,10 +76,13 @@ async function run(fn) {
 }
 
 export function render() {
+  sfx.stopHum();
   refreshTop();
   for (const b of document.querySelectorAll('#nav button')) b.classList.toggle('on', b.dataset.go === route);
   panel.innerHTML = '';
   if (!G.signedIn()) { if (route === 'codex') return renderCodex(panel); return needsName ? nameScreen() : authScreen(); }
+  if (G.state().gameOver && !['memorial', 'codex', 'log'].includes(route)) return renderGameOver(panel, { go, run });
+  if (route === 'home') return renderHome(panel, { go, run, boardContract: (c) => { setContract(c); go('deploy'); } });
   if (route === 'deploy') return renderDeploy(panel);
   if (route === 'store') return renderStore(panel, run);
   if (route === 'armory') return renderArmory();
@@ -66,7 +90,8 @@ export function render() {
   if (route === 'memorial') return renderMemorial();
   if (route === 'codex') return renderCodex(panel);
   if (route === 'ladder') return renderLadder(panel, { boardContract: (c) => { setContract(c); go('deploy'); } });
-  route = 'barracks'; renderBarracks();
+  if (route === 'barracks') return renderBarracks();
+  route = 'home'; render();
 }
 
 // Healing timers tick visibly; when one runs out, the server heals it on the next refresh.
@@ -79,6 +104,7 @@ setInterval(async () => {
 let needsName = false;
 function authScreen() {
   const recovering = authMode === 'recover';
+  if (!recovering) panel.append(el(`<div class="landing"><div class="landing-title">BREACH <span>TEAM</span></div><div class="landing-sub">Pick your squad. Choose your way in. Take the ship, or don't come back.</div>${faceStrip(8)}</div>`));
   const wrap = el(`<div class="auth card">
     <h2>${recovering ? 'Set a new password' : authMode === 'signup' ? 'Create account' : authMode === 'forgot' ? 'Reset password' : 'Sign in'}</h2>
     <p class="dim">${recovering ? 'Choose a new password for your account.' : 'Command a squad of boarders, take enemy ships, and climb the ladder with your friends. Your roster is saved online.'}</p>
@@ -119,7 +145,7 @@ function nameScreen() {
     <a href="#" id="so" class="small">Sign out</a></div>`);
   wrap.querySelector('#nf').onsubmit = async (e) => {
     e.preventDefault();
-    try { await G.register(wrap.querySelector('#dn').value); needsName = false; toast('Welcome aboard, Commander. Your starter squad is ready.'); go('barracks'); }
+    try { await G.register(wrap.querySelector('#dn').value); needsName = false; toast('Welcome aboard, Commander. Your starter squad is ready.'); go('home'); }
     catch (er) { wrap.querySelector('#nerr').textContent = er.message; }
   };
   wrap.querySelector('#so').onclick = async (e) => { e.preventDefault(); await api.signOut(); needsName = false; render(); };
@@ -143,7 +169,7 @@ function soldierCard(s) {
   const [a, b] = s.colors || ['#3a5a8c', '#f2c14e'];
   const next = s.level >= MAX_LEVEL ? null : xpToReach(s.level + 1);
   return el(`<div class="card click scard ${c}" style="--sa:${a};--sb:${b}">
-    <div class="portrait scard-art" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}">
+    <div class="portrait scard-art" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}" data-look="${s.look || 0}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}">
       <div class="scard-tags"><span class="tag ${c}">${{ healthy: 'Ready', wounded: 'Wounded', benched: 'Recovering', mia: 'Missing' }[c]}</span>
         ${nextUntil ? `<span class="tag timer" data-until="${nextUntil}">${timeLeft(nextUntil)}</span>` : ''}
         ${s.pendingPerks.length ? '<span class="tag perk">Perk!</span>' : ''}</div>
@@ -227,6 +253,7 @@ export function openSoldier(s) {
     <h3 style="margin-top:14px">Gear</h3><div id="gear" style="display:grid;gap:6px"></div>
 
     <h3 style="margin-top:14px">Customize</h3>
+    ${s.portrait ? '' : `<div class="small dim" style="margin-bottom:4px">Face</div><div class="row face-pick" style="margin-bottom:8px">${LOOKS.map(L => `<button class="face-btn${(s.look || 0) === L.id ? ' on' : ''}" data-look="${L.id}" title="${L.name}">${avatar({ ...s, look: L.id }, 48)}</button>`).join('')}</div>`}
     <div class="row">
       <label>Name <input id="nm" value="${esc(s.name)}" maxlength="28"></label>
       <label>Callsign <input id="cs" value="${esc(s.callsign)}" maxlength="16" style="width:110px"></label>
@@ -258,19 +285,20 @@ export function openSoldier(s) {
   for (const slot of SLOTS) {
     const cur = s.gear[slot] && G.itemById(s.gear[slot]);
     if (cur && ITEM_BY_ID[cur.base].builtin) {   // fused in: shown, never changeable
-      gear.append(el(`<div class="row"><span style="width:62px" class="dim">${slot[0].toUpperCase() + slot.slice(1)}</span><span style="flex:1"><b>${esc(itemLabel(cur, true))}</b> <span class="small dim">(built in)</span><div class="small dim"><i>${esc(ITEM_BY_ID[cur.base].flavor || '')}</i></div></span></div>`));
+      gear.append(el(`<div class="row"><span style="width:62px" class="dim">${slot[0].toUpperCase() + slot.slice(1)}</span><span style="flex:1">${itemLabel(cur)} <span class="small dim">(built in)</span><div class="small dim"><i>${esc(ITEM_BY_ID[cur.base].flavor || '')}</i></div></span></div>`));
       continue;
     }
     const opts = S.items.filter(it => ITEM_BY_ID[it.base].slot === slot && !ITEM_BY_ID[it.base].builtin && G.canWield(s, it))
       .sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity));
     const sel = el(`<select style="flex:1"><option value="">— empty —</option>${opts.map(it => {
       const who = G.equippedBy(it.uid);
-      return `<option value="${it.uid}" ${cur && cur.uid === it.uid ? 'selected' : ''}>${esc(itemLabel(it, true))}${who && who !== s ? ` (on ${esc(who.name)})` : ''}</option>`;
+      return `<option value="${it.uid}" title="${esc(itemTipText(it))}" ${cur && cur.uid === it.uid ? 'selected' : ''}>${esc(itemLabel(it, true))}${who && who !== s ? ` (on ${esc(who.name)})` : ''}</option>`;
     }).join('')}</select>`);
     sel.onchange = async () => { await run(() => G.act('equip', { soldier: s.uid, slot, item: sel.value || null })); reopen(); };
     const row = el(`<div class="row"><span style="width:62px" class="dim">${slot[0].toUpperCase() + slot.slice(1)}</span></div>`);
     row.append(sel);
     gear.append(row);
+    if (cur) gear.append(el(`<div class="small gear-cur">${itemLabel(cur)}${cur.affixes?.length ? ` <span class="affix">${esc(affixSummary(cur))}</span>` : ''}</div>`));
     if (slot === 'weapon') gear.append(el(`<div class="small dim">Can use: ${sp.weapons.join(', ')}</div>`));
   }
 
@@ -280,6 +308,7 @@ export function openSoldier(s) {
     if (await run(() => G.act('customize', { soldier: s.uid, fields }))) { const n = G.soldierById(s.uid); box.querySelector('.avatar').outerHTML = avatar(n, 56); render(); }
   };
   for (const id of ['nm', 'cs', 'sx', 'c1', 'c2']) box.querySelector('#' + id).onchange = saveCustom;
+  for (const b of box.querySelectorAll('.face-btn')) b.onclick = async () => { if (await run(() => G.act('customize', { soldier: s.uid, fields: { look: +b.dataset.look } }))) reopen(); };
   for (const b of box.querySelectorAll('.preset')) b.onclick = () => { const p = COLOR_PRESETS[+b.dataset.i]; box.querySelector('#c1').value = p[0]; box.querySelector('#c2').value = p[1]; saveCustom(); };
 
   box.querySelector('#x').onclick = closeModal;

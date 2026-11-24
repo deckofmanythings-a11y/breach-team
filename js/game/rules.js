@@ -19,6 +19,7 @@ import { EASTER_EGGS, EGG_BY_ID } from '../data/easter-eggs.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { PERK_LEVELS } from '../data/stats.js';
 import { COMMENDATIONS } from '../data/commendations.js';
+import { LOOK_COUNT } from '../data/looks.js';   // new file for new names
 import { CYBORG_PCT, CYBORG_EGG, CYBORG_CHASSIS, recoverable, rebuild } from './cyborg.js';   // hidden egg; new file for new names
 
 export class GameError extends Error {}
@@ -64,7 +65,7 @@ export function makeRecruit(rng, specialty, level = 1, now = Date.now()) {
     colors: COLOR_PRESETS[rng.int(COLOR_PRESETS.length)].slice(),
     specialty, level, xp: 0, stats: g.stats, perks: g.perks, pendingPerks: [],
     gear: {}, injuries: [], status: 'ready', miaUntil: 0, missions: 0, kills: 0, hired: now,
-    record: SERVICE_RECORD(), medals: [],
+    record: SERVICE_RECORD(), medals: [], look: rng.int(LOOK_COUNT),
   };
 }
 export function addItem(g, inst) { const it = { uid: uid('i'), base: inst.base, rarity: inst.rarity, affixes: inst.affixes || [] }; g.items.push(it); return it; }
@@ -102,7 +103,7 @@ export function effectiveStats(g, s) {
   return applyStatMods(s.stats, sumMods([...Object.values(gear).map(itemMods), ...s.injuries.map(i => INJURY_BY_ID[i.id].mods)]));
 }
 export function engineSoldier(g, s) {
-  return { uid: s.uid, name: s.name, sex: s.sex, portrait: s.portrait, colors: s.colors, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
+  return { uid: s.uid, name: s.name, sex: s.sex, look: s.look || 0, portrait: s.portrait, colors: s.colors, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
 }
 export const itemPrice = (it) => ITEM_PRICE[it.rarity] || 0;
 export const sellPrice = (it) => it.rarity === 'xeno' ? XENO_SELL : Math.floor((itemPrice(it) * SELL_PCT) / 100);
@@ -126,7 +127,7 @@ export function upkeep(g, now = Date.now()) {
     }
   }
   const ready = g.soldiers.filter(canDeploy).length;
-  if (ready < 2 && g.bucs < HIRE_PRICE && g.soldiers.length < ROSTER_CAP && now - (g.lastEmergency || 0) >= EMERGENCY_COOLDOWN_MS) {
+  if (!g.gameOver && ready < 2 && g.bucs < HIRE_PRICE && g.soldiers.length < ROSTER_CAP && now - (g.lastEmergency || 0) >= EMERGENCY_COOLDOWN_MS) {
     const rng = createRng(randomSeed());
     const sp = SPECIALTIES[rng.int(SPECIALTIES.length)];
     const s = makeRecruit(rng, sp.id, 1, now);
@@ -177,6 +178,7 @@ export function customize(g, sid, f) {
   if (typeof f.name === 'string') { const n = f.name.trim().slice(0, 28); if (n) s.name = n; }
   if (typeof f.callsign === 'string') s.callsign = f.callsign.trim().slice(0, 16);
   if (SEXES.includes(f.sex)) s.sex = f.sex;
+  if (Number.isInteger(f.look) && f.look >= 0 && f.look < LOOK_COUNT) s.look = f.look;
   if (Array.isArray(f.colors) && f.colors.length === 2 && f.colors.every(c => /^#[0-9a-f]{6}$/i.test(c))) s.colors = f.colors.slice();
   return {};
 }
@@ -402,6 +404,8 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
     g.soldiers.push(r); report.extras.push({ kind: 'recruit', name: r.name, specialty: r.specialty });
   }
   recordStats(g, input, battle, after, !!input.contractWeek);
+  // Game Over: nobody left alive (Missing Soldiers are alive). Only a new commander can carry on.
+  if (!g.soldiers.length) { g.gameOver = { at: now, ship: shipName, missions: g.missions }; report.gameOver = true; }
   g.history.unshift(report); g.history = g.history.slice(0, HISTORY_KEEP);
   return report;
 }
