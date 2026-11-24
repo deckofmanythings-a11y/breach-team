@@ -1,0 +1,138 @@
+// Soldier specialties: starting stats, how they grow, what they can carry, their signature
+// ability and their perk choices. Perks: one pick from each pair at levels 5, 10 and 15.
+// growth: weights for the level-up roll (sum 100). primary: the stat a Breakthrough boosts.
+
+export const SPECIALTIES = [
+  {
+    id: 'assault', name: 'Assault', icon: 'assault',
+    desc: 'Front-line rifleman. Fast, tough and happiest at close-to-mid range.',
+    base: { hp: 90, aim: 45, arm: 20, spd: 55, grit: 45, tech: 10, stl: 10 },
+    growth: { hp: 25, aim: 25, arm: 10, spd: 20, grit: 15, tech: 0, stl: 5 },
+    primary: 'aim',
+    weapons: ['carbine', 'rifle', 'smg', 'shotgun'],
+    ability: 'charge',
+    perks: [
+      [{ id: 'run_and_gun', name: 'Run and Gun', desc: 'Shoot while moving without the accuracy penalty.', mods: { aim: 5 }, flag: 'runAndGun' },
+       { id: 'bayonet_drill', name: 'Bayonet Drill', desc: 'Charge also knocks the target prone.', mods: { dmgPct: 5 }, flag: 'chargeKnockdown' }],
+      [{ id: 'adrenaline', name: 'Adrenaline', desc: '+15% damage while below half HP.', mods: {}, flag: 'adrenaline' },
+       { id: 'hardened', name: 'Hardened', desc: '+20 HP, +5 Armor.', mods: { hp: 20, arm: 5 } }],
+      [{ id: 'spearhead', name: 'Spearhead', desc: 'First into a room takes 25% less damage for 5 s.', mods: {}, flag: 'spearhead' },
+       { id: 'killing_spree', name: 'Killing Spree', desc: 'Each kill cuts Charge cooldown in half.', mods: { abilityCdPct: -10 }, flag: 'killingSpree' }],
+    ],
+  },
+  {
+    id: 'breacher', name: 'Breacher', icon: 'breacher',
+    desc: 'Door-kicker and demolitions expert. Opens sealed bulkheads and stuns whatever is behind them.',
+    base: { hp: 100, aim: 35, arm: 30, spd: 45, grit: 50, tech: 30, stl: 5 },
+    growth: { hp: 25, aim: 10, arm: 20, spd: 10, grit: 15, tech: 20, stl: 0 },
+    primary: 'arm',
+    weapons: ['shotgun', 'smg', 'carbine', 'blade'],
+    ability: 'breach_charge',
+    perks: [
+      [{ id: 'shaped_charges', name: 'Shaped Charges', desc: 'Breach Charge sets 40% faster.', mods: { breachSpeedPct: 40 } },
+       { id: 'concussive', name: 'Concussive', desc: 'Breach Charge stun lasts twice as long.', mods: {}, flag: 'longStun' }],
+      [{ id: 'door_ram', name: 'Door Ram', desc: '+10 Armor, +10% damage vs units in doorways.', mods: { arm: 10 }, flag: 'doorwayBonus' },
+       { id: 'close_quarters', name: 'Close Quarters', desc: '+15% damage at 2 tiles or less.', mods: { dmgPct: 5 }, flag: 'closeQuarters' }],
+      [{ id: 'blast_proof', name: 'Blast Proof', desc: 'Takes 50% less from explosions and decompression.', mods: { hazardResistPct: 50 } },
+       { id: 'chain_breach', name: 'Chain Breach', desc: 'Breach Charge also opens the next door in the path.', mods: {}, flag: 'chainBreach' }],
+    ],
+  },
+  {
+    id: 'marksman', name: 'Marksman', icon: 'marksman',
+    desc: 'Long-range specialist. Holds sightlines and punishes anything that steps into them.',
+    base: { hp: 70, aim: 65, arm: 10, spd: 45, grit: 45, tech: 15, stl: 25 },
+    growth: { hp: 15, aim: 35, arm: 5, spd: 10, grit: 15, tech: 5, stl: 15 },
+    primary: 'aim',
+    weapons: ['sniper', 'rifle', 'pistol'],
+    ability: 'overwatch',
+    perks: [
+      [{ id: 'deadeye', name: 'Deadeye', desc: '+10% crit chance.', mods: { critPct: 10 } },
+       { id: 'long_barrel', name: 'Long Barrel', desc: '+2 weapon range.', mods: { rangeAdd: 2 } }],
+      [{ id: 'kill_zone', name: 'Kill Zone', desc: 'Overwatch can fire up to 3 times.', mods: {}, flag: 'killZone' },
+       { id: 'armor_piercer', name: 'Armor Piercer', desc: '+3 Pierce.', mods: { pierce: 3 } }],
+      [{ id: 'one_shot', name: 'One Shot', desc: '+50% crit damage.', mods: { critDmgPct: 50 } },
+       { id: 'ghost_sniper', name: 'Ghost Sniper', desc: '+20 Stealth; shots from stealth do not reveal.', mods: { stl: 20 }, flag: 'silentShot' }],
+    ],
+  },
+  {
+    id: 'medic', name: 'Medic', icon: 'medic',
+    desc: 'Keeps the squad standing. The only reliable way to get a Downed Soldier back on their feet.',
+    base: { hp: 75, aim: 35, arm: 15, spd: 55, grit: 55, tech: 45, stl: 15 },
+    growth: { hp: 20, aim: 10, arm: 10, spd: 15, grit: 20, tech: 25, stl: 0 },
+    primary: 'tech',
+    weapons: ['pistol', 'smg', 'carbine'],
+    ability: 'patch_up',
+    perks: [
+      [{ id: 'triage', name: 'Triage', desc: '+25% healing.', mods: { healPct: 25 } },
+       { id: 'field_surgeon', name: 'Field Surgeon', desc: '+20% revive success.', mods: { reviveChance: 20 } }],
+      [{ id: 'combat_stims', name: 'Combat Stims', desc: 'Healed allies get +20% damage for 5 s.', mods: {}, flag: 'stims' },
+       { id: 'smoke_cover', name: 'Smoke Cover', desc: 'Reviving pops smoke (target counts as full cover).', mods: {}, flag: 'smokeRevive' }],
+      [{ id: 'guardian_angel', name: 'Guardian Angel', desc: 'Squad takes 15% lower KIA chance in the aftermath.', mods: { survivalPct: 15 }, flag: 'squadSurvival' },
+       { id: 'bedside_manner', name: 'Bedside Manner', desc: 'Squad injuries heal 25% faster.', mods: { healTimePct: -25 }, flag: 'squadHealTime' }],
+    ],
+  },
+  {
+    id: 'tech', name: 'Tech', icon: 'tech',
+    desc: 'Hacker and engineer. Turns enemy turrets, opens locked doors and shuts down hazards.',
+    base: { hp: 65, aim: 40, arm: 15, spd: 50, grit: 40, tech: 65, stl: 20 },
+    growth: { hp: 15, aim: 10, arm: 5, spd: 10, grit: 15, tech: 35, stl: 10 },
+    primary: 'tech',
+    weapons: ['pistol', 'smg', 'arc'],
+    ability: 'hack',
+    perks: [
+      [{ id: 'overclock', name: 'Overclock', desc: '+40% hack speed.', mods: { hackSpeedPct: 40 } },
+       { id: 'scanner', name: 'Scanner', desc: '+30% detection of hidden enemies and hazards.', mods: { detectPct: 30 } }],
+      [{ id: 'turret_whisperer', name: 'Turret Whisperer', desc: 'Hacked turrets fight for you instead of shutting down.', mods: {}, flag: 'turnTurrets' },
+       { id: 'hazard_control', name: 'Hazard Control', desc: 'Hack can shut down ship hazards.', mods: { hazardResistPct: 20 }, flag: 'disableHazards' }],
+      [{ id: 'combat_drone', name: 'Combat Drone', desc: 'Deploys a small drone that fights alongside the squad.', mods: {}, flag: 'drone' },
+       { id: 'system_crash', name: 'System Crash', desc: 'Hacking the bridge console cuts reinforcements.', mods: {}, flag: 'stopReinforcements' }],
+    ],
+  },
+  {
+    id: 'heavy', name: 'Heavy', icon: 'heavy',
+    desc: 'Walking fire support. Slow, armored, and pins down everything in front of them.',
+    base: { hp: 120, aim: 35, arm: 40, spd: 35, grit: 50, tech: 10, stl: 0 },
+    growth: { hp: 35, aim: 15, arm: 25, spd: 5, grit: 20, tech: 0, stl: 0 },
+    primary: 'hp',
+    weapons: ['lmg', 'flamer', 'shotgun'],
+    ability: 'suppressing_fire',
+    perks: [
+      [{ id: 'belt_fed', name: 'Belt Fed', desc: '+20% fire rate.', mods: { rofPct: 20 } },
+       { id: 'heavy_plating', name: 'Heavy Plating', desc: '+15 Armor, -5 Speed.', mods: { arm: 15, spd: -5 } }],
+      [{ id: 'pinned_down', name: 'Pinned Down', desc: 'Suppression is 40% stronger.', mods: { suppressPct: 40 } },
+       { id: 'immovable', name: 'Immovable', desc: 'Cannot panic.', mods: { grit: 10 }, flag: 'noPanic' }],
+      [{ id: 'walking_fortress', name: 'Walking Fortress', desc: 'Allies within 2 tiles take 15% less damage.', mods: {}, flag: 'fortressAura' },
+       { id: 'bullet_storm', name: 'Bullet Storm', desc: 'Suppressing Fire also deals full damage.', mods: { dmgPct: 10 }, flag: 'bulletStorm' }],
+    ],
+  },
+  {
+    id: 'infiltrator', name: 'Infiltrator', icon: 'infiltrator',
+    desc: 'Quiet killer. Scouts ahead, picks off stragglers and reaches objectives no one else can.',
+    base: { hp: 65, aim: 45, arm: 10, spd: 65, grit: 40, tech: 30, stl: 60 },
+    growth: { hp: 15, aim: 20, arm: 0, spd: 20, grit: 10, tech: 10, stl: 25 },
+    primary: 'stl',
+    weapons: ['pistol', 'smg', 'blade'],
+    ability: 'cloak',
+    perks: [
+      [{ id: 'backstab', name: 'Backstab', desc: 'Attacks from stealth always crit.', mods: {}, flag: 'stealthCrit' },
+       { id: 'light_feet', name: 'Light Feet', desc: '+10 Speed, +10 Stealth.', mods: { spd: 10, stl: 10 } }],
+      [{ id: 'saboteur', name: 'Saboteur', desc: 'Can plant charges on turrets and reactors.', mods: { breachSpeedPct: 20 }, flag: 'sabotage' },
+       { id: 'vanish', name: 'Vanish', desc: 'Cloak triggers automatically when first hit below 30% HP.', mods: {}, flag: 'autoCloak' }],
+      [{ id: 'assassin', name: 'Assassin', desc: '+25% damage vs leaders.', mods: { dmgVs: { leader: 25 } } },
+       { id: 'ghost_protocol', name: 'Ghost Protocol', desc: 'Cloak lasts 50% longer.', mods: { abilityCdPct: -10 }, flag: 'longCloak' }],
+    ],
+  },
+];
+
+// Signature abilities. cd/dur in ticks (10 ticks = 1 s at 1x).
+export const ABILITIES = {
+  charge:           { name: 'Charge',           cd: 120, dur: 0,  desc: 'Dash up to 3 tiles and fire a +25% damage shot.', power: { tiles: 3, dmgPct: 25 } },
+  breach_charge:    { name: 'Breach Charge',    cd: 200, dur: 0,  desc: 'Blow a sealed door or bulkhead. Enemies in the next room are stunned.', power: { setTicks: 30, stunTicks: 25 } },
+  overwatch:        { name: 'Overwatch',        cd: 150, dur: 60, desc: 'Free reaction shot at the first enemy that moves into line of sight.', power: { shots: 1 } },
+  patch_up:         { name: 'Patch Up',         cd: 100, dur: 0,  desc: 'Heal an ally, or try to revive a Downed one.', power: { heal: 30, techScale: 2, revive: 55 } },
+  hack:             { name: 'Hack',             cd: 160, dur: 0,  desc: 'Open a locked door, disable a turret, or use a terminal.', power: { hackTicks: 50 } },
+  suppressing_fire: { name: 'Suppressing Fire', cd: 140, dur: 40, desc: 'Spray a cone: enemies in it are Suppressed (-20 hit, slowed).', power: { coneTiles: 5, dmgPct: -50 } },
+  cloak:            { name: 'Cloak',            cd: 220, dur: 60, desc: 'Become invisible. The first attack from Cloak gets +50% damage.', power: { dmgPct: 50 } },
+};
+
+export const SPECIALTY_BY_ID = Object.fromEntries(SPECIALTIES.map(s => [s.id, s]));

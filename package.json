@@ -1,0 +1,6 @@
+{
+  "name": "breach-team",
+  "private": true,
+  "type": "module",
+  "scripts": { "check": "node test/data-check.mjs" }
+}
