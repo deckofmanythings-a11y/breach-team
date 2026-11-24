@@ -59,3 +59,51 @@ export const FLOORS = [
   { id: 'floor-military', prompt: 'olive grey steel deck plating, anti-slip diamond tread panels, stencilled markings, scuffed military' },
 ];
 for (const f of FLOORS) TOKENS.push({ ...f, group: 'floor', floor: true, negative: 'people, person, character, furniture, walls, perspective, horizon, corridor, hallway, vanishing point, ceiling, doorway, text, letters, numbers' });
+
+// ---- Phase 7: alien units (creatures: no humans unless they are hosts), alien floors, rare recruits ----
+const ALIEN = {
+  hive_drone:      'insectoid alien hive drone creature, glistening black chitin, elongated eyeless skull, dripping jaws, purple bioluminescent veins, no human',
+  hive_spitter:    'insectoid alien acid spitter creature, black chitin, swollen glowing purple throat sac, dripping acid, no human',
+  hive_brute:      'massive armored insectoid alien brute, thick black carapace plates, huge crushing mandibles, purple glow, no human',
+  hive_queen:      'enormous insectoid alien queen, towering crested skull crown, black chitin, many teeth, regal and terrifying, purple glow, no human',
+  myc_shambler:    'fungus-infested dead starship crewman, pale grey fungal growths bursting from the face, milky eyes, tattered jumpsuit, horror',
+  myc_puffer:      'bulbous pale fungal spore sac growth on a ship bulkhead, glowing green spores drifting out, no human, no face',
+  myc_stalker:     'lean fungal horror creature with long limbs, grey-white mycelium skin, glowing green gills, no eyes',
+  myc_mother:      'gigantic pulsing fungal mother mass with a vaguely human face sunk in it, glowing green spore clouds, horror',
+  crys_shard:      'crystalline alien construct, translucent violet-blue crystal body, glowing core in the chest, angular faceted head, no human',
+  crys_prism:      'crystalline alien prism construct, floating faceted crystal shell refracting rainbow light, shimmering shield aura, no human',
+  crys_colossus:   'huge crystalline alien colossus, massive violet crystal shoulders, glowing cracks, faceted fists, no human',
+  crys_core:       'enormous crystalline alien intelligence core, a giant faceted violet crystal heart radiating light beams, no human, no face',
+  void_shade:      'shadowy wraith creature made of black smoke and tattered cloth, pale glowing white eyes, long claws, no human face',
+  void_howler:     'screaming void wraith, distorted gaping mouth, black smoke body, pale eyes, sound distortion rings, no human',
+  void_reaper:     'towering void reaper horror, skeletal black silhouette wreathed in smoke, scythe-like arm blades, cold white eyes',
+  drift_skimmer:   'tall thin grey-skinned alien humanoid, large dark eyes, flowing pressure suit, glowing blue facial markings, compact gun',
+  drift_lancer:    'tall slender grey-skinned alien sniper, long braided headdress, glowing blue markings, long rifle',
+  drift_anchor:    'stocky armored grey-skinned alien with magnetic boots and heavy machine gun, glowing blue markings, sturdy',
+  drift_matriarch: 'regal tall grey-skinned alien matriarch, ornate flowing robes, crown of glowing blue markings, wise and imperious',
+  thrall_host:     'possessed human starship crewman, pale veiny skin, blank eyes, glowing green parasite clamped on the neck, pistol',
+  thrall_crawler:  'small fast parasitic alien crawler, many spindly legs, glistening pale body, glowing green sacs, no human',
+  thrall_brute:    'hulking possessed human with sickly pale grey skin and dark bulging veins, tattered security uniform, glowing green parasite clamped on the back of the neck, shotgun, blank white eyes',
+  thrall_overmind: 'enormous pulsing parasite overmind brain creature, translucent skull, glowing green veins and tendrils, no human body',
+};
+for (const [id, p] of Object.entries(ALIEN)) TOKENS.push({ id, group: 'alien', prompt: p, negative: /no human/.test(p) ? 'human, person, man, woman, soldier, helmet' : id === 'thrall_brute' ? 'green skin, green-skinned, hulk, superhero' : '', object: id === 'myc_puffer' || id === 'crys_core' });
+const ALIEN_FLOORS = {
+  'floor-hive':     'organic resin-coated deck floor, black glossy chitin plates, purple glowing veins, sticky secretions',
+  'floor-mycelid':  'derelict deck plates overgrown with pale grey fungus and spores, cracked metal, faint green glow',
+  'floor-lattice':  'floor of polished violet-blue crystal tiles, faceted, glowing seams of light',
+  'floor-wraith':   'pitch black scorched deck plating, burn marks, faint scratches, almost no light',
+  'floor-drifters': 'smooth pale grey alien deck with flowing curved panels and soft blue light lines',
+  'floor-thrall':   'passenger liner carpet and metal deck smeared with glowing green ichor, debris',
+};
+for (const [id, p] of Object.entries(ALIEN_FLOORS)) TOKENS.push({ id, prompt: `flat material texture swatch seen from directly overhead, ${p}`, group: 'floor', floor: true, negative: 'people, person, character, furniture, walls, perspective, horizon, corridor, hallway, vanishing point, ceiling, doorway, text, letters, numbers' });
+// Rare recruits (hidden eggs): ORIGINAL faces with costume nods only, never a real actor's likeness.
+const RARE = {
+  'egg-rec_wisecrack': 'a wisecracking young man, nervous lopsided grin, sweaty face, tech headset, starship boarding trooper',
+  'egg-rec_tough':     'a tough muscular woman with very short dark hair and a red bandana headband, defiant smirk, starship boarding trooper',
+  'egg-rec_warrant':   'a determined woman with short curly brown hair, grime on her cheek, steely gaze, starship boarding trooper',
+  'egg-rec_mobile':    'an eager square-jawed young man with neat short hair, earnest determined look, starship boarding trooper',
+  'egg-rec_dutch':     'a huge muscular veteran commando man, slicked-back hair, camouflage face paint, an unlit cigar in his mouth, starship boarding trooper',
+  'egg-rec_trooper':   'a bored young man holding a white helmet under his arm, slightly lost expression, starship boarding trooper',
+  'egg-rec_multipass': 'a rugged middle-aged man with short bleached blond hair, orange tank top under the armor, wry smirk, starship boarding trooper',
+};
+for (const [id, p] of Object.entries(RARE)) TOKENS.push({ id, group: 'rare', prompt: `${p}, ${SOLDIER_ARMOR}`, negative: 'helmet on head, visor, face mask, gas mask, respirator, covered face, celebrity' });

@@ -15,6 +15,8 @@ export const HAZARDS = {
     desc: 'The hull is open to space. Everyone in the room takes damage and gets dragged toward the breach until the emergency seal closes.' },
   radiation:     { name: 'Radiation Leak', every: 20, dmg: 2, effect: null, ticks: 0, affects: 'organic', hackable: true,
     desc: 'A leaky reactor. Slow, steady damage to anything with a pulse.' },
+  spores:        { name: 'Spores', every: 30, dmg: 0, effect: 'confuse', ticks: 0, affects: 'organic', hackable: true,
+    desc: 'Fungal spores hang in the air. Soldiers who breathe them may become Confused for a few seconds and fire at whoever is closest, friend or foe.' },
   fire:          { name: 'Fire', every: 10, dmg: 4, effect: 'panic', pressure: 10, ticks: 80, affects: 'all', hackable: false,
     desc: 'Started by flamers and explosions. Burns out on its own.' },
 };

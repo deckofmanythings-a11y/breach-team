@@ -17,6 +17,12 @@ const PROFILE = {
   hauler:   { level: 1, rarity: 'standard', note: 'fresh starter squad' },
   raider:   { level: 5, rarity: 'milspec',  note: 'level 5, Mil-Spec' },
   corvette: { level: 9, rarity: 'prototype', note: 'level 9, Prototype' },
+  fungal_derelict: { level: 5, rarity: 'milspec', note: 'level 5, Mil-Spec' },
+  gravity_vessel:  { level: 5, rarity: 'milspec', note: 'level 5, Mil-Spec' },
+  hive_ship:       { level: 9, rarity: 'prototype', note: 'level 9, Prototype' },
+  crystal_spire:   { level: 9, rarity: 'prototype', note: 'level 9, Prototype' },
+  void_hulk:       { level: 9, rarity: 'prototype', note: 'level 9, Prototype' },
+  parasite_ship:   { level: 9, rarity: 'prototype', note: 'level 9, Prototype' },
 };
 const SQUADS = {
   3: ['infiltrator', 'assault', 'medic'],
@@ -27,7 +33,7 @@ const pct = (a, b) => (b ? Math.round((a * 100) / b) : 0);
 const pad = (s, n) => String(s).padEnd(n);
 
 for (const ship of SHIPS) {
-  if (only && ship.id !== only) continue;
+  if (only && !only.split(',').includes(ship.id)) continue;
   const prof = PROFILE[ship.id];
   console.log(`\n=== ${ship.name} (tier ${ship.tier}) — ${prof.note}, ${N} runs each ===`);
   console.log('entry        tactic          success  avg s   succ s  downed/run  KIA/run  left  BUCs');
@@ -36,7 +42,7 @@ for (const ship of SHIPS) {
     let succ = 0, ticks = 0, sTicks = 0, downed = 0, kia = 0, left = 0, bucs = 0;
     for (let i = 0; i < N; i++) {
       const squad = makeSquad(i * 31 + 7, SQUADS[entry.maxSquad], prof.level, prof.rarity);
-      const b = simulate({ seed: 50000 + i * 7919, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: 'teleport_recall', squad });
+      const b = simulate({ engineVersion: 2, seed: 50000 + i * 7919, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: 'teleport_recall', squad });
       const a = rollAftermath(b, squad);
       if (b.result === 'success') { succ++; sTicks += b.ticks; }
       ticks += b.ticks; bucs += a.bucs;

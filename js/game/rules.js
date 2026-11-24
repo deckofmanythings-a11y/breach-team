@@ -2,7 +2,7 @@
 // The boarding-api Edge Function runs these (server-authoritative); the browser uses the
 // read-only helpers to display things. Every mutation throws GameError on a bad request.
 import { createRng, randomSeed, hashString } from '../engine/rng.js';
-import { growSoldier, applyXp, sumMods, applyStatMods, itemMods, rollItem, rollRarity } from '../engine/progression.js';
+import { growSoldier, applyXp, sumMods, applyStatMods, itemMods, rollItem, rollRarity, rollAffixes } from '../engine/progression.js';
 import { simulate } from '../engine/battle.js';
 import { rollAftermath } from '../engine/aftermath.js';
 import { STARTING_BUCS, STARTER_SQUAD, ROSTER_CAP, FIRST_NAMES, LAST_NAMES, CALLSIGNS, COLOR_PRESETS, SEXES, GRADES, GRADE_BY_ID,
@@ -13,6 +13,9 @@ import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '.
 import { MIA_RETURN_MIN, ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { SHIP_BY_ID } from '../data/ships.js';
+import { SECRET_SHIPS } from '../data/aliens.js';   // new file: avoids the stale-cache trap for new names
+import { EASTER_EGGS, EGG_BY_ID } from '../data/easter-eggs.js';
+import { ENGINE_VERSION } from '../data/version.js';
 import { PERK_LEVELS } from '../data/stats.js';
 import { COMMENDATIONS } from '../data/commendations.js';
 
@@ -24,6 +27,15 @@ export const HIRE_PRICE = GRADE_BY_ID.rookie.price;
 export const EMERGENCY_COOLDOWN_MS = 10 * 60e3;
 export const XENO_SELL = 750;
 const HISTORY_KEEP = 20;
+// Easter eggs (see js/data/easter-eggs.js). Hidden ones are never named to the player in advance.
+export const SECRET_CHANCE = 4;          // % per boarding (after MIN_MISSIONS_FOR_SECRET) that the target is secretly a secret ship
+export const MIN_MISSIONS_FOR_SECRET = 3;
+export const RARE_RECRUIT_PCT = 2;       // % per pack recruit to be one of the named rare recruits (each once per player)
+export const HAULER_CAT_PCT = 1;         // % per successful Cargo Hauler boarding to find the ship's cat
+const RARE_RECRUITS = EASTER_EGGS.filter(e => e.kind === 'recruit');
+const ACHIEVEMENTS = EASTER_EGGS.filter(e => e.kind === 'achievement');
+const FULL_AUTO = ['smg', 'lmg'];
+const XENO_SPECIALS = ITEMS.filter(i => i.rarity === 'xeno' && !i.enemyOnly && !i.hidden);
 
 const uid = (p) => p + crypto.randomUUID().replace(/-/g, '').slice(0, 14);
 const SERVICE_RECORD = () => ({ successes: 0, downed: 0, deathRolls: 0, revives: 0, rearGuards: 0, injuries: 0, breakthroughs: 0, mia: 0, loneSurvivor: 0 });
@@ -31,7 +43,7 @@ const SERVICE_RECORD = () => ({ successes: 0, downed: 0, deathRolls: 0, revives:
 // ---------- Creation ----------
 export function newGame(now = Date.now()) {
   const g = { v: SAVE_VERSION, bucs: STARTING_BUCS, soldiers: [], items: [], memorial: [], history: [], missions: 0, created: now,
-    pity: 0, lastEmergency: 0, store: { day: '', bought: [] } };
+    pity: 0, lastEmergency: 0, store: { day: '', bought: [] }, eggs: [], achievements: [], discovered: [] };
   const rng = createRng(randomSeed());
   for (const st of STARTER_SQUAD) {
     const s = makeRecruit(rng, st.specialty, 1, now);
@@ -88,7 +100,7 @@ export function effectiveStats(g, s) {
   return applyStatMods(s.stats, sumMods([...Object.values(gear).map(itemMods), ...s.injuries.map(i => INJURY_BY_ID[i.id].mods)]));
 }
 export function engineSoldier(g, s) {
-  return { uid: s.uid, name: s.name, sex: s.sex, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
+  return { uid: s.uid, name: s.name, sex: s.sex, portrait: s.portrait, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
 }
 export const itemPrice = (it) => ITEM_PRICE[it.rarity] || 0;
 export const sellPrice = (it) => it.rarity === 'xeno' ? XENO_SELL : Math.floor((itemPrice(it) * SELL_PCT) / 100);
@@ -181,7 +193,8 @@ export function sellItem(g, itemUid) {
 }
 
 // ---------- Packs ----------
-const SPECIALS = ITEMS.filter(i => i.rarity && !RARITY_BY_ID[i.rarity].alienOnly);
+// Fixed-rarity specials packs may contain (not enemy weapons, not hidden eggs, not Xeno).
+const SPECIALS = ITEMS.filter(i => i.rarity && !i.enemyOnly && !i.hidden && i.rarity !== 'xeno');
 const rIdx = (r) => RARITY_ORDER.indexOf(r);
 function rollPackItem(rng, boost) {
   if (rng.roll(SPECIAL_ITEM_PCT)) { const sp = SPECIALS[rng.int(SPECIALS.length)]; return { base: sp.id, rarity: sp.rarity, affixes: [] }; }
@@ -218,7 +231,15 @@ export function openPack(g, packId, now = Date.now()) {
   const got = { items: items.map(it => addItem(g, it)), soldiers: [], pity: pity && items.length > 0 };
   for (let i = 0; i < pack.soldiers; i++) {
     const grade = rollGrade(rng, i === 0 ? pack.gradeFloor : 'rookie');
-    const s = makeRecruit(rng, SPECIALTIES[rng.int(SPECIALTIES.length)].id, grade.level, now);
+    const rare = RARE_RECRUITS.filter(e => !(g.eggs || []).includes(e.id));
+    let s;
+    if (rare.length && rng.roll(RARE_RECRUIT_PCT)) {
+      const egg = rare[rng.int(rare.length)];
+      s = makeRecruit(rng, egg.data.specialty, grade.level, now);
+      Object.assign(s, { name: egg.data.name, callsign: '', sex: egg.data.sex, portrait: 'egg-' + egg.id, egg: egg.id, bio: egg.data.note });
+      (g.eggs ||= []).push(egg.id);
+      got.rare = (got.rare || []).concat(s.uid);
+    } else s = makeRecruit(rng, SPECIALTIES[rng.int(SPECIALTIES.length)].id, grade.level, now);
     s.grade = grade.id;
     // Recruits from packs: perks at 5+ come pre-picked by their training (growSoldier picks them).
     g.soldiers.push(s); got.soldiers.push(s.uid);
@@ -269,16 +290,22 @@ export function buyStore(g, slot, now = Date.now()) {
 // Validates the plan, runs the mission and applies the aftermath. Returns { input, battle, after, report }.
 export function runMission(g, plan, now = Date.now()) {
   const ship = SHIP_BY_ID[plan.ship], entry = ENTRY_BY_ID[plan.entry];
-  if (!ship || !entry || !TACTIC_BY_ID[plan.tactic] || !RETREAT_BY_ID[plan.retreat]) fail('Bad mission plan.');
+  if (!ship || ship.secret || !entry || !TACTIC_BY_ID[plan.tactic] || !RETREAT_BY_ID[plan.retreat]) fail('Bad mission plan.');   // secret ships can't be picked
   const ids = Array.isArray(plan.squad) ? [...new Set(plan.squad)] : [];
   if (!ids.length) fail('Pick a squad.');
   if (ids.length > entry.maxSquad) fail(`${entry.name} carries at most ${entry.maxSquad}.`);
   const squad = ids.map(id => getSoldier(g, id));
   for (const s of squad) if (!canDeploy(s)) fail(`${s.name} isn't fit to deploy.`);
-  const input = { seed: randomSeed(), ship: ship.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)) };
+  // Once in a while the contact turns out to be something else entirely.
+  let target = ship, planned = null;
+  if ((g.missions || 0) >= MIN_MISSIONS_FOR_SECRET && createRng(randomSeed()).roll(SECRET_CHANCE)) {
+    planned = ship.id; target = SECRET_SHIPS[randomSeed() % SECRET_SHIPS.length];
+  }
+  const input = { engineVersion: ENGINE_VERSION, seed: randomSeed(), ship: target.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)) };
   const battle = simulate(input);
   const after = rollAftermath(battle, input.squad);
-  const report = applyMission(g, input, battle, after, ship.name, now);
+  const report = applyMission(g, input, battle, after, target.name, now);
+  if (planned) { report.secret = true; report.plannedShip = planned; if (!(g.discovered ||= []).includes(target.id)) { g.discovered.push(target.id); report.firstContact = true; } }
   return { input, battle, after, report };
 }
 
@@ -324,6 +351,29 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
     const base = ROLLABLE_ITEMS[rng.int(ROLLABLE_ITEMS.length)];
     report.extras.push({ kind: 'item', item: addItem(g, rollItem(rng, base.id, { floor: 'milspec' })) });
   }
+  const shipDef = SHIP_BY_ID[input.ship];
+  const success = battle.result === 'success';
+  if (success && shipDef.xenoDropPct && rng.roll(shipDef.xenoDropPct)) {
+    let it;
+    if (XENO_SPECIALS.length && rng.roll(20)) { const sp = XENO_SPECIALS[rng.int(XENO_SPECIALS.length)]; it = { base: sp.id, rarity: 'xeno', affixes: [] }; }
+    else { const base = ROLLABLE_ITEMS[rng.int(ROLLABLE_ITEMS.length)]; it = { base: base.id, rarity: 'xeno', affixes: rollAffixes(rng, base.slot, 'xeno') }; }
+    report.extras.push({ kind: 'item', item: addItem(g, it), xeno: true });
+  }
+  const catChance = input.ship === 'secret_horseshoe' ? 100 : input.ship === 'hauler' ? HAULER_CAT_PCT : 0;
+  if (success && catChance && !(g.eggs || []).includes('loot_cat') && rng.roll(catChance)) {
+    (g.eggs ||= []).push('loot_cat');
+    report.extras.push({ kind: 'egg', egg: 'loot_cat', text: EGG_BY_ID.loot_cat.data.text, item: addItem(g, { base: 'ships_cat', rarity: 'relic' }) });
+  }
+  // Achievements.
+  const have = new Set(g.achievements || []), earned = [];
+  const grant = (id) => { if (!have.has(id)) { have.add(id); earned.push(id); } };
+  if (success && input.squad.every(s => !FULL_AUTO.includes(ITEM_BY_ID[s.gear?.weapon?.base]?.type))) grant('ach_short_controlled');
+  if (shipDef.alien && battle.result === 'retreat' && battle.soldiers.every(s => s.state !== 'left')) grant('ach_nuke_orbit');
+  const needed = Math.max(1, Math.ceil((input.squad.length * (TACTIC_BY_ID[input.tactic].retreatAt)) / 100));
+  if (success && needed > 1 && battle.soldiers.filter(s => s.downed > 0).length >= needed - 1) grant('ach_kobayashi');
+  if (after.soldiers.some((a, i) => a.fate === 'kia' && input.squad[i].level >= 10)) grant('ach_tears_rain');
+  g.achievements = [...have];
+  report.achievements = earned;
   if (after.prisoner && g.soldiers.length < ROSTER_CAP) {
     const r = makeRecruit(rng, SPECIALTIES[rng.int(SPECIALTIES.length)].id, 1 + rng.int(3), now);
     g.soldiers.push(r); report.extras.push({ kind: 'recruit', name: r.name, specialty: r.specialty });
@@ -336,6 +386,9 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
 export function migrate(g) {
   if (!g.pity) g.pity = 0;
   if (!g.store) g.store = { day: '', bought: [] };
+  if (!g.eggs) g.eggs = [];
+  if (!g.achievements) g.achievements = [];
+  if (!g.discovered) g.discovered = [];
   for (const s of [...g.soldiers, ...g.memorial]) { if (!s.record) s.record = SERVICE_RECORD(); if (!s.medals) s.medals = []; }
   g.v = SAVE_VERSION;
   return g;

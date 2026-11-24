@@ -15,9 +15,11 @@ import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { replayMission, setExit, setOpenSoldier } from './mission.js';
+import { EASTER_EGGS } from '../data/easter-eggs.js';
+import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 
-export const APP_VERSION = '0.4.0';
+export const APP_VERSION = '0.5.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -186,6 +188,7 @@ export function openSoldier(s) {
       <div class="name" style="font-size:18px">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
       <div class="dim">${sp.name} · Level ${s.level} · ${s.missions} missions · ${s.kills} kills</div></div></div>
       <button id="x">Close</button></div>
+    ${s.bio ? `<div class="banner info" style="margin:8px 0">Rare recruit. <i>${esc(s.bio)}</i></div>` : ''}
     <div class="small dim" style="margin:8px 0">${esc(sp.desc)}</div>
     <div class="small">XP ${s.xp}${next ? ` / ${next}` : ' (max level)'}</div>
     ${next ? `<div class="bar"><i style="width:${xpPct(s)}%"></i></div>` : ''}
@@ -300,7 +303,14 @@ function renderArmory() {
 // ---------- Mission log ----------
 function renderLog() {
   const S = G.state();
-  const wrap = el(`<div><h2>Mission Log</h2><div class="dim section">Last ${S.history.length} missions. Replays re-run the exact same mission from its seed.</div><div id="list" style="display:grid;gap:8px;max-width:900px"></div></div>`);
+  const ach = EASTER_EGGS.filter(e => e.kind === 'achievement');
+  const got = new Set(S.achievements || []);
+  const found = SECRET_SHIPS.filter(s => (S.discovered || []).includes(s.id));
+  const wrap = el(`<div><h2>Mission Log</h2>
+    <div class="section"><h3>Achievements <span class="dim small">${got.size}/${ach.length}</span></h3>
+      ${ach.map(a => `<div class="medal-row ${got.has(a.id) ? '' : 'dim'}"><span>${got.has(a.id) ? '★' : '☆'}</span><span><b>${esc(a.data.name)}</b> <span class="small">${esc(a.data.how)}</span></span></div>`).join('')}
+      <div class="small dim" style="margin-top:6px">Unknown contacts identified: ${found.length}/${SECRET_SHIPS.length}${found.length ? ' · ' + found.map(s => esc(s.name)).join(', ') : ''}</div></div>
+    <div class="dim section">Last ${S.history.length} missions. Replays re-run the exact same mission from its seed.</div><div id="list" style="display:grid;gap:8px;max-width:900px"></div></div>`);
   const list = wrap.querySelector('#list');
   if (!S.history.length) list.append(el('<div class="dim">No missions yet. Head to Deploy.</div>'));
   for (const h of S.history) {

@@ -169,6 +169,10 @@ export function generateShip(rng, shipId) {
     const n = Math.floor((r.w * r.h * t.cover) / 100);
     for (let k = 0; k < n; k++) { const pos = freeTile('any'); if (pos) cover[idx(pos[0], pos[1])] = rng.roll(30) ? 2 : 1; }
     r.hazard = t.hazard || null;
+    if (ship.eggPct && r.type !== 'airlock' && r.type !== 'bridge' && rng.roll(ship.eggPct)) {
+      for (let k = 0; k < 2; k++) { const pos = freeTile('any'); if (pos) { const feat = { kind: 'eggs', x: pos[0], y: pos[1], room: r.id }; r.features.push(feat); features.push(feat); } }
+    }
+    if (ship.sporePct && r.type !== 'airlock' && rng.roll(ship.sporePct)) r.hazard = 'spores';
     r.outer = !!t.outer;
     r.cx = r.x + (r.w >> 1); r.cy = r.y + (r.h >> 1);
   }

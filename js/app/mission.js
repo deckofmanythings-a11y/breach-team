@@ -14,6 +14,9 @@ import { ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { STAT_INFO } from '../data/stats.js';
 import { soldierToken, unitToken, FACTION_RING, loadImage, floorSrc } from '../render/tokens.js';
+import { computeBarks } from './barks.js';
+import { EGG_BY_ID } from '../data/easter-eggs.js';
+import { SHIP_BY_ID as SHIPS_ALL } from '../data/ships.js';
 
 let PIXI = null;
 let current = null;   // active playback (destroyed when leaving)
@@ -23,7 +26,7 @@ let openSoldierFn = null;
 export const setOpenSoldier = (fn) => { openSoldierFn = fn; };
 
 const HEX = (c) => parseInt(String(c).replace('#', ''), 16);
-const HAZARD_TINT = { radiation: 0x5dff6a, decompression: 0x9fd8ff, fire: 0xff7a1a };
+const HAZARD_TINT = { radiation: 0x5dff6a, decompression: 0x9fd8ff, fire: 0xff7a1a, spores: 0x9ee86a };
 
 export async function replayMission(panel, h) {
   const battle = simulate(h.input);
@@ -38,7 +41,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const faction = FACTION_BY_ID[ship.faction];
   const wrap = el(`<div class="mission">
     <div class="stage" id="stage"><div class="hudtop">
-      <div><b>${esc(ship.name)}</b> · ${ENTRY_BY_ID[battle.entry].name} · ${TACTIC_BY_ID[battle.tactic].name} · <span id="clock">0:00</span> · Alarm <b id="alarm" class="alarm0">CALM</b><span id="hold"></span></div>
+      <div>${report.secret ? '<b class="bad">UNKNOWN CONTACT</b> · ' : ''}<b>${esc(ship.name)}</b> · ${ENTRY_BY_ID[battle.entry].name} · ${TACTIC_BY_ID[battle.tactic].name} · <span id="clock">0:00</span> · Alarm <b id="alarm" class="alarm0">CALM</b><span id="hold"></span><span id="grav"></span></div>
       <div class="row"><button data-sp="1">1×</button><button data-sp="2">2×</button><button data-sp="4">4×</button><button id="skip">Skip ▶▶</button></div>
     </div></div>
     <div class="side"><div class="card squadhud" id="squad"></div><div class="feed" id="feed"></div></div>
@@ -90,7 +93,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     sp.x = minX * TS; sp.y = minY * TS; sp.width = bw; sp.height = bh;
     sp.mask = floorMask; sp.tint = 0x8c8c8c; sp.alpha = 0.6;
     world.addChildAt(sp, world.getChildIndex(floorMask));
-  }).catch(() => {});
+  }).catch(() => { floorMask.destroy(); });   // no floor art: drop the (otherwise visible) mask shape
   const g1 = new PIXI.Graphics(); world.addChild(g1);
   // bridge tint + floor grid
   for (const r of map.rooms) if (r.type === 'bridge') g1.rect(r.x * TS, r.y * TS, r.w * TS, r.h * TS).fill({ color: 0x4ade80, alpha: 0.08 });
@@ -116,7 +119,9 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const gDyn = new PIXI.Graphics(); world.addChild(gDyn);
   const unitLayer = new PIXI.Container(); world.addChild(unitLayer);
   const gTop = new PIXI.Graphics(); world.addChild(gTop);
+  const gFog = new PIXI.Graphics(); world.addChild(gFog);
   const gFx = new PIXI.Graphics(); world.addChild(gFx);
+  const bubbles = new PIXI.Container(); world.addChild(bubbles);
 
   // ---- Playback state ----
   const U = new Map();   // id -> unit view
@@ -128,7 +133,13 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   let alarm = 0, hold = 0, holdNeed = OBJECTIVES.take_bridge.ticks, tick = 0, ei = 0, speed = 1, done = false;
   const colorsByUnit = {}, sexByUnit = {};
   const squadIn = report.input?.squad || [];
-  battle.soldiers.forEach((s, i) => { colorsByUnit[s.unit] = colors[s.uid] || ['#3a5a8c', '#f2c14e']; sexByUnit[s.unit] = squadIn[i]?.sex || 'm'; });
+  const portraitByUnit = {};
+  battle.soldiers.forEach((s, i) => { colorsByUnit[s.unit] = colors[s.uid] || ['#3a5a8c', '#f2c14e']; sexByUnit[s.unit] = squadIn[i]?.sex || 'm'; portraitByUnit[s.unit] = squadIn[i]?.portrait; });
+  const eggs = map.features.filter(f => f.kind === 'eggs').map(f => ({ x: f.x, y: f.y, hatched: false }));
+  const confusedUntil = {};
+  let gravity = 'normal';
+  const barks = computeBarks(battle, report.input, colors);
+  let bi = 0;
 
   // Token textures: [normal, grey] per unit, built asynchronously; shapes are drawn until ready.
   const TOK = TS * 1.4;
@@ -140,8 +151,13 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     const entry = { ready: false, side: u.side }; texFor.set(u.id, entry);
     const def = UNIT_BY_ID[u.kind];
     let mk;
-    if (info[u.id].side === 'S' && u.kind !== 'sys_drone') {
-      const s = { specialty: u.kind, sex: sexByUnit[u.id], colors: colorsByUnit[u.id] };
+    if (info[u.id].shellOf !== undefined) {
+      // A possessed Soldier: their own portrait in a sickly green ring.
+      const host = info[u.id].shellOf;
+      const s = { specialty: u.kind, sex: sexByUnit[host], portrait: portraitByUnit[host], colors: [colorsByUnit[host]?.[0] || '#3a5a8c', '#5dff6a'] };
+      mk = (grey) => soldierToken(s, { grey });
+    } else if (info[u.id].side === 'S' && u.kind !== 'sys_drone') {
+      const s = { specialty: u.kind, sex: sexByUnit[u.id], portrait: portraitByUnit[u.id], colors: colorsByUnit[u.id] };
       mk = (grey) => soldierToken(s, { grey });
     } else {
       const ring = u.side === 'S' ? '#3dd6ff' : (FACTION_RING[def?.faction] || '#9aa4ad');
@@ -167,7 +183,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   function apply(e) {
     const [t, k] = e;
     switch (k) {
-      case 'spawn': { const [, , id, side, kind, x, y] = e; U.set(id, { id, side, kind, x, y, px: x, py: y, hp: info[id].maxHp, max: info[id].maxHp, state: 'active', hidden: false }); if (t > 0 && side === 'E') {} break; }
+      case 'spawn': { if (info[e[2]]?.shellOf !== undefined) { const host = U.get(info[e[2]].shellOf); if (host) host.state = 'possessed'; } const [, , id, side, kind, x, y] = e; U.set(id, { id, side, kind, x, y, px: x, py: y, hp: info[id].maxHp, max: info[id].maxHp, state: 'active', hidden: false }); if (t > 0 && side === 'E') {} if (info[e[2]]?.shellOf !== undefined) { const v = U.get(e[2]); v.hp = Math.max(1, Math.floor(v.max / 2)); } break; }
       case 'move': { const u = U.get(e[2]); if (u) { u.x = e[3]; u.y = e[4]; } break; }
       case 'door': { const d = doors[e[2]]; d.open = true; if (e[3] === 'breach') { fx.push({ k: 'boom', x: d.x, y: d.y, t, life: 10 }); say(t, `💥 <b>${name(e[4])}</b> blows the door`); }
         else if (e[3] === 'chain') say(t, `💥 Chain breach!`); else if (e[3] === 'hack') say(t, `<b>${name(e[4])}</b> hacks a locked door`); else if (e[3] === 'force') say(t, `<b>${name(e[4])}</b> forces a locked door`); break; }
@@ -212,6 +228,16 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
       case 'spotted': if (U.get(e[3])?.side === 'S') say(t, `Spotted!`, 'warn'); break;
       case 'panic': if (U.get(e[2])?.side === 'S') say(t, `<b>${name(e[2])}</b> panics`, 'warn'); break;
       case 'loot': say(t, `Found ${e[3]} loot crate${e[3] > 1 ? 's' : ''}`, 'dim'); break;
+      case 'hatch': { for (const g of eggs) if (g.x === e[2] && g.y === e[3]) g.hatched = true; fx.push({ k: 'boom', x: e[2], y: e[3], t, life: 8, color: 0x9b5cff }); say(t, 'An egg pod bursts open!', 'warn'); break; }
+      case 'acid': { const v = U.get(e[3]); if (v) { v.hp -= e[4]; fx.push({ k: 'boom', x: v.x, y: v.y, t, life: 6, color: 0x7dff3a }); } say(t, `Acid blood splashes <b>${name(e[3])}</b>`, 'warn'); break; }
+      case 'confused': confusedUntil[e[2]] = t + 30; say(t, `<b>${name(e[2])}</b> breathes the spores and is Confused`, 'warn'); break;
+      case 'friendlyfire': say(t, `<b>${name(e[2])}</b> fires on ${name(e[3])}!`, 'bad'); break;
+      case 'ricochet': { const s = U.get(e[2]), v = U.get(e[3]); if (s && v) { fx.push({ k: 'shot', a: s, b: v, hit: true, crit: 0, t, life: 3 }); v.hp -= e[4]; } say(t, `A shot ricochets into <b>${name(e[3])}</b>`, 'dim'); break; }
+      case 'spores': { const s = U.get(e[2]); if (s) fx.push({ k: 'ring', x: s.x, y: s.y, r: e[3], t, life: 12, color: 0x9ee86a }); break; }
+      case 'gravity': gravity = e[2]; say(t, { heavy: '⬇ Gravity spikes: everything is HEAVY', zero: '⤴ Gravity cuts out: ZERO-G, no cover', normal: 'Gravity returns to normal' }[e[2]], e[2] === 'normal' ? 'dim' : 'warn'); break;
+      case 'possessed': { say(t, `<b>${name(e[2])}</b> rises... the parasite has them!`, 'bad'); break; }
+      case 'freed': { const sh = U.get(e[2]); if (sh) sh.state = 'dead'; const s = U.get(e[3]); if (s) { s.state = 'down'; s.x = sh?.x ?? s.x; s.y = sh?.y ?? s.y; s.px = s.x; s.py = s.y; } say(t, `<b>${name(e[3])}</b> is freed from the parasite`, 'good'); break; }
+      case 'log': { const egg = EGG_BY_ID[e[2]]; if (egg) say(t, `<i>${esc(egg.data.text)}</i>`, 'warn'); break; }
     }
   }
 
@@ -232,13 +258,14 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     gDyn.clear(); gFx.clear();
     for (const d of doors) gDyn.rect(d.x * TS + 2, d.y * TS + 2, TS - 4, TS - 4).fill(d.open ? 0x22313f : d.wasLocked ? 0xb33a3a : 0x5f88a8);
     for (const h of hazards) if (h.until > tick) { const r = map.rooms[h.room]; gDyn.rect(r.x * TS, r.y * TS, r.w * TS, r.h * TS).fill({ color: HAZARD_TINT[h.kind] || 0xffffff, alpha: .12 + .05 * Math.sin(tick / 3) }); }
+    for (const g of eggs) if (!g.hatched) { const cx = g.x * TS + TS / 2, cy = g.y * TS + TS / 2; gDyn.ellipse(cx, cy, 6, 8).fill({ color: 0x3a1f4f }).stroke({ width: 2, color: 0x9b5cff, alpha: .6 + .3 * Math.sin(tick / 4) }); }
     // bridge hold bar
     if (hold) { const r = map.rooms[map.bridge]; gDyn.rect(r.x * TS, (r.y + r.h) * TS - 6, (r.w * TS * Math.min(hold, holdNeed)) / holdNeed, 6).fill(0x4ade80); }
     gTop.clear();
     for (const u of U.values()) {
       u.px += (u.x - u.px) * 0.35; u.py += (u.y - u.py) * 0.35;
       const tk = tokenOf(u);
-      const gone = u.state === 'gone' || u.state === 'out';
+      const gone = u.state === 'gone' || u.state === 'out' || u.state === 'possessed';
       if (tk.ready) tk.sprite.visible = !gone && u.state !== 'dead';
       if (gone) continue;
       const [cx, cy] = center(u);
@@ -256,6 +283,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
         if (u.side === 'S' && kind !== 'sys_drone' && def?.ai !== 'turret') { const [a, b] = colorsByUnit[u.id] || ['#3a5a8c', '#f2c14e']; gDyn.circle(cx, cy, 9).fill({ color: HEX(a), alpha }).stroke({ width: 3, color: HEX(b), alpha }); }
         else gDyn.rect(cx - 8, cy - 8, 16, 16).fill({ color: palette[0], alpha }).stroke({ width: 2, color: palette[2], alpha });
       }
+      if (confusedUntil[u.id] > tick && u.state === 'active') gTop.circle(cx + TOK / 2 - 3, cy - TOK / 2 + 3, 5).fill(0x9ee86a);
       if (downed) gTop.moveTo(cx - 7, cy - 7).lineTo(cx + 7, cy + 7).moveTo(cx + 7, cy - 7).lineTo(cx - 7, cy + 7).stroke({ width: 3.5, color: 0xff3b3b });
       else if (u.hp < u.max) { const w = 22, p = Math.max(0, u.hp) / u.max, y = cy - TOK / 2 - 5; gTop.rect(cx - w / 2, y, w, 4).fill(0x220000); gTop.rect(cx - w / 2, y, w * p, 4).fill(p > .5 ? 0x4ade80 : p > .25 ? 0xfacc15 : 0xef4444); }
     }
@@ -268,26 +296,58 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
         if (age < 1.5) gFx.circle(ax, ay, 5).fill({ color: 0xfff1a8, alpha: 0.9 });                                   // muzzle flash
         if (f.hit && age < 2) gFx.circle(bx, by, f.crit ? 7 : 4).fill({ color: f.crit ? 0xff5050 : 0xffc04d, alpha: 0.85 });   // impact
       } else if (f.k === 'boom') {
-        gFx.circle(f.x * TS + TS / 2, f.y * TS + TS / 2, (f.big ? 36 : 20) * (0.4 + age / f.life)).fill({ color: 0xff9a2e, alpha: .6 * (1 - age / f.life) });
+        gFx.circle(f.x * TS + TS / 2, f.y * TS + TS / 2, (f.big ? 36 : 20) * (0.4 + age / f.life)).fill({ color: f.color || 0xff9a2e, alpha: .6 * (1 - age / f.life) });
+      } else if (f.k === 'ring') {
+        gFx.circle(f.x * TS + TS / 2, f.y * TS + TS / 2, (f.r + 0.5) * TS * (0.3 + 0.7 * age / f.life)).stroke({ width: 3, color: f.color, alpha: 0.7 * (1 - age / f.life) });
       } else if (f.k === 'smoke') {
         gFx.rect((f.x - 1) * TS, (f.y - 1) * TS, TS * 3, TS * 3).fill({ color: 0xc8d0d8, alpha: .35 * Math.min(1, (f.life - age) / 10) });
       }
     }
   }
 
+  // Darkness (Void ships): everything outside the squad's few tiles of light is black.
+  const shipDef = SHIPS_ALL[battle.ship];
+  function drawFog() {
+    gFog.clear();
+    if (!shipDef.dark) return;
+    // Tile fog, matching the engine's sight rule in the dark (6 tiles, Chebyshev).
+    const lights = [];
+    for (const u of U.values()) if (info[u.id].side === 'S' && (u.state === 'active' || u.state === 'down')) lights.push([Math.round(u.px), Math.round(u.py)]);
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+      if (map.tiles[y * map.w + x] === T_VOID) continue;
+      let d = 99; for (const [lx, ly] of lights) d = Math.min(d, Math.max(Math.abs(lx - x), Math.abs(ly - y)));
+      if (d > 6) gFog.rect(x * TS, y * TS, TS, TS).fill({ color: 0x000000, alpha: 0.88 });
+      else if (d > 4) gFog.rect(x * TS, y * TS, TS, TS).fill({ color: 0x000000, alpha: 0.45 });
+    }
+  }
+  // Speech bubbles for voice lines.
+  function showBark(b) {
+    const u = U.get(b.unit); if (!u) return;
+    say(b.t, `<b>${name(b.unit)}:</b> <i>"${esc(b.text)}"</i>`);
+    const txt = new PIXI.Text({ text: b.text, style: { fontFamily: 'Inter', fontSize: 13, fill: 0x111111, wordWrap: true, wordWrapWidth: 220, fontWeight: '600' } });
+    const box = new PIXI.Graphics().roundRect(-8, -6, txt.width + 16, txt.height + 12, 8).fill({ color: 0xffffff, alpha: 0.95 });
+    const c = new PIXI.Container(); c.addChild(box, txt);
+    const [cx, cy] = center(u); c.x = cx - txt.width / 2; c.y = cy - TOK - txt.height - 8;
+    bubbles.addChild(c); c.until = b.t + 30;
+  }
+
   // ---- Loop ----
   const events = battle.events;
   const endTick = battle.ticks;
-  const clock = wrap.querySelector('#clock'), alarmEl = wrap.querySelector('#alarm'), holdEl = wrap.querySelector('#hold');
+  const clock = wrap.querySelector('#clock'), alarmEl = wrap.querySelector('#alarm'), holdEl = wrap.querySelector('#hold'), gravEl = wrap.querySelector('#grav');
+  if (report.secret) say(0, `⚠ Contact mismatch: this isn't the ${esc(SHIPS_ALL[report.plannedShip]?.name || 'ship you picked')}. It's the <b>${esc(ship.name)}</b>.`, 'bad');
   let lastSquad = 0;
   function step(dt) {
     if (!done) {
       tick = Math.min(endTick, tick + (dt / 1000) * TICKS_PER_SEC * speed);
       while (ei < events.length && events[ei][0] <= tick) apply(events[ei++]);
+      while (bi < barks.length && barks[bi].t <= tick) showBark(barks[bi++]);
+      for (const c of [...bubbles.children]) if (c.until <= tick) c.destroy();
       if (tick >= endTick && ei >= events.length) { done = true; setTimeout(() => finish(), 900); }
     }
-    draw();
+    draw(); drawFog();
     clock.textContent = fmt(tick);
+    gravEl.textContent = shipDef.gravity ? ` · Gravity ${gravity.toUpperCase()}` : '';
     alarmEl.textContent = ['CALM', 'ALERT', 'FULL'][alarm]; alarmEl.className = 'alarm' + alarm;
     holdEl.textContent = hold && !done ? ` · Holding bridge ${Math.min(100, Math.floor(hold * 100 / holdNeed))}%` : '';
     if (performance.now() - lastSquad > 200) { drawSquad(); lastSquad = performance.now(); }
@@ -328,7 +388,11 @@ function showReport(panel, battle, report, isReplay) {
           ${(s.perkPending || []).length && !isReplay ? `<div><button class="primary small" data-perk="${s.uid}" style="padding:3px 8px;margin-top:4px">Choose perk</button></div>` : ''}
           ${(s.medals || []).map(id => `<div class="small" style="margin-top:3px">${ribbon(id)} <b>${COMMENDATION_BY_ID[id].name}</b>${s.fate === 'kia' ? ' (posthumous)' : ''}</div>`).join('')}</td></tr>`).join('')}
     </table>
-    ${report.extras.map(x => x.kind === 'item' ? `<div class="good" style="margin-top:8px">Armory raid: found ${itemLabel(x.item)}</div>` : `<div class="good" style="margin-top:8px">The freed prisoner, ${esc(x.name)}, joined the team.</div>`).join('')}
+    ${report.firstContact ? `<div class="banner" style="margin-top:10px">Secret ship discovered: <b>${esc(report.shipName)}</b></div>` : ''}
+    ${report.extras.map(x => x.kind === 'item' ? `<div class="good" style="margin-top:8px">${x.xeno ? '☣ Xeno find' : 'Armory raid'}: ${itemLabel(x.item)}</div>`
+      : x.kind === 'egg' ? `<div class="good" style="margin-top:8px"><i>${esc(x.text)}</i> Added to the Armory: ${itemLabel(x.item)}</div>`
+      : `<div class="good" style="margin-top:8px">The freed prisoner, ${esc(x.name)}, joined the team.</div>`).join('')}
+    ${(report.achievements || []).map(id => `<div class="banner info" style="margin-top:8px">★ Achievement: <b>${esc(EGG_BY_ID[id].data.name)}</b> <span class="small">${esc(EGG_BY_ID[id].data.how)}</span></div>`).join('')}
     ${isReplay ? '<div class="dim small" style="margin-top:8px">Replay: nothing was changed.</div>' : ''}
     <div class="row" style="margin-top:14px;justify-content:flex-end"><button id="again">Deploy again</button><button class="primary" id="home">Back to Barracks</button></div>
   </div>`);

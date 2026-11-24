@@ -53,6 +53,8 @@ const ENEMY_AI = {
   rusher:  { aggression: 100, coverUse: 0, rangePct: 10, hunts: true },
   anchor:  { aggression: 10, coverUse: 80, rangePct: 100, hunts: false, stayInRoom: true },
   sniper:  { aggression: 0, coverUse: 70, rangePct: 120, hunts: false, stayInRoom: true },
+  static:  { aggression: 0, coverUse: 0, rangePct: 100, hunts: false, stayInRoom: true },
+  hunter:  { aggression: 100, coverUse: 0, rangePct: 10, hunts: true },
   support: { aggression: 40, coverUse: 60, rangePct: 90, hunts: true },
   leader:  { aggression: 20, coverUse: 80, rangePct: 100, hunts: false, stayInRoom: true },
 };
@@ -70,6 +72,10 @@ export function simulate(input) {
   const seed = input.seed >>> 0;
   const map = generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id);
   const rng = createRng(hashString('sim:' + seed));
+  const V = input.engineVersion ?? 1;      // engine version this mission was fought on (gates v2-only behaviour)
+  const DARK_SIGHT = 6, ACID_DMG = 6, EGG_RANGE = 3, POSSESS_TICKS = 100, GRAVITY_EVERY = 120;
+  const GRAVITY_CYCLE = ['normal', 'heavy', 'normal', 'zero'];
+  const gravityNow = () => (ship.gravity ? GRAVITY_CYCLE[Math.floor(t / GRAVITY_EVERY) % 4] : 'normal');
   const W = map.w, idx = (x, y) => y * W + x;
   const events = [];
   const ev = (...a) => events.push(a);
@@ -170,9 +176,11 @@ export function simulate(input) {
     if (wInst) { w = weaponProfile(wInst); w.range += mods.rangeAdd || 0; w.type = ITEM_BY_ID[wInst.base].type; }
     return addUnit({
       side: 'E', name: def.name, kind: unitId, ai: def.ai, tags: def.tags, st, m: mods, w,
-      hp: st.hp, maxHp: st.hp, x, y, flags: {}, aura: def.aura || 0, alerted: false,
+      hp: st.hp, maxHp: st.hp, x, y, flags: flagsOf(def.flags || []), aura: def.aura || 0, alerted: false,
       leader: def.tags.includes('leader'), civilian: def.tags.includes('civilian'), turret: def.ai === 'turret',
-      deploysTurret: !!def.deploysTurret, ...extra,
+      deploysTurret: !!def.deploysTurret, hidden: (def.flags || []).includes('ambush'),
+      immuneGravity: !!FACTION_BY_ID[def.faction]?.immuneGravity, spawnDef: def.spawns || null, nextSpawn: 0, spawned: 0,
+      sporeRadius: def.sporeRadius || 0, nextPulse: 0, ...extra,
     });
   }
 
@@ -310,7 +318,8 @@ export function simulate(input) {
   const isTargetable = (u) => u.state === 'active' && !u.civilian && !u.off;
 
   function canSee(o, tg) {
-    if (cheb(o, tg) > SIGHT || !los(o.x, o.y, tg.x, tg.y)) return false;
+    const sight = o.side === 'S' && ship.dark ? DARK_SIGHT + (o.flags.tracker ? 4 : 0) + (o.st.tech >= 60 ? 2 : 0) : SIGHT;
+    if (cheb(o, tg) > sight || !los(o.x, o.y, tg.x, tg.y)) return false;
     if (tg.hidden && t >= 0) {
       if (cheb(o, tg) <= 1) return true;
       return rng.roll(detectChance(o.st.tech, o.m.detectPct || 0, tg.st.stl, cheb(o, tg)));
@@ -330,11 +339,32 @@ export function simulate(input) {
   }
   function panicCheck(u, pressure) {
     if (u.state !== 'active' || u.turret || u.flags.noPanic || u.panicUntil > t) return;
+    if (ship.dark && u.side === 'S') pressure += 10;   // dread
     if (rng.roll(panicChance(u.st.grit, pressure, moraleAura(u)))) { u.panicUntil = t + 30; u.task = null; ev(t, 'panic', u.id); }
   }
 
   function setPos(u, x, y) {
     occ[idx(u.x, u.y)] = -1; u.x = x; u.y = y; occ[idx(x, y)] = u.id;
+  }
+
+  // Spores: a Soldier may become Confused and fire at whoever is nearest, friend or foe.
+  function confuseCheck(u) {
+    if (u.state !== 'active' || u.side !== 'S' || u.tags.includes('synthetic') || u.confusedUntil > t) return;
+    const chance = Math.max(5, Math.min(30, 35 - Math.floor(u.st.grit / 4) - Math.floor((u.m.hazardResistPct || 0) / 2)));
+    if (rng.roll(chance)) { u.confusedUntil = t + 30; ev(t, 'confused', u.id); }
+  }
+  function spawnNear(unitId, x, y, extra = {}) {
+    const p = freeTileNear(x, y); if (!p) return null;
+    let e;
+    if (unitId) e = enemyUnit(unitId, p[0], p[1], { alerted: true, ...extra });
+    else {
+      // Possessed Soldier: a hostile copy at half health; downing it frees the Soldier.
+      const s = units[extra.shellOf];
+      e = addUnit({ side: 'E', name: extra.name, kind: s.kind, ai: 'grunt', tags: ['human', 'xeno'], st: { ...s.st }, m: s.m, w: s.w,
+        hp: Math.max(1, Math.floor(s.maxHp / 2)), maxHp: s.maxHp, x: p[0], y: p[1], flags: {}, aura: 0, alerted: true, shellOf: s.id });
+    }
+    ev(t, 'spawn', e.id, 'E', e.kind, e.x, e.y);
+    return e;
   }
 
   function goDown(u, overkill) {
@@ -346,12 +376,23 @@ export function simulate(input) {
       u.tally.overkillPct = Math.max(u.tally.overkillPct, Math.floor((overkill * 100) / u.maxHp));
       ev(t, 'down', u.id);
       for (const v of activeOf('S')) if (cheb(u, v) <= 5) panicCheck(v, 20);
+    } else if (u.shellOf !== undefined) {
+      // Downing a possessed Soldier frees them: they're back on our side, Down.
+      u.state = 'dead'; const s = units[u.shellOf];
+      s.possessed = false; s.x = u.x; s.y = u.y; s.downAt = t;
+      ev(t, 'freed', u.id, s.id); return;
     } else if (u.leader && captureActive) {
       u.state = 'down'; ev(t, 'captured', u.id);
     } else {
       u.state = 'dead'; ev(t, 'dead', u.id);
     }
     if (u.side === 'E' && u.leader && ship.leaderBreaksMorale) for (const v of activeOf('E')) panicCheck(v, 30);
+    if (u.side === 'E' && u.flags.acidBlood) {
+      for (const s of squad) if (s.state === 'active' && cheb(s, u) <= 1) {
+        const d = Math.floor((ACID_DMG * (100 - Math.min(100, s.m.hazardResistPct || 0))) / 100);
+        if (d > 0) { ev(t, 'acid', u.id, s.id, d); hurt(s, d, null); }
+      }
+    }
   }
 
   function hurt(tg, dmg, src) {
@@ -359,7 +400,7 @@ export function simulate(input) {
     if (src) src.tally.dmgDealt += dmg;
     if (tg.hp < tg.tally.minHp) tg.tally.minHp = tg.hp;
     if (tg.hp <= 0) {
-      if (src) {
+      if (src && tg.shellOf === undefined) {
         src.tally.kills++;
         if (src.flags.killingSpree && src.cd > t) { src.cd = t + ((src.cd - t) >> 1); ev(t, 'ability', src.id, 'killing_spree'); }
       }
@@ -368,6 +409,21 @@ export function simulate(input) {
     if (tg.smokes > 0 && tg.hp * 100 < tg.maxHp * SMOKE.triggerHpPct) { tg.smokes--; popSmoke(tg); }
     if (dmg * 4 >= tg.maxHp) panicCheck(tg, 10);
     if (tg.flags.autoCloak && tg.hp * 10 < tg.maxHp * 3 && t >= tg.cd) cloak(tg);
+  }
+
+  function prismAura(tg) {
+    if (tg.side !== 'E') return 0;
+    const r = map.roomAt[idx(tg.x, tg.y)];
+    for (const v of units) if (v.side === 'E' && v.state === 'active' && v.flags.prismAura && map.roomAt[idx(v.x, v.y)] === r) return -25;
+    return 0;
+  }
+  // Crystal ships: a missed shot can glance off into anyone within 3 tiles of the target.
+  function ricochet(u, tg) {
+    const near = units.filter(v => v !== u && v !== tg && isTargetable(v) && cheb(v, tg) <= 3);
+    if (!near.length) return;
+    const v = near[rng.int(near.length)];
+    const d = applyDamage({ raw: Math.floor((rng.range(u.w.dmg[0], u.w.dmg[1]) * 60) / 100), targetArm: v.st.arm, dmgTakenPct: v.m.dmgTakenPct || 0 });
+    ev(t, 'ricochet', u.id, v.id, d); hurt(v, d, u);
   }
 
   function popSmoke(u) { clouds.push({ x: u.x, y: u.y, until: t + SMOKE.ticks }); ev(t, 'smoke', u.x, u.y, SMOKE.ticks); }
@@ -380,10 +436,11 @@ export function simulate(input) {
   function shoot(u, tg, bonusDmg = 0, dmgScale = 100) {
     const w = u.w; if (!w) return;
     const dist = cheb(u, tg);
-    let coverVal = dist > 1 ? [0, 20, 40][map.cover[idx(tg.x, tg.y)]] : 0;
+    const grav = gravityNow();
+    let coverVal = dist > 1 && grav !== 'zero' ? [0, 20, 40][map.cover[idx(tg.x, tg.y)]] : 0;   // nothing to hide behind in zero-G
     if (dist > 1 && inSmoke(tg)) coverVal = 40;
     const meleeDodge = w.melee && tg.flags.meleeMaster ? 20 : 0;
-    const hit = hitChance({ aim: u.st.aim, weaponAcc: w.acc, targetEvasion: evasionOf(tg.st.spd, (tg.m.evasion || 0) + meleeDodge),
+    const hit = hitChance({ aim: u.st.aim - (grav === 'heavy' && !u.immuneGravity ? 20 : 0), weaponAcc: w.acc, targetEvasion: evasionOf(tg.st.spd, (tg.m.evasion || 0) + meleeDodge),
       cover: coverVal, coverPct: tg.m.coverPct || 0, distTiles: dist, range: w.range, falloff: w.falloff, suppressed: u.suppUntil > t });
     u.tally.shots++;
     const wasHidden = u.hidden;
@@ -392,7 +449,11 @@ export function simulate(input) {
     const rof = Math.max(2, Math.floor((w.rof * 100) / (100 + (u.m.rofPct || 0))));
     u.busy = t + rof;
     if (w.suppress || u.suppressNext) applySuppress(u, tg);
-    if (!rng.roll(hit)) { ev(t, 'shot', u.id, tg.id, 0, 0); return; }
+    if (!rng.roll(hit)) {
+      ev(t, 'shot', u.id, tg.id, 0, 0);
+      if (ship.refraction && rng.roll(50)) ricochet(u, tg);
+      return;
+    }
     u.tally.hits++;
     let raw = rng.range(w.dmg[0], w.dmg[1]);
     let vs = 0;
@@ -408,11 +469,12 @@ export function simulate(input) {
     const bladeThroughShield = w.melee && tg.flags.slowBladeWeak;   // the slow blade penetrates the shield
     const crit = rng.roll(critChance(u.st.aim, w.crit, u.m.critPct || 0)) || (u.flags.stealthCrit && wasHidden);
     let d = applyDamage({ raw, dmgPct, vsPct: vs, crit, critDmgPct: u.m.critDmgPct || 0, targetArm: bladeThroughShield ? 0 : tg.st.arm, pierce: (w.pierce || 0) + (u.m.pierce || 0),
-      dmgTakenPct: (tg.m.dmgTakenPct || 0) + fortressAura(tg) + (tg.side === 'S' && retreat.on ? (retreatDef.cover || 0) : 0) + (tg.spearUntil > t ? SPEARHEAD.dmgTakenPct : 0) });
+      dmgTakenPct: (tg.m.dmgTakenPct || 0) + fortressAura(tg) + prismAura(tg) + (tg.side === 'S' && retreat.on ? (retreatDef.cover || 0) : 0) + (tg.spearUntil > t ? SPEARHEAD.dmgTakenPct : 0) });
     d = Math.max(1, Math.floor((d * dmgScale) / 100));
     ev(t, 'shot', u.id, tg.id, d, crit ? 1 : 0);
     hurt(tg, d, u);
     if (w.type === 'flamer' && rng.roll(FIRE_START_PCT)) startFire(map.roomAt[idx(tg.x, tg.y)]);
+    if (u.flags.screamPanic && tg.state === 'active') panicCheck(tg, 15);
     if (w.splash || w.chain) {
       const extra = units.filter(v => v !== tg && v.side === tg.side && isTargetable(v) && cheb(v, tg) <= (w.chain ? 2 : 1));
       const n = w.chain ? Math.min(w.chain, extra.length) : extra.length;
@@ -469,6 +531,7 @@ export function simulate(input) {
     if (u.side === 'S' && !retreat.on) tp = Math.max(2, Math.floor((tp * 100) / tactic.advancePct));
     if (u.side === 'S' && retreat.on) tp = Math.max(2, tp - 1);
     if (u.suppUntil > t) tp += 2;
+    if (ship.gravity && !u.immuneGravity) { const gv = gravityNow(); if (gv === 'heavy') tp += 3; else if (gv === 'zero') tp = Math.max(2, tp - 2); }
     return tp;
   }
 
@@ -647,10 +710,14 @@ export function simulate(input) {
     if (retreat.on) return retreatDecide(u);
     const foes = visibleFoes(u);
     if (u.panicUntil > t) return fleeStep(u, foes);
+    if (u.confusedUntil > t && u.w) {
+      const near = units.filter(v => v !== u && isTargetable(v) && cheb(u, v) <= SIGHT && los(u.x, u.y, v.x, v.y));
+      if (near.length) { const tg = near[rng.int(near.length)]; if (tg.side === u.side) ev(t, 'friendlyfire', u.id, tg.id); return shoot(u, tg); }
+    }
 
     // Medic: revive / heal.
     if (u.ability === 'patch_up' && t >= u.cd) {
-      const downed = squad.filter(v => v.state === 'down' && cheb(u, v) <= 8).sort((a, b) => cheb(u, a) - cheb(u, b) || a.id - b.id)[0];
+      const downed = squad.filter(v => v.state === 'down' && !v.possessed && cheb(u, v) <= 8).sort((a, b) => cheb(u, a) - cheb(u, b) || a.id - b.id)[0];
       if (downed) {
         if (cheb(u, downed) <= 1) return revive(u, downed);
         if (stepAlong(u, field(downed.x, downed.y))) return;
@@ -811,6 +878,19 @@ export function simulate(input) {
     }
     if (e.panicUntil > t) return fleeStep(e, foes);
     const prof = ENEMY_AI[e.ai] || ENEMY_AI.grunt;
+    if (foes.length && !e.alerted && (e.ai === 'static' || e.ai === 'hunter')) { e.alerted = true; addAlarm(SPOT_NOISE, foes[0].x, foes[0].y); ev(t, 'spotted', e.id, foes[0].id); }
+    if (e.flags.sporePulse && t >= e.nextPulse && (e.alerted || alarmLevel >= 1)) {
+      e.nextPulse = t + 40; ev(t, 'spores', e.id, e.sporeRadius);
+      for (const s of squad) if (cheb(s, e) <= e.sporeRadius && los(e.x, e.y, s.x, s.y)) confuseCheck(s);
+    }
+    if (e.spawnDef && (e.alerted || alarmLevel >= 1) && t >= e.nextSpawn && e.spawned < e.spawnDef.max) {
+      e.nextSpawn = t + e.spawnDef.every; e.spawned++;
+      if (spawnNear(e.spawnDef.unit, e.x, e.y)) { e.busy = t + 10; return; }
+    }
+    if (e.ai === 'static') {
+      if (foes.length && e.w) { const tg = pickTarget(e, foes); if (cheb(e, tg) <= e.w.range + 3) return shoot(e, tg); }
+      e.busy = t + 5; return;
+    }
     if (foes.length) {
       if (!e.alerted) { e.alerted = true; addAlarm(SPOT_NOISE, foes[0].x, foes[0].y); ev(t, 'spotted', e.id, foes[0].id); }
       for (const f of foes) if (f.hidden && f.cloakUntil <= t) { f.hidden = false; ev(t, 'reveal', f.id); }
@@ -833,6 +913,16 @@ export function simulate(input) {
       return shoot(e, tg);
     }
     // Nothing visible.
+    if (e.ai === 'hunter') {
+      // Always stalks the nearest Soldier (re-aims every 20 ticks).
+      if (!e.huntTile || t >= e.huntT) {
+        e.huntT = t + 20;
+        const s = squad.filter(x => x.state === 'active').sort((a, c) => cheb(e, a) - cheb(e, c) || a.id - c.id)[0];
+        e.huntTile = s ? [s.x, s.y] : null;
+      }
+      if (e.huntTile && stepAlong(e, field(e.huntTile[0], e.huntTile[1]))) { checkOverwatch(e); return; }
+      e.busy = t + 5; return;
+    }
     if (e.alerted && prof.hunts && alarmLevel >= 1 && huntTile) {
       if (stepAlong(e, field(huntTile[0], huntTile[1]))) { checkOverwatch(e); return; }
     }
@@ -861,6 +951,7 @@ export function simulate(input) {
     if (retreatDef.exit === 'anywhere') {
       for (const s of squad) if (s.state === 'active' || s.state === 'down') {
         // Downed Soldiers are harder to lock onto: double the misfire chance, and a miss leaves them behind.
+        if (s.state === 'down' && s.possessed) continue;   // can't lock onto a possessed body
         if (s.state === 'down') { if (rng.roll(fail * 2)) { ev(t, 'misfire', s.id, 'lost'); continue; } s.extractAt = t + retreatDef.extractTicks; continue; }
         s.extractAt = t + retreatDef.extractTicks + (rng.roll(fail) ? 60 : 0);
         if (s.extractAt > t + retreatDef.extractTicks) ev(t, 'misfire', s.id, 'delayed');
@@ -892,6 +983,8 @@ export function simulate(input) {
       const pf = exitRoom.features.find(f => f.kind === 'pods');
       retreat.exitTile = pf ? [pf.x, pf.y] : [exitRoom.cx, exitRoom.cy];
       retreat.shuttleAt = retreatDef.needsDock && !entry.shuttleDocked ? t + retreatDef.arriveTicks : t;
+      // v2 easter egg: once in a while the ship's AI won't open the pod bay doors (4 s delay).
+      if (V >= 2 && retreatDef.exit === 'pod_bay' && rng.roll(2)) { retreat.shuttleAt = t + 30; ev(t, 'log', 'log_open_pod'); }
     }
   }
 
@@ -920,6 +1013,15 @@ export function simulate(input) {
     if (!stepAlong(u, field(retreat.exitTile[0], retreat.exitTile[1]))) u.busy = t + 4;
   }
 
+  // ---------- Alien extras ----------
+  const eggs = map.features.filter(f => f.kind === 'eggs').map(f => ({ x: f.x, y: f.y, room: f.room, hatched: false }));
+  function hatch(egg) {
+    egg.hatched = true;
+    const e = spawnNear(ship.eggUnit || 'hive_drone', egg.x, egg.y);
+    ev(t, 'hatch', egg.x, egg.y, e ? e.id : -1);
+  }
+  if (ship.log) ev(0, 'log', ship.log);
+
   // ---------- Main loop ----------
   let result = null;
   const deployed = squad.length;
@@ -937,6 +1039,20 @@ export function simulate(input) {
         const d = Math.floor((h.def.dmg * (100 - Math.min(100, u.m.hazardResistPct || 0))) / 100);
         if (d > 0) { ev(t, 'hazard', u.id, h.room, d); hurt(u, d, null); }
         if (h.def.effect === 'panic') panicCheck(u, h.def.pressure || 10);
+        if (h.def.effect === 'confuse') confuseCheck(u);
+      }
+    }
+    // Egg pods hatch when a Soldier comes close (and, at full alarm, now and then on their own).
+    if (eggs.length && t % 5 === 0) {
+      for (const egg of eggs) if (!egg.hatched && squad.some(s => s.state === 'active' && cheb(s, egg) <= EGG_RANGE)) hatch(egg);
+      if (alarmLevel === 2 && t % 150 === 0) { const left = eggs.filter(e => !e.hatched); if (left.length) hatch(left[rng.int(left.length)]); }
+    }
+    if (ship.gravity && t > 0 && t % GRAVITY_EVERY === 0) ev(t, 'gravity', gravityNow());
+    if (ship.possession && t % 10 === 0) {
+      for (const s of squad) if (s.state === 'down' && !s.possessed && t - s.downAt >= POSSESS_TICKS) {
+        s.possessed = true; s.tally.ticksDown += t - s.downAt; s.downAt = t;
+        const shell = spawnNear(null, s.x, s.y, { shellOf: s.id, name: `${s.name} (possessed)` });
+        if (shell) ev(t, 'possessed', s.id, shell.id);
       }
     }
     // Reinforcements.
@@ -1010,7 +1126,7 @@ export function simulate(input) {
         if (retreat.exitRoom >= 0) {
           if (s.state !== 'active' || map.roomAt[idx(s.x, s.y)] !== retreat.exitRoom) { if (s.state !== 'active') continue; s.extractAt = undefined; continue; }
           extract(s, retreatDef.failResult === 'mia' && rng.roll(retreatDef.failPct));
-          for (const d of squad) if (d.state === 'down') { ev(t, 'dragged', s.id, d.id); extract(d, retreatDef.failResult === 'mia' && rng.roll(retreatDef.failPct)); }
+          for (const d of squad) if (d.state === 'down' && !d.possessed) { ev(t, 'dragged', s.id, d.id); extract(d, retreatDef.failResult === 'mia' && rng.roll(retreatDef.failPct)); }
         } else extract(s);
       }
       // Anyone still able to get out?
@@ -1046,7 +1162,7 @@ export function simulate(input) {
     soldiers, objectives: objectives.map(o => ({ id: o.id, done: o.done })),
     progressPct, lootCrates, alarmLevel, reinforcementWaves: wave,
     enemies: { total: units.filter(u => u.side === 'E' || u.turret).length, killed: units.filter(u => u.state === 'dead').length },
-    units: units.map(u => ({ id: u.id, side: u.side, kind: u.kind, name: u.name, maxHp: u.maxHp })),
+    units: units.map(u => ({ id: u.id, side: u.side, kind: u.kind, name: u.name, maxHp: u.maxHp, ...(u.shellOf !== undefined ? { shellOf: u.shellOf } : {}) })),
     events,
   };
   out.hash = fnv1a(JSON.stringify([out.result, out.ticks, out.soldiers, out.objectives, events]));

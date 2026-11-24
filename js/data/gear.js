@@ -30,6 +30,11 @@ export const WEAPON_TYPES = {
   flamer:  { name: 'Flamer',         dmg: [6, 9],   range: 3,  falloff: 25,  acc: 25, rof: 5,  pierce: 5, crit: 0,  noise: 2, splash: 1 },
   blade:   { name: 'Blade',          dmg: [20, 28], range: 1,  falloff: 100, acc: 15, rof: 10, pierce: 2, crit: 15, noise: 0, melee: true },
   arc:     { name: 'Arc Projector',  dmg: [10, 14], range: 5,  falloff: 6,   acc: 10, rof: 12, pierce: 4, crit: 3,  noise: 1, chain: 1, vs: { synthetic: 30 } },
+  // Alien natural weapons (enemy-only items below).
+  claws:   { name: 'Claws',          dmg: [11, 16], range: 1,  falloff: 100, acc: 15, rof: 9,  pierce: 2, crit: 10, noise: 0, melee: true },
+  spit:    { name: 'Acid Spit',      dmg: [8, 12],  range: 6,  falloff: 6,   acc: 5,  rof: 12, pierce: 4, crit: 3,  noise: 0 },
+  beam:    { name: 'Crystal Beam',   dmg: [10, 15], range: 8,  falloff: 3,   acc: 10, rof: 12, pierce: 2, crit: 5,  noise: 1 },
+  scream:  { name: 'Psychic Scream', dmg: [4, 7],   range: 6,  falloff: 8,   acc: 15, rof: 10, pierce: 10, crit: 0, noise: 2, suppress: true },
 };
 
 // Base items. Weapons inherit their type's profile; `mods` add on top. Armor/utility/implant use mods only.
@@ -70,6 +75,12 @@ export const ITEMS = [
   { id: 'plasma_caster',   slot: 'weapon', type: 'arc',     name: 'Shoulder Plasma Caster',        rarity: 'xeno',      egg: 'plasma_caster',
     mods: { aim: 20, dmgPct: 20 }, flavor: 'Comes with three little red dots. Found on a very big, very ugly hunter.' },
 
+  // ---- Enemy-only natural weapons (never in packs, the Store or the Armory) ----
+  { id: 'xeno_claws',   slot: 'weapon', type: 'claws',  name: 'Claws',          rarity: 'standard', enemyOnly: true, mods: {} },
+  { id: 'acid_spit',    slot: 'weapon', type: 'spit',   name: 'Acid Spit',      rarity: 'standard', enemyOnly: true, mods: {} },
+  { id: 'crystal_beam', slot: 'weapon', type: 'beam',   name: 'Crystal Beam',   rarity: 'standard', enemyOnly: true, mods: {} },
+  { id: 'void_scream',  slot: 'weapon', type: 'scream', name: 'Psychic Scream', rarity: 'standard', enemyOnly: true, mods: {} },
+
   // ---- Armor ----
   { id: 'armor_light',  slot: 'armor', name: 'Flak Vest',            mods: { arm: 8 } },
   { id: 'armor_medium', slot: 'armor', name: 'Boarding Armor',       mods: { arm: 15, spd: -3 } },
@@ -90,6 +101,8 @@ export const ITEMS = [
   { id: 'breach_kit',    slot: 'utility', name: 'Breaching Kit',       mods: { breachSpeedPct: 30 } },
   { id: 'motion_tracker',slot: 'utility', name: 'Motion Tracker',      rarity: 'prototype', egg: 'motion_tracker',
     mods: { detectPct: 40 }, flag: 'tracker', flavor: 'Beep. Beep. Beep-beep-beep. It reads solid. They are in the room.' },
+  { id: 'ships_cat',     slot: 'utility', name: "Ship's Cat",         rarity: 'relic', egg: 'loot_cat', hidden: true,
+    mods: { grit: 15, hazardResistPct: 10 }, flavor: 'A ginger cat in a carry crate. It hisses at ventilation shafts, which is honestly useful.' },
   { id: 'hyper_towel',   slot: 'utility', name: 'Hyperspace Towel',    rarity: 'relic', egg: 'towel',
     mods: { grit: 25, hazardResistPct: 25 }, flavor: 'Massively useful. A Soldier who knows where theirs is, is a Soldier to be reckoned with.' },
 

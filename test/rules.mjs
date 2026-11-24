@@ -88,5 +88,42 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(R.upkeep(t).length === 0, 'emergency cooldown');
 }
 
+// Easter eggs
+{
+  const t = R.newGame();
+  for (const s of t.soldiers) s.level = 10;
+  let secrets = 0, xeno = 0, alienWins = 0, cat = 0;
+  for (let i = 0; i < 400; i++) {
+    t.missions = 5; t.soldiers.forEach(s => { s.injuries = []; s.status = 'ready'; });
+    while (t.soldiers.length < 4) R.hire(Object.assign(t, { bucs: t.bucs + 150 }), 'assault');
+    const ship = i % 2 ? 'hive_ship' : 'gravity_vessel';
+    const out = R.runMission(t, { ship, entry: 'shuttle', tactic: 'balanced', retreat: 'teleport_recall', squad: t.soldiers.slice(0, 4).map(s => s.uid) });
+    if (out.report.secret) { secrets++; ok(out.input.ship.startsWith('secret_') && out.report.plannedShip === ship, 'secret ship swapped in'); }
+    if (out.report.result === 'success' && !out.report.secret) alienWins++;
+    if (out.report.extras.some(x => x.xeno)) xeno++;
+    if (out.report.extras.some(x => x.egg === 'loot_cat')) cat++;
+  }
+  ok(secrets > 4 && secrets < 40, `secret encounters ~4% (${secrets}/400)`);
+  ok(xeno > 0, `Xeno drops from alien ships (${xeno} drops, ${alienWins} non-secret wins)`);
+  ok(cat <= 1, `the ship's cat can only be found once (${cat})`);
+  ok(new Set(t.discovered).size === t.discovered.length, 'discovered list has no duplicates');
+  console.log('  achievements earned in that run: ' + (t.achievements.join(', ') || 'none'));
+  const fresh = R.newGame();
+  let early = 0;
+  for (let i = 0; i < 100; i++) {
+    fresh.missions = 1; fresh.soldiers.forEach(s => { s.injuries = []; s.status = 'ready'; });
+    if (!fresh.soldiers.length) break;
+    const o = R.runMission(fresh, { ship: 'hauler', entry: 'shuttle', tactic: 'balanced', retreat: 'teleport_recall', squad: [fresh.soldiers[0].uid] });
+    if (o.report.secret) early++;
+  }
+  ok(early === 0, 'no secret ships before mission 3');
+}
+{
+  const t = R.newGame(); t.bucs = 1e7; let rare = 0;
+  for (let i = 0; i < 1500; i++) { t.soldiers = []; const got = R.openPack(t, 'recruit'); rare += (got.rare || []).length; }
+  ok(rare > 0 && rare <= 7, `rare recruits appear, each at most once (${rare})`);
+  ok(new Set(t.eggs).size === t.eggs.length, 'egg list has no duplicates');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

@@ -2,7 +2,7 @@
 
 Every rule and number in the game, in one place. The data files in `js/data/` are the source of truth; this codex must be updated whenever they change (it will become the in-game Codex tab later, like Kaiju Clash's). **Never list hidden easter eggs (secret recruits, secret ships, logs) here.**
 
-Engine v1 · run `npm run check` to validate the data and regenerate the sample numbers below.
+Engine v2 · run `npm run check` to validate the data and regenerate the sample numbers below.
 
 ---
 
@@ -236,18 +236,40 @@ Your roster, BUCs, packs and Store purchases live on the server (sign in to play
 - Soldier prices: Rookie 150, Seasoned 400, Veteran 900, Elite 2,000.
 - Selling returns 25%. Roster cap: 24 Soldiers.
 
+## 8b. Alien ships
+
+Six alien ships, each with one signature mechanic. All alien units are **Xeno** (Xeno-Bane affixes and the Mk.41 Pulse Rifle hit them harder). A successful boarding has a chance to drop **Xeno gear**, which you can't get anywhere else.
+
+| Ship | Faction | Tier | Reward | Signature mechanic | Xeno drop |
+|---|---|---|---|---|---|
+| Fungal Derelict | Mycelid Bloom | 2 | 420 | **Spores**: a quarter of the rooms are spore-filled and Spore Puffers pulse more. A Soldier who breathes them may be **Confused** for 4 s and fire at whoever is nearest, friend or foe (Grit resists). The Bloom Mother grows new Shamblers | 30% |
+| Gravity Anomaly | Drifters | 2 | 400 | **Shifting gravity** every 15 s: normal, then HEAVY (Soldiers move 3 ticks/tile slower and aim worse), then normal, then ZERO-G (faster, but nobody gets cover). Drifters are used to it | 25% |
+| Hive Ship | The Hive | 3 | 650 | **Egg pods** hatch Hive Drones when a Soldier comes within 3 tiles (and on their own at full alarm). **Acid blood**: killing a Hive creature in melee range splashes acid on adjacent Soldiers. The Queen keeps birthing drones | 40% |
+| Crystal Spire | The Lattice | 3 | 640 | **Ricochets**: half of all missed shots glance into someone within 3 tiles of the target, friend or foe. Prisms shield their room (-25% damage). The crystal field adds 25% to teleport misfires | 40% |
+| Void Hulk | Void Wraiths | 3 | 640 | **Darkness**: the squad only sees 6 tiles (+4 with a Motion Tracker, +2 with Tech 60+) and panics more easily. Shades are invisible until they strike, and The Reaper hunts the squad wherever it goes | 40% |
+| Parasite Ship | The Thrall | 3 | 660 | **Possession**: a Soldier left Down for 12.5 s rises as a possessed enemy at half health. Down them again to free them. Possessed Soldiers can't be extracted, so a retreat leaves them aboard | 40% |
+
+Alien natural weapons (claws, acid spit, crystal beams, psychic screams) never appear in packs, the Store or your Armory.
+
 ## 10. Balance targets and current results
 
-From `node test/balance.mjs 80` (Engine v1). Each ship is tested with the squad a player would realistically bring.
+From `node test/balance.mjs` (Engine v2; alien ships with 40–60 runs per combination). Each ship is tested with the squad a player would realistically bring.
 
 | Ship | Test squad | Success (all entries and tactics) | KIA per mission | Average successful mission, fastest to slowest entry |
 |---|---|---|---|---|
 | Cargo Hauler | Starter squad, level 1, Standard gear | 65% | 0.20 | 53–71 s |
 | Pirate Raider | Level 5, Mil-Spec, full kit (grenades, smoke…) | 63% | 0.19 | 56–75 s |
 | Patrol Corvette | Level 9, Prototype, full kit | 45% | 0.43 | 58–77 s |
+| Fungal Derelict | Level 5, Mil-Spec | 58% | 0.23 | 56–76 s |
+| Gravity Anomaly | Level 5, Mil-Spec | 54% | 0.29 | 58–75 s |
+| Hive Ship | Level 9, Prototype | 48% | 0.37 | 55–77 s |
+| Crystal Spire | Level 9, Prototype | 47% | 0.52 | 59–80 s |
+| Void Hulk | Level 9, Prototype | 44% | 0.51 | 55–75 s |
+| Parasite Ship | Level 9, Prototype | 51% | 0.26 | 60–77 s |
 
 - Averaged over the other choices, every entry method and every tactic lands between 34% and 77% on every ship, so there's no dead option. Individual combinations range wider (16–93%): some pairings really are bad, like a Slow & Steady shuttle boarding of the Corvette (16%): it gives the Marines all the time they need.
 - Vent Crawl is the riskiest entry; the Boarding Shuttle is the safest on small ships and the weakest against the Corvette (the Marines expect it).
+- On the Void Hulk the Boarding Shuttle is by far the best entry (70%): a big squad together in the dark beats a small one feeling its way.
 
 ## 11. Special effects
 

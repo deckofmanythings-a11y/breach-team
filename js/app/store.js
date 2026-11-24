@@ -75,9 +75,10 @@ function reveal(pack, r) {
   const soldiers = r.soldiers.map(id => G.soldierById(id)).filter(Boolean);
   const box = el(`<div class="box"><h2>${esc(pack.name)}</h2>
     ${r.pity ? '<div class="banner">Pity guarantee: a Relic!</div>' : ''}
+    ${(r.rare || []).length ? '<div class="banner info">★ A rare recruit has joined you!</div>' : ''}
     ${soldiers.map(s => `<div class="card" style="margin-bottom:8px"><div class="soldier-head">${avatar(s)}<div>
       <div class="name">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
-      <div class="small dim">${GRADE_BY_ID[s.grade]?.name || ''} ${SPECIALTY_BY_ID[s.specialty].name} · Lv ${s.level}</div></div></div>${statGrid(s.stats)}</div>`).join('')}
+      <div class="small dim">${GRADE_BY_ID[s.grade]?.name || ''} ${SPECIALTY_BY_ID[s.specialty].name} · Lv ${s.level}</div>${s.bio ? `<div class="small"><i>${esc(s.bio)}</i></div>` : ''}</div></div>${statGrid(s.stats)}</div>`).join('')}
     <div style="display:grid;gap:6px">${items.map(it => `<div class="item"><span>${itemLabel(it)} <span class="dim small">${ITEM_BY_ID[it.base].slot}</span>
       ${ITEM_BY_ID[it.base].flavor ? `<div class="small dim"><i>${esc(ITEM_BY_ID[it.base].flavor)}</i></div>` : ''}</span></div>`).join('')}</div>
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="primary" id="ok">Nice</button></div></div>`);

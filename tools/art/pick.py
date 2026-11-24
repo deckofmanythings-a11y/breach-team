@@ -23,9 +23,20 @@ PICKS = {
     'corp_crew': 12964, 'corp_guard': 13062, 'corp_riot': 1977, 'corp_drone': 13067, 'corp_chief': 20961,
     'mil_marine': 28891, 'mil_heavy': 12958, 'mil_engineer': 21181, 'mil_sniper': 20993, 'mil_officer': 21070,
     'sys_turret': 84881, 'sys_drone': 9901,
+    # Phase 7: aliens
+    'hive_drone': 101059, 'hive_spitter': 109221, 'hive_brute': 101069, 'hive_queen': 108984,
+    'myc_shambler': 101270, 'myc_puffer': 108991, 'myc_stalker': 109101, 'myc_mother': 108998,
+    'crys_shard': 108993, 'crys_prism': 109018, 'crys_colossus': 101435, 'crys_core': 108888,
+    'void_shade': 108965, 'void_howler': 109105, 'void_reaper': 109087,
+    'drift_skimmer': 101392, 'drift_lancer': 109180, 'drift_anchor': 109186, 'drift_matriarch': 109506,
+    'thrall_host': 101188, 'thrall_crawler': 109413, 'thrall_brute': 139207, 'thrall_overmind': 109529,
+    # Rare recruits (hidden eggs)
+    'egg-rec_wisecrack': 101717, 'egg-rec_tough': 101312, 'egg-rec_warrant': 117366, 'egg-rec_mobile': 101393,
+    'egg-rec_dutch': 101297, 'egg-rec_trooper': 109459, 'egg-rec_multipass': 101755,
 }
 
-FLOOR_PICKS = {'floor-pirates': 79270, 'floor-corpsec': 81342, 'floor-military': 71466}
+FLOOR_PICKS = {'floor-pirates': 79270, 'floor-corpsec': 81342, 'floor-military': 71466,
+               'floor-hive': 108938, 'floor-mycelid': 109253, 'floor-lattice': 117171, 'floor-wraith': 109165, 'floor-drifters': 101458, 'floor-thrall': 109157}
 FLOOR_OUT = os.path.join(HERE, '..', '..', 'assets', 'floors')
 
 os.makedirs(OUT, exist_ok=True)

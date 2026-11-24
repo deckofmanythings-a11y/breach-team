@@ -6,7 +6,7 @@ import { ITEMS, ITEM_BY_ID, WEAPON_TYPES, RARITIES, RARITY_BY_ID, AFFIXES, SLOTS
 import { TACTICS } from '../js/data/tactics.js';
 import { ENTRIES, RETREATS } from '../js/data/entries.js';
 import { FACTIONS, UNIT_BY_ID } from '../js/data/factions.js';
-import { SHIPS, ROOMS, OBJECTIVES } from '../js/data/ships.js';
+import { SHIPS, ALL_SHIPS, ROOMS, OBJECTIVES } from '../js/data/ships.js';
 import { HAZARDS } from '../js/data/hazards.js';
 import { INJURIES, MAX_HEAL_MIN, kiaChance, KIA_MIN_PCT } from '../js/data/injuries.js';
 import { PACKS, GRADES, STARTER_SQUAD, ITEM_PRICE, successReward, failReward } from '../js/data/economy.js';
@@ -88,7 +88,9 @@ for (const f of FACTIONS) for (const u of f.units) {
   if (u.weapon && !ITEM_BY_ID[u.weapon]) err(`unit ${u.id}: unknown weapon ${u.weapon}`);
 }
 uniq('units', Object.keys(UNIT_BY_ID));
-for (const s of SHIPS) {
+for (const s of ALL_SHIPS) {
+  if (s.egg && !EGG_BY_ID[s.egg]) err(`ship ${s.id}: egg ${s.egg} not in registry`);
+  if (s.log && !EGG_BY_ID[s.log]) err(`ship ${s.id}: log ${s.log} not in registry`);
   for (const r of s.rooms.required) if (!ROOMS[r]) err(`ship ${s.id}: unknown required room ${r}`);
   for (const r in s.rooms.pool) if (!ROOMS[r]) err(`ship ${s.id}: unknown pool room ${r}`);
   if (s.rooms.required.length > s.rooms.count[0]) err(`ship ${s.id}: more required rooms than min count`);

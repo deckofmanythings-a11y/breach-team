@@ -3,9 +3,16 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.5.0', date: '2026-11-24', items: [
+    'Six alien ships to board: the Fungal Derelict, Gravity Anomaly, Hive Ship, Crystal Spire, Void Hulk and Parasite Ship. Each has its own deadly trick: spores that turn Soldiers on each other, shifting gravity, hatching eggs and acid blood, ricocheting shots, total darkness, and parasites that take over the Downed.',
+    'Xeno gear: the rarest equipment in the game, found only by taking alien ships.',
+    'Achievements: four of them, tracked in the Mission Log.',
+    'Your Soldiers now say the odd familiar line at the right moment.',
+    'Space is big. Not every contact is what it seems.',
+  ] },
   { v: '0.4.0', date: '2026-11-24', items: [
     'Art pass: every Soldier and enemy now has a painted portrait token on the mission map.',
-    'Your Soldier's armor colour is painted onto their portrait, and their accent colour is the ring. Change colours in the Barracks and the token updates instantly.',
+    "Your Soldier's armor colour is painted onto their portrait, and their accent colour is the ring. Change colours in the Barracks and the token updates instantly.",
     'Each enemy faction has its own ring colour (Pirates orange, Corporate teal, Marines grey), and leaders wear a gold star.',
     'Each ship class has its own deck: rusty pirate plating, clean corporate panels, olive military tread.',
     'Muzzle flashes and impact sparks; Downed units grey out with a red X.',

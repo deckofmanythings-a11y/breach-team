@@ -1,3 +1,5 @@
+import { ALIEN_SHIPS, SECRET_SHIPS } from './aliens.js';
+
 // Room templates and ship classes. The engine builds each ship procedurally from these:
 // it picks a room count, places required rooms, fills from the weighted pool, links rooms
 // with corridors/doors on a tile grid, then spends the crew budget on units.
@@ -51,7 +53,7 @@ export const OBJECTIVES = {
 //   scrambleAdd   added to teleport entry/retreat failure (shields, interference)
 //   optional      optional objectives this class can roll (1-2 per mission)
 //   reward        BUCs for a successful capture before multipliers (economy.js)
-export const SHIPS = [
+const HUMAN_SHIPS = [
   {
     id: 'hauler', name: 'Cargo Hauler', faction: 'corpsec', tier: 1,
     desc: 'A slow freighter with a skeleton security team. Fat cargo holds, thin defences.',
@@ -90,4 +92,8 @@ export const SHIPS = [
     reward: 600,
   },
 ];
-export const SHIP_BY_ID = Object.fromEntries(SHIPS.map(s => [s.id, s]));
+// SHIPS = what Deploy lists. ALL_SHIPS also has the secret ships (never listed; see rules.js).
+export const SHIPS = [...HUMAN_SHIPS, ...ALIEN_SHIPS];
+export { SECRET_SHIPS };
+export const ALL_SHIPS = [...SHIPS, ...SECRET_SHIPS];
+export const SHIP_BY_ID = Object.fromEntries(ALL_SHIPS.map(s => [s.id, s]));

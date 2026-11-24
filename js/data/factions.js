@@ -1,5 +1,6 @@
-// Enemy factions and their units. Phase 1 ships the three human factions plus shared ship systems.
-// Alien factions (Hive, Fungal, Crystal, Void Wraith, Gravity, Parasite) arrive in Phase 7.
+// Enemy factions and their units: three human factions here, six alien factions in aliens.js,
+// plus shared ship systems.
+import { ALIEN_FACTIONS } from './aliens.js';
 //
 // Visual identity rule: ONE silhouette, ONE palette, ONE movement style per faction, so players
 // can tell them apart at a glance. The renderer reads `look`; the engine never does.
@@ -13,7 +14,7 @@
 //            'support' (heals/buffs) | 'leader' (morale aura, stays back) | 'flee' (civilian) | 'turret'
 //   aura     leaders only: moralePct for allies in the same room
 
-export const FACTIONS = [
+const HUMAN_FACTIONS = [
   {
     id: 'pirates', name: 'Void Pirates',
     desc: 'Scrappy raiders in patched-together gear. Disorganised, aggressive, and they panic fast when the captain falls.',
@@ -80,6 +81,7 @@ export const SYSTEM_UNITS = [
     stats: { hp: 40, aim: 45, arm: 10, spd: 60, grit: 100, tech: 0, stl: 10 }, tags: ['synthetic'] },
 ];
 
+export const FACTIONS = [...HUMAN_FACTIONS, ...ALIEN_FACTIONS];
 export const FACTION_BY_ID = Object.fromEntries(FACTIONS.map(f => [f.id, f]));
 export const UNIT_BY_ID = Object.fromEntries(
   [...FACTIONS.flatMap(f => f.units.map(u => ({ ...u, faction: f.id }))), ...SYSTEM_UNITS.map(u => ({ ...u, faction: 'system' }))]
