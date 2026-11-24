@@ -149,5 +149,45 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(!ra.report.secret && !rb.report.secret, 'no secret ships on contracts');
 }
 
+// Hidden egg: a fallen Soldier comes back from a pack as a cyborg
+{
+  const { ITEM_BY_ID } = await import('../js/data/gear.js');
+  const { STATS } = await import('../js/data/stats.js');
+  const g = R.newGame();
+  const dead = g.soldiers[0];
+  dead.kills = 7; dead.level = 6; dead.perks = ['x'];
+  g.memorial.unshift({ ...dead, gear: {}, diedAt: 1, diedOn: 'Cargo Hauler', diedHow: 'test', diedResult: 'wipe', gearLost: false });
+  g.soldiers = g.soldiers.slice(1);
+  let cy = null, opened = 0;
+  for (; opened < 2000 && !cy; opened++) {
+    g.bucs = 10000; g.soldiers = g.soldiers.slice(0, 3);
+    const got = R.openPack(g, 'recruit');
+    if (got.cyborg) cy = g.soldiers.find(s => s.uid === got.cyborg[0]);
+  }
+  ok(cy, `a cyborg turns up in packs (after ${opened})`);
+  if (cy) {
+    const m = g.memorial[0];
+    ok(m.recovered && cy.origin === m.uid, 'the memorial entry is marked recovered');
+    ok(cy.specialty === m.specialty && cy.level === m.level && cy.sex === m.sex && cy.colors.join() === m.colors.join() && cy.perks.join() === m.perks.join(), 'carbon copy: specialty, level, sex, colours, perks');
+    ok(STATS.every(k => cy.stats[k] > m.stats[k]), 'every stat is better');
+    ok(cy.name !== m.name && !cy.name.includes(m.name.split(' ')[1]), `mysterious name (${cy.name})`);
+    const ch = R.itemById(g, cy.gear.implant);
+    ok(ch && ITEM_BY_ID[ch.base].builtin && ITEM_BY_ID[ch.base].hidden, 'built-in chassis in the implant slot');
+    let threw = 0;
+    try { R.equip(g, cy.uid, 'implant', null); } catch { threw++; }
+    try { R.sellItem(g, ch.uid); } catch { threw++; }
+    const other = g.soldiers.find(s => !s.cyborg);
+    try { R.equip(g, other.uid, 'implant', ch.uid); } catch { threw++; }
+    ok(threw === 3 && cy.gear.implant === ch.uid, 'chassis cannot be removed, sold or moved');
+    const before = g.items.length;
+    R.dismiss(g, cy.uid);
+    ok(g.items.length === before - 1 && !R.itemById(g, ch.uid), 'dismissing takes the chassis with them');
+    let again = 0;
+    for (let i = 0; i < 400; i++) { g.bucs = 10000; g.soldiers = g.soldiers.slice(0, 3); if (R.openPack(g, 'recruit').cyborg) again++; }
+    ok(again === 0, 'a fallen Soldier only comes back once');
+    console.log('  cyborg sample:', cy.name, '|', cy.bio);
+  }
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

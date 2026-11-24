@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.6.2', date: '2026-11-24', items: [
+    'Fleet R&D has requested access to the Memorial Wall records. Request approved.',
+  ] },
   { v: '0.6.1', date: '2026-11-24', items: [
     'The Weekly Contract is now a 72-Hour Contract: a new ship and map every 3 days, resetting at midnight Pacific.',
     'Vent Crawl, explained: a stealth insertion where a handful of small one-man pods enter through the hull into the service tunnels of the ship.',

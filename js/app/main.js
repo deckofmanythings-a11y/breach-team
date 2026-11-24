@@ -7,7 +7,7 @@ import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js?v=6';
-import { renderStore } from './store.js';
+import { renderStore } from './store.js?v=2';
 import { renderLadder } from './ladder.js?v=2';
 import { setContract } from './deploy.js?v=6';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
@@ -21,7 +21,7 @@ import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 
-export const APP_VERSION = '0.6.1';
+export const APP_VERSION = '0.6.2';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -191,7 +191,7 @@ export function openSoldier(s) {
       <div class="name" style="font-size:18px">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
       <div class="dim">${sp.name} · Level ${s.level} · ${s.missions} missions · ${s.kills} kills</div></div></div>
       <button id="x">Close</button></div>
-    ${s.bio ? `<div class="banner info" style="margin:8px 0">Rare recruit. <i>${esc(s.bio)}</i></div>` : ''}
+    ${s.bio ? `<div class="banner info" style="margin:8px 0">${s.cyborg ? 'Classified.' : 'Rare recruit.'} <i>${esc(s.bio)}</i></div>` : ''}
     <div class="small dim" style="margin:8px 0">${esc(sp.desc)}</div>
     <div class="small">XP ${s.xp}${next ? ` / ${next}` : ' (max level)'}</div>
     ${next ? `<div class="bar"><i style="width:${xpPct(s)}%"></i></div>` : ''}
@@ -252,7 +252,11 @@ export function openSoldier(s) {
   const gear = box.querySelector('#gear');
   for (const slot of SLOTS) {
     const cur = s.gear[slot] && G.itemById(s.gear[slot]);
-    const opts = S.items.filter(it => ITEM_BY_ID[it.base].slot === slot && G.canWield(s, it))
+    if (cur && ITEM_BY_ID[cur.base].builtin) {   // fused in: shown, never changeable
+      gear.append(el(`<div class="row"><span style="width:62px" class="dim">${slot[0].toUpperCase() + slot.slice(1)}</span><span style="flex:1"><b>${esc(itemLabel(cur, true))}</b> <span class="small dim">(built in)</span><div class="small dim"><i>${esc(ITEM_BY_ID[cur.base].flavor || '')}</i></div></span></div>`));
+      continue;
+    }
+    const opts = S.items.filter(it => ITEM_BY_ID[it.base].slot === slot && !ITEM_BY_ID[it.base].builtin && G.canWield(s, it))
       .sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity));
     const sel = el(`<select style="flex:1"><option value="">— empty —</option>${opts.map(it => {
       const who = G.equippedBy(it.uid);
@@ -336,6 +340,7 @@ function renderMemorial() {
   for (const m of S.memorial) list.append(el(`<div class="card"><div class="soldier-head">${avatar(m)}<div><div class="name">${esc(m.name)} ${m.callsign ? `<span class="callsign">"${esc(m.callsign)}"</span>` : ''}</div>
     <div class="small dim">${SPECIALTY_BY_ID[m.specialty].name} · Lv ${m.level} · ${m.missions} missions · ${m.kills} kills</div>
     <div class="small">${esc(m.diedHow || 'Fell on the ' + m.diedOn)}, ${new Date(m.diedAt).toLocaleDateString()}${m.gearLost ? ' · <span class="bad">gear lost</span>' : ''}</div>
+    ${m.recovered ? '<div class="small warn">Remains signed out of the morgue. The name on the form is blacked out.</div>' : ''}
     <div class="small dim">${m.record?.successes || 0} ships taken · ${m.record?.revives || 0} revives · Downed ${m.record?.downed || 0}×</div>
     ${ribbons(m.medals || [])}</div></div></div>`));
   panel.append(wrap);

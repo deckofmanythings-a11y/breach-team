@@ -19,6 +19,7 @@ import { EASTER_EGGS, EGG_BY_ID } from '../data/easter-eggs.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { PERK_LEVELS } from '../data/stats.js';
 import { COMMENDATIONS } from '../data/commendations.js';
+import { CYBORG_PCT, CYBORG_EGG, CYBORG_CHASSIS, recoverable, rebuild } from './cyborg.js';   // hidden egg; new file for new names
 
 export class GameError extends Error {}
 const fail = (msg) => { throw new GameError(msg); };
@@ -150,9 +151,12 @@ export function heal(g, sid, now = Date.now()) {
 export function equip(g, sid, slot, itemUid) {
   const s = getSoldier(g, sid);
   if (!SLOTS.includes(slot)) fail('Bad slot.');
+  const fixed = s.gear[slot] && itemById(g, s.gear[slot]);
+  if (fixed && ITEM_BY_ID[fixed.base].builtin) fail(`That's part of ${s.name} now. It doesn't come off.`);
   if (!itemUid) { delete s.gear[slot]; return {}; }
   const it = itemById(g, itemUid) || fail('No such item.');
   if (ITEM_BY_ID[it.base].slot !== slot) fail('That item goes in another slot.');
+  if (ITEM_BY_ID[it.base].builtin) fail("That can't be fitted to anyone else.");
   if (!canWield(s, it)) fail(`${s.name} (${SPECIALTY_BY_ID[s.specialty].name}) can't use that weapon.`);
   const other = equippedBy(g, itemUid);
   if (other) for (const k in other.gear) if (other.gear[k] === itemUid) delete other.gear[k];
@@ -184,9 +188,15 @@ export function hire(g, specialty, now = Date.now()) {
   g.soldiers.push(s);
   return { soldier: s.uid };
 }
-export function dismiss(g, sid) { getSoldier(g, sid); g.soldiers = g.soldiers.filter(x => x.uid !== sid); return {}; }
+export function dismiss(g, sid) { const s = getSoldier(g, sid); dropBuiltins(g, s); g.soldiers = g.soldiers.filter(x => x.uid !== sid); return {}; }
+// Built-in parts (a cyborg's chassis) leave with their Soldier: they never reach the Armory.
+function dropBuiltins(g, s) {
+  const ids = Object.values(s.gear).filter(id => { const it = itemById(g, id); return it && ITEM_BY_ID[it.base].builtin; });
+  if (ids.length) g.items = g.items.filter(it => !ids.includes(it.uid));
+}
 export function sellItem(g, itemUid) {
   const it = itemById(g, itemUid) || fail('No such item.');
+  if (ITEM_BY_ID[it.base].builtin) fail("That can't be sold.");
   if (equippedBy(g, itemUid)) fail('Unequip it first.');
   const p = sellPrice(it);
   g.items = g.items.filter(x => x !== it); g.bucs += p;
@@ -233,15 +243,23 @@ export function openPack(g, packId, now = Date.now()) {
   for (let i = 0; i < pack.soldiers; i++) {
     const grade = rollGrade(rng, i === 0 ? pack.gradeFloor : 'rookie');
     const rare = RARE_RECRUITS.filter(e => !(g.eggs || []).includes(e.id));
+    const fallen = recoverable(g);
     let s;
-    if (rare.length && rng.roll(RARE_RECRUIT_PCT)) {
+    if (fallen.length && rng.roll(CYBORG_PCT)) {
+      const f = fallen[rng.int(fallen.length)];
+      s = rebuild(rng, f, uid, SERVICE_RECORD, now);
+      s.gear.implant = addItem(g, { base: CYBORG_CHASSIS, rarity: 'relic', affixes: [] }).uid;
+      f.recovered = true;
+      if (!(g.eggs ||= []).includes(CYBORG_EGG)) g.eggs.push(CYBORG_EGG);
+      got.cyborg = (got.cyborg || []).concat(s.uid);
+    } else if (rare.length && rng.roll(RARE_RECRUIT_PCT)) {
       const egg = rare[rng.int(rare.length)];
       s = makeRecruit(rng, egg.data.specialty, grade.level, now);
       Object.assign(s, { name: egg.data.name, callsign: '', sex: egg.data.sex, portrait: 'egg-' + egg.id, egg: egg.id, bio: egg.data.note });
       (g.eggs ||= []).push(egg.id);
       got.rare = (got.rare || []).concat(s.uid);
     } else s = makeRecruit(rng, SPECIALTIES[rng.int(SPECIALTIES.length)].id, grade.level, now);
-    s.grade = grade.id;
+    if (!s.cyborg) s.grade = grade.id;
     // Recruits from packs: perks at 5+ come pre-picked by their training (growSoldier picks them).
     g.soldiers.push(s); got.soldiers.push(s.uid);
   }
@@ -335,6 +353,7 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
     if (a.fate === 'kia') {
       const lost = a.state === 'left';   // left on board: their gear is lost with them
       if (lost) { const ids = Object.values(s.gear); g.items = g.items.filter(it => !ids.includes(it.uid)); }
+      else dropBuiltins(g, s);
       line.medals = awardMedals(s);      // posthumous
       const how = lost ? `Left aboard the ${shipName} during the retreat` : `Went Down on the ${shipName} and didn't make it (${a.kiaChance}% death roll)`;
       g.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: shipName, diedHow: how, diedResult: battle.result, gearLost: lost });

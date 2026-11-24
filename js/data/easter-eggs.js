@@ -30,6 +30,9 @@ export const EASTER_EGGS = [
   { id: 'combat_download',  kind: 'item', source: 'The Matrix' },
   { id: 'precog_lens',      kind: 'item', source: 'Minority Report' },
 
+  // ---- Rebuilt fallen (js/game/cyborg.js): a dead Soldier returns from a pack as a walking life-support machine ----
+  { id: 'cyborg_operator', kind: 'revive', source: 'Warhammer 40,000 Dreadnought / RoboCop', hidden: true },
+
   // ---- Rare recruits (show up very rarely in packs; fixed look, rolled stats) ----
   { id: 'rec_wisecrack',  kind: 'recruit', source: 'Aliens', hidden: true,
     data: { name: 'Pvt. Hutson', specialty: 'tech', sex: 'm', note: 'Panics early, keeps talking, never stops shooting.' } },

@@ -33,6 +33,7 @@ PICKS = {
     # Rare recruits (hidden eggs)
     'egg-rec_wisecrack': 101717, 'egg-rec_tough': 101312, 'egg-rec_warrant': 117366, 'egg-rec_mobile': 101393,
     'egg-rec_dutch': 101297, 'egg-rec_trooper': 109459, 'egg-rec_multipass': 101755,
+    'egg-cyborg-f': 324902, 'egg-cyborg-m': 301152,   # hidden egg: rebuilt fallen (full-body walker, no face)
 }
 
 FLOOR_PICKS = {'floor-pirates': 79270, 'floor-corpsec': 81342, 'floor-military': 71466,

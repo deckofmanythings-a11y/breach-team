@@ -107,6 +107,10 @@ export const ITEMS = [
     mods: { grit: 25, hazardResistPct: 25 }, flavor: 'Massively useful. A Soldier who knows where theirs is, is a Soldier to be reckoned with.' },
 
   // ---- Implants ----
+  // Hidden + built-in: fused to the cyborg that comes with it (js/game/cyborg.js). Never rolled, sold or moved.
+  { id: 'sarcophagus_chassis', slot: 'implant', name: 'Life-Support Sarcophagus', rarity: 'relic', hidden: true, builtin: true,
+    mods: { hp: 40, arm: 20, grit: 20, dmgPct: 10, dmgTakenPct: -10, hazardResistPct: 25, spd: -6, stl: -20 }, flag: 'noPanic',
+    flavor: 'Fused to what is left of the spine. It does not come off. Whoever is inside does not talk about before.' },
   { id: 'reflex_booster', slot: 'implant', name: 'Reflex Booster',   mods: { spd: 8, evasion: 4 } },
   { id: 'targeting_eye',  slot: 'implant', name: 'Targeting Eye',    mods: { aim: 8, critPct: 3 } },
   { id: 'dermal_plating', slot: 'implant', name: 'Dermal Plating',   mods: { arm: 8, hp: 10 } },

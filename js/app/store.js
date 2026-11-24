@@ -76,6 +76,7 @@ function reveal(pack, r) {
   const box = el(`<div class="box"><h2>${esc(pack.name)}</h2>
     ${r.pity ? '<div class="banner">Pity guarantee: a Relic!</div>' : ''}
     ${(r.rare || []).length ? '<div class="banner info">★ A rare recruit has joined you!</div>' : ''}
+    ${(r.cyborg || []).length ? '<div class="banner bad">An unregistered unit has been delivered to your Barracks. No sender. No paperwork.</div>' : ''}
     ${soldiers.map(s => `<div class="card" style="margin-bottom:8px"><div class="soldier-head">${avatar(s)}<div>
       <div class="name">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
       <div class="small dim">${GRADE_BY_ID[s.grade]?.name || ''} ${SPECIALTY_BY_ID[s.specialty].name} · Lv ${s.level}</div>${s.bio ? `<div class="small"><i>${esc(s.bio)}</i></div>` : ''}</div></div>${statGrid(s.stats)}</div>`).join('')}

@@ -107,3 +107,8 @@ const RARE = {
   'egg-rec_multipass': 'a rugged middle-aged man with short bleached blond hair, orange tank top under the armor, wry smirk, starship boarding trooper',
 };
 for (const [id, p] of Object.entries(RARE)) TOKENS.push({ id, group: 'rare', prompt: `${p}, ${SOLDIER_ARMOR}`, negative: 'helmet on head, visor, face mask, gas mask, respirator, covered face, celebrity' });
+// Hidden egg (js/game/cyborg.js): a fallen Soldier rebuilt as a walking life-support sarcophagus machine.
+// The armor is painted green like every Soldier so it takes the fallen Soldier's own colours.
+// User's pick: a full-body walker, no visible face (the sarcophagus keeps whoever is inside out of sight).
+const CYBORG = 'front view of a towering boxy armored war-machine walker, no head, its chest is an armored coffin-like sarcophagus with a small rectangular glass window at the top, behind the glass the pale grey-white human face of a {who} with closed sunken eyes floating in murky fluid, breathing tubes and cables, massive mechanical shoulders and piston arms, hull plates painted saturated olive green, strongly green metal armor, oil-stained, battle-scarred, no emblems or skulls';
+for (const [sx, who] of Object.entries({ m: 'man', f: 'woman' })) TOKENS.push({ id: `egg-cyborg-${sx}`, group: 'rare', object: true, prompt: CYBORG.replace('{who}', who), negative: 'green skin, orc, goblin, ogre, monster face, zombie, fangs, teeth, alien, helmet, head on top, celebrity, skull emblem, logo, cute, window light, daylight' });
