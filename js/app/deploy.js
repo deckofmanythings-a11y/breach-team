@@ -12,6 +12,9 @@ import { playMission } from './mission.js';
 
 const LAST = 'bt_last_deploy';
 let pick = null;
+// Weekly Contract mode: the ship (and map) are fixed by the week; set from the Ladder tab.
+let contractMode = null;
+export const setContract = (c) => { contractMode = c; };
 
 function loadPick() {
   if (pick) return pick;
@@ -32,9 +35,9 @@ export function renderDeploy(panel) {
   const optCards = (list, key, body) => `<div class="opt">${list.map(o => `<div class="card click ${p[key] === o.id ? 'sel' : ''}" data-k="${key}" data-v="${o.id}"><h4>${o.name}</h4>${body(o)}</div>`).join('')}</div>`;
   const wrap = el(`<div>
     <h2>Deploy</h2>
-    <div class="section"><h3>1 · Target ship</h3>${optCards(SHIPS, 'ship', s => `
+    ${contractMode ? `<div class="section banner info"><h3 style="margin:0">1 · Weekly Contract: ${esc(contractMode.shipName)}</h3><div class="small">Same ship and map for every commander this week. Your best score goes on the Ladder. <a href="#" id="nocontract">Cancel contract</a></div></div>` : `<div class="section"><h3>1 · Target ship</h3>${optCards(SHIPS, 'ship', s => `
       <div class="small">${'★'.repeat(s.tier)}${'☆'.repeat(3 - s.tier)} · ${FACTION_BY_ID[s.faction].name}</div>
-      <div class="small dim">${esc(s.desc)}</div><div class="small" style="margin-top:4px">Reward <b style="color:var(--accent)">${s.reward}</b> BUCs</div>`)}</div>
+      <div class="small dim">${esc(s.desc)}</div><div class="small" style="margin-top:4px">Reward <b style="color:var(--accent)">${s.reward}</b> BUCs</div>`)}</div>`}
     <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${e.maxSquad}</b></div><div class="small dim">${esc(e.desc)}</div>`)}</div>
     <div class="section"><h3>3 · Squad <span class="dim small" id="count"></span></h3><div class="grid" id="squad"></div></div>
     <div class="section"><h3>4 · Tactic</h3>${optCards(TACTICS, 'tactic', t => `<div class="small dim">${esc(t.desc)}</div><div class="small" style="margin-top:4px">Retreats at ${t.retreatAt}% casualties</div>`)}</div>
@@ -67,6 +70,8 @@ export function renderDeploy(panel) {
   const go = wrap.querySelector('#go');
   go.disabled = !p.squad.length;
   go.onclick = () => launch(panel);
+  const nc = wrap.querySelector('#nocontract'); if (nc) nc.onclick = (e) => { e.preventDefault(); contractMode = null; renderDeploy(panel.replaceChildren() || panel); };
+  if (contractMode) go.textContent = 'Launch contract run';
   panel.append(wrap);
 }
 
@@ -76,7 +81,7 @@ async function launch(panel) {
   const p = pick;
   const go = document.getElementById('go'); if (go) { go.disabled = true; go.textContent = 'Launching…'; }
   let r;
-  try { r = await api.call('deploy', { plan: { ship: p.ship, entry: p.entry, tactic: p.tactic, retreat: p.retreat, squad: p.squad } }); }
+  try { r = await api.call('deploy', { plan: { ship: p.ship, contract: !!contractMode, entry: p.entry, tactic: p.tactic, retreat: p.retreat, squad: p.squad } }); contractMode = null; }
   catch (e) { toast(e.message); if (go) { go.disabled = false; go.textContent = 'Launch boarding action'; } return; }
   // The server fought the mission and saved the result. Hide the BUCs until playback ends,
   // then re-simulate from the server's input and check we got the same mission.

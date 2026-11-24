@@ -251,6 +251,25 @@ Six alien ships, each with one signature mechanic. All alien units are **Xeno** 
 
 Alien natural weapons (claws, acid spit, crystal beams, psychic screams) never appear in packs, the Store or your Armory.
 
+## 9b. Ladder
+
+**Weekly Contract.** Each week (Monday 00:00 to Monday 00:00, Pacific time) one ship is chosen from the Deploy list by the week itself, along with a fixed map. Every commander boards that same ship on that same map; you choose the squad, entry, tactic and retreat, and the fight itself rolls fresh each time. Contract runs are ordinary missions (normal BUCs, injuries and permadeath) and can never turn out to be an unknown contact.
+
+Your **best** run of the week is your leaderboard entry. Score:
+
+| | Points |
+|---|---|
+| Take the ship | +1000, plus 4 for every second under the 90-second retreat deadline |
+| Each optional objective completed | +150 |
+| Each enemy killed | +10 |
+| Each Soldier who went Down (even if they lived) | −40 |
+| Each Soldier left aboard | −150 |
+| Each Soldier killed | −300 |
+
+Scores can go below zero, so even a failed run ranks against other failed runs. Anyone's leaderboard run can be watched: it replays the exact mission in your browser.
+
+**Career board.** Lifetime totals for every commander: ships taken, missions, kills, alien ships taken, BUCs earned, best Soldier level, Soldiers lost, and how many unknown contacts they've identified.
+
 ## 10. Balance targets and current results
 
 From `node test/balance.mjs` (Engine v2; alien ships with 40–60 runs per combination). Each ship is tested with the squad a player would realistically bring.

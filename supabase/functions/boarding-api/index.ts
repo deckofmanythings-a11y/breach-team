@@ -6,6 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import * as R from '../_shared/breach/game/rules.js';
 import { ENGINE_VERSION } from '../_shared/breach/data/version.js';
+import { weeklyContract, backfillStats } from '../_shared/breach/game/ladder.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -71,7 +72,48 @@ const storeView = (g: any, now: number) => {
   return { ...R.storeStock(day), bought: g.store?.day === day ? g.store.bought : [] };
 };
 
+async function names(ids: string[]) {
+  if (!ids.length) return {} as Record<string, string>;
+  const r = await db.from('bp_players').select('user_id, display_name').in('user_id', ids);
+  if (r.error) throw new Fail('Names: ' + r.error.message, 500);
+  return Object.fromEntries((r.data || []).map((p: any) => [p.user_id, p.display_name]));
+}
+
 const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
+  // This week's contract + its leaderboard (each player's best run).
+  async contract(uid) {
+    const c = weeklyContract(Date.now());
+    const r = await db.from('bp_missions').select('id, user_id, score, result, kia, squad_size, at, entry, tactic')
+      .eq('contract_week', c.week).order('score', { ascending: false }).order('at', { ascending: true }).limit(500);
+    if (r.error) throw new Fail('Leaderboard: ' + r.error.message, 500);
+    const best = new Map<string, any>(), runs: Record<string, number> = {};
+    for (const m of r.data || []) { runs[m.user_id] = (runs[m.user_id] || 0) + 1; if (!best.has(m.user_id)) best.set(m.user_id, m); }
+    const rows = [...best.values()];
+    const nm = await names(rows.map(m => m.user_id));
+    const board = rows.map((m, i) => ({ rank: i + 1, name: nm[m.user_id] || '?', me: m.user_id === uid, mission: m.id, score: m.score, result: m.result, kia: m.kia,
+      squad: m.squad_size, entry: m.entry, tactic: m.tactic, at: m.at, runs: runs[m.user_id] }));
+    return { contract: c, board: board.slice(0, 50), mine: board.find(b => b.me) || null };
+  },
+  // Career board: lifetime stats of every commander (secrets are only counted).
+  async ladder(uid) {
+    const r = await db.from('bp_players').select('user_id, display_name, stats:save->stats, discovered:save->discovered, missions:save->missions').limit(1000);
+    if (r.error) throw new Fail('Ladder: ' + r.error.message, 500);
+    const rows = (r.data || []).map((p: any) => {
+      const st = p.stats || backfillStats({ missions: p.missions || 0 });
+      return { name: p.display_name, me: p.user_id === uid, ...st, secrets: Array.isArray(p.discovered) ? p.discovered.length : 0 };
+    });
+    return { rows };
+  },
+  // Replay any contract run on the board (contract runs only: other missions stay private).
+  async replay(uid, b) {
+    const id = Number(b.mission);
+    if (!Number.isInteger(id)) throw new Fail('Bad replay id.');
+    const r = await db.from('bp_missions').select('id, user_id, input, engine_version, hash, score, result, contract_week, ship').eq('id', id).not('contract_week', 'is', null).maybeSingle();
+    if (r.error) throw new Fail('Replay: ' + r.error.message, 500);
+    if (!r.data) throw new Fail("That replay isn't available.", 404);
+    const nm = await names([r.data.user_id]);
+    return { replay: { ...r.data, user_id: undefined, name: nm[r.data.user_id] || '?' } };
+  },
   async me(uid) {
     const row = await loadRow(uid);
     if (!row) return { needsName: true };
@@ -103,6 +145,7 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
       user_id: uid, ship: input.ship, entry: input.entry, tactic: input.tactic, retreat: input.retreat, result: battle.result,
       squad_size: input.squad.length, kia: after.soldiers.filter((s: any) => s.fate === 'kia').length, bucs: after.bucs,
       seed: input.seed, engine_version: ENGINE_VERSION, hash: battle.hash, input,
+      contract_week: mission.report.contract?.week ?? null, score: mission.report.contract?.score ?? null,
     });
     if (ins.error) console.error('bp_missions insert failed', ins.error.message);   // the save already counts; log only
     return out;

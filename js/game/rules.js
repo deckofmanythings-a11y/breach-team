@@ -13,7 +13,8 @@ import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '.
 import { MIA_RETURN_MIN, ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { SHIP_BY_ID } from '../data/ships.js';
-import { SECRET_SHIPS } from '../data/aliens.js';   // new file: avoids the stale-cache trap for new names
+import { SECRET_SHIPS } from '../data/aliens.js';
+import { weeklyContract, contractScore, recordStats, backfillStats, emptyStats } from './ladder.js';   // new file: avoids the stale-cache trap for new names
 import { EASTER_EGGS, EGG_BY_ID } from '../data/easter-eggs.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { PERK_LEVELS } from '../data/stats.js';
@@ -43,7 +44,7 @@ const SERVICE_RECORD = () => ({ successes: 0, downed: 0, deathRolls: 0, revives:
 // ---------- Creation ----------
 export function newGame(now = Date.now()) {
   const g = { v: SAVE_VERSION, bucs: STARTING_BUCS, soldiers: [], items: [], memorial: [], history: [], missions: 0, created: now,
-    pity: 0, lastEmergency: 0, store: { day: '', bought: [] }, eggs: [], achievements: [], discovered: [] };
+    pity: 0, lastEmergency: 0, store: { day: '', bought: [] }, eggs: [], achievements: [], discovered: [], stats: emptyStats() };
   const rng = createRng(randomSeed());
   for (const st of STARTER_SQUAD) {
     const s = makeRecruit(rng, st.specialty, 1, now);
@@ -100,7 +101,7 @@ export function effectiveStats(g, s) {
   return applyStatMods(s.stats, sumMods([...Object.values(gear).map(itemMods), ...s.injuries.map(i => INJURY_BY_ID[i.id].mods)]));
 }
 export function engineSoldier(g, s) {
-  return { uid: s.uid, name: s.name, sex: s.sex, portrait: s.portrait, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
+  return { uid: s.uid, name: s.name, sex: s.sex, portrait: s.portrait, colors: s.colors, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
 }
 export const itemPrice = (it) => ITEM_PRICE[it.rarity] || 0;
 export const sellPrice = (it) => it.rarity === 'xeno' ? XENO_SELL : Math.floor((itemPrice(it) * SELL_PCT) / 100);
@@ -289,7 +290,9 @@ export function buyStore(g, slot, now = Date.now()) {
 // ---------- Missions ----------
 // Validates the plan, runs the mission and applies the aftermath. Returns { input, battle, after, report }.
 export function runMission(g, plan, now = Date.now()) {
-  const ship = SHIP_BY_ID[plan.ship], entry = ENTRY_BY_ID[plan.entry];
+  // Weekly Contract: the week decides the ship and the map; the player still picks everything else.
+  const contract = plan.contract ? weeklyContract(now) : null;
+  const ship = SHIP_BY_ID[contract ? contract.ship : plan.ship], entry = ENTRY_BY_ID[plan.entry];
   if (!ship || ship.secret || !entry || !TACTIC_BY_ID[plan.tactic] || !RETREAT_BY_ID[plan.retreat]) fail('Bad mission plan.');   // secret ships can't be picked
   const ids = Array.isArray(plan.squad) ? [...new Set(plan.squad)] : [];
   if (!ids.length) fail('Pick a squad.');
@@ -298,13 +301,14 @@ export function runMission(g, plan, now = Date.now()) {
   for (const s of squad) if (!canDeploy(s)) fail(`${s.name} isn't fit to deploy.`);
   // Once in a while the contact turns out to be something else entirely.
   let target = ship, planned = null;
-  if ((g.missions || 0) >= MIN_MISSIONS_FOR_SECRET && createRng(randomSeed()).roll(SECRET_CHANCE)) {
+  if (!contract && (g.missions || 0) >= MIN_MISSIONS_FOR_SECRET && createRng(randomSeed()).roll(SECRET_CHANCE)) {
     planned = ship.id; target = SECRET_SHIPS[randomSeed() % SECRET_SHIPS.length];
   }
-  const input = { engineVersion: ENGINE_VERSION, seed: randomSeed(), ship: target.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)) };
+  const input = { engineVersion: ENGINE_VERSION, seed: randomSeed(), ...(contract ? { mapSeed: contract.mapSeed, contractWeek: contract.week } : {}), ship: target.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)) };
   const battle = simulate(input);
   const after = rollAftermath(battle, input.squad);
   const report = applyMission(g, input, battle, after, target.name, now);
+  if (contract) { report.contract = { week: contract.week, score: contractScore(battle, after) }; }
   if (planned) { report.secret = true; report.plannedShip = planned; if (!(g.discovered ||= []).includes(target.id)) { g.discovered.push(target.id); report.firstContact = true; } }
   return { input, battle, after, report };
 }
@@ -378,6 +382,7 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
     const r = makeRecruit(rng, SPECIALTIES[rng.int(SPECIALTIES.length)].id, 1 + rng.int(3), now);
     g.soldiers.push(r); report.extras.push({ kind: 'recruit', name: r.name, specialty: r.specialty });
   }
+  recordStats(g, input, battle, after, !!input.contractWeek);
   g.history.unshift(report); g.history = g.history.slice(0, HISTORY_KEEP);
   return report;
 }
@@ -389,6 +394,7 @@ export function migrate(g) {
   if (!g.eggs) g.eggs = [];
   if (!g.achievements) g.achievements = [];
   if (!g.discovered) g.discovered = [];
+  if (!g.stats) g.stats = backfillStats(g);
   for (const s of [...g.soldiers, ...g.memorial]) { if (!s.record) s.record = SERVICE_RECORD(); if (!s.medals) s.medals = []; }
   g.v = SAVE_VERSION;
   return g;

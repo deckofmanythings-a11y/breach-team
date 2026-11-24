@@ -3,6 +3,12 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.6.0', date: '2026-11-24', items: [
+    "New Ladder tab. The Weekly Contract: every commander boards the same ship on the same map each week (it changes Monday, Pacific). Your best run is scored and ranked.",
+    "Watch any run on the contract leaderboard: it replays the exact mission in your browser.",
+    "Career board: compare ships taken, kills, alien ships taken, BUCs earned, best Soldier level and more with everyone else.",
+    "Contract runs are real missions: normal rewards, and Soldiers can still die.",
+  ] },
   { v: '0.5.0', date: '2026-11-24', items: [
     'Six alien ships to board: the Fungal Derelict, Gravity Anomaly, Hive Ship, Crystal Spire, Void Hulk and Parasite Ship. Each has its own deadly trick: spores that turn Soldiers on each other, shifting gravity, hatching eggs and acid blood, ricocheting shots, total darkness, and parasites that take over the Downed.',
     'Xeno gear: the rarest equipment in the game, found only by taking alien ships.',

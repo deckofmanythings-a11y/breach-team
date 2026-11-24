@@ -9,7 +9,7 @@ Starship boarding-party autobattler. Build a stable of Soldiers, pick a target s
 
 Check the data: `npm run check`
 
-Status: Phase 7 (alien ships, easter eggs) done. Ver. 0.5.0.
+Status: Phase 8 (Weekly Contract ladder, career board, rival replays) done. Ver. 0.6.0.
 
 Art: `node tools/art/gen.mjs --only <ids> --variants N` (needs ComfyUI on :8188), review in tools/art/sheet.html, set picks in tools/art/pick.py and run it. Local render test: tools/art/mission-test.html?ship=raider.
 
