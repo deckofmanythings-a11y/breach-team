@@ -156,7 +156,7 @@ Some special items have fixed rarity and unique flavour. You'll find them in pac
 | Tactic | Style | Modifiers | Retreats at |
 |---|---|---|---|
 | Balanced | Even | +5 Aim, +10 Grit | 50% casualties |
-| Blitz | Fast, close, loud | +10% damage, +15% damage taken, −5 Aim | 60% |
+| Blitz | Fast, close, loud | +10% damage, +20% damage taken, −5 Aim | 60% |
 | Slow & Steady | Room by room, cover | +40% cover, −15% damage taken, +10 Grit | 40% |
 | Stealthy | Avoid fights, go for objective | +20 Stealth, +10% crit, −10 Grit; starts hidden | 50% |
 | Sharpshooting | Hold sightlines | +10 Aim, +1 range, −15% damage at 2 tiles or less | 50% |
@@ -179,8 +179,8 @@ For Shuttle and Escape Pods, the squad drags its Downed along: as soon as one So
 | Ship | Faction | Tier | Rooms | Crew | Reinforcements | Turrets | Locked doors | Reward |
 |---|---|---|---|---|---|---|---|---|
 | Cargo Hauler | Corporate Security | 1 | 8–10 | 8 pts + Chief + 2–4 crew | 1 wave (4 pts) | 1 | 10% | 220 |
-| Pirate Raider | Void Pirates | 2 | 9–11 | 18 pts + Captain | 2 waves (6 pts) | 1 | 15% | 380 |
-| Patrol Corvette | Fleet Marines | 3 | 10–12 | 19 pts + Lieutenant | 3 waves (5 pts) | 2 | 30% | 600 |
+| Pirate Raider | Void Pirates | 2 | 9–11 | 20 pts + Captain | 2 waves (6 pts) | 1 | 15% | 380 |
+| Patrol Corvette | Fleet Marines | 3 | 10–12 | 22 pts + Lieutenant | 3 waves (5 pts) | 2 | 30% | 600 |
 
 - Crew is spread through the ship; about 1 in 5 starts on the bridge. Reinforcements only arrive once the ship is at full alarm.
 - **Alarm:** gunfire, breaching and being spotted raise it. Level 1 (alert) wakes nearby crew; level 2 (full alarm) sends everyone hunting the squad and starts reinforcements.
@@ -205,7 +205,7 @@ Every ship can also mount hackable **Defense Turrets**.
 |---|---|
 | Decompression | 2 dmg every 1.25 s for 7.5 s (Breaching Pod arrival room) |
 | Radiation Leak | 1 dmg every 2.5 s, whole mission (reactor rooms) |
-| Fire | 4 dmg every 1.25 s, panic checks, 10 s (not started by anything yet) |
+| Fire | 4 dmg every 1.25 s, panic checks, 10 s (started by Flamer hits) |
 
 ## 9. BUCs
 
@@ -237,15 +237,59 @@ Every ship can also mount hackable **Defense Turrets**.
 
 From `node test/balance.mjs 80` (Engine v1). Each ship is tested with the squad a player would realistically bring.
 
-| Ship | Test squad | Success (all entries and tactics) | KIA per mission | Successful mission length |
+| Ship | Test squad | Success (all entries and tactics) | KIA per mission | Average successful mission, fastest to slowest entry |
 |---|---|---|---|---|
-| Cargo Hauler | Starter squad, level 1, Standard gear | 66% | 0.20 | 53–71 s |
-| Pirate Raider | Level 5, Mil-Spec | 59% | 0.21 | 57–76 s |
-| Patrol Corvette | Level 9, Prototype | 47% | 0.40 | 58–78 s |
+| Cargo Hauler | Starter squad, level 1, Standard gear | 65% | 0.20 | 53–71 s |
+| Pirate Raider | Level 5, Mil-Spec, full kit (grenades, smoke…) | 63% | 0.19 | 56–75 s |
+| Patrol Corvette | Level 9, Prototype, full kit | 45% | 0.43 | 58–77 s |
 
-- Every entry method and tactic lands between 35% and 78% on every ship, so there's no dead option.
+- Averaged over the other choices, every entry method and every tactic lands between 34% and 77% on every ship, so there's no dead option. Individual combinations range wider (16–93%): some pairings really are bad, like a Slow & Steady shuttle boarding of the Corvette (16%): it gives the Marines all the time they need.
 - Vent Crawl is the riskiest entry; the Boarding Shuttle is the safest on small ships and the weakest against the Corvette (the Marines expect it).
 
-## 11. Not implemented yet
+## 11. Special effects
 
-These effects exist in the data but don't do anything in the engine yet (`npm run check` lists them): Chain Breach, Hazard Control, Door Ram, Combat Drone, grenades, Killing Spree, Martial Arts Download, Run and Gun, Saboteur, the Shield Belt's slow-blade weakness, smoke grenades, Smoke Cover, Spearhead, Combat Stims, Motion Tracker. Fire is defined but nothing starts one. Decompression does damage but doesn't pull anyone toward the breach yet.
+How every perk and item special works in the engine (`node test/effects.mjs` proves each one triggers).
+
+**Perks**
+
+| Perk | Specialty | Effect |
+|---|---|---|
+| Run and Gun | Assault | +5 Aim; fires a free shot each step while advancing on a target |
+| Bayonet Drill | Assault | Charge stuns the target for about 2 s |
+| Adrenaline | Assault | +15% damage below half HP |
+| Spearhead | Assault | Entering a room the squad hasn't been in: −25% damage taken for 5 s |
+| Killing Spree | Assault | Each kill halves the time left on Charge's cooldown |
+| Shaped Charges / Concussive | Breacher | Breach Charge 40% faster / stun twice as long |
+| Door Ram | Breacher | +10 Armor; +10% damage to targets in or next to a doorway |
+| Close Quarters | Breacher | +15% damage at 2 tiles or less |
+| Chain Breach | Breacher | Breach Charge also blows the next closed door toward the bridge, stunning that room too |
+| Kill Zone | Marksman | Overwatch fires up to 3 times |
+| Ghost Sniper | Marksman | +20 Stealth; shots don't reveal a hidden Marksman |
+| Combat Stims | Medic | Healed or revived allies deal +20% damage for 5 s |
+| Smoke Cover | Medic | Reviving pops smoke: 3×3 area counts as full cover for 7.5 s |
+| Guardian Angel / Bedside Manner | Medic | Whole squad: −15% death chance / injuries heal 25% faster |
+| Turret Whisperer | Tech | Hacked turrets fight for the squad |
+| Hazard Control | Tech | Shuts down hackable hazards in the Tech's room (uses the Hack cooldown) |
+| Combat Drone | Tech | Starts with a drone (40 HP, Aim 45, SMG) that follows the Tech and fights; it can be destroyed |
+| System Crash | Tech | Once the Tech is on a quiet bridge, reinforcements stop |
+| Immovable | Heavy | Never panics |
+| Walking Fortress | Heavy | Allies within 2 tiles take 15% less damage |
+| Bullet Storm | Heavy | Suppressing Fire deals full damage instead of half |
+| Backstab | Infiltrator | Attacks from stealth always crit |
+| Saboteur | Infiltrator | Plants a charge on a turret within reach (2.5 s) to destroy it. With nothing in sight, rigs a nearby reactor (5 s): every enemy turret shuts down and every locked door opens |
+| Vanish / Ghost Protocol | Infiltrator | Auto-Cloak below 30% HP / Cloak lasts 50% longer |
+
+**Items**
+
+| Item | Effect |
+|---|---|
+| Frag Grenades | 2 per mission. Thrown at a group of at least 2 enemies 2–6 tiles away: 16–24 damage to everything in a 3×3 blast (armor still applies, cover doesn't). Loud |
+| Smoke Grenades | 1 per mission. Popped automatically when the carrier drops below 60% HP: 3×3 full cover for 7.5 s |
+| Motion Tracker | +40% detection. The first time each enemy walks into view within 10 tiles of the carrier, the nearest Soldier gets a free shot |
+| Martial Arts Download | +25% melee damage; +20 evasion against melee attacks |
+| Personal Shield Belt | +30 Armor, but melee attacks ignore the wearer's armor completely |
+| Flamer (weapon type) | Each hit has a 15% chance to set the target's room on fire (Fire hazard) |
+
+## 12. Not implemented yet
+
+- Decompression does damage but doesn't pull anyone toward the breach yet.

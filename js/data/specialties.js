@@ -12,7 +12,7 @@ export const SPECIALTIES = [
     weapons: ['carbine', 'rifle', 'smg', 'shotgun'],
     ability: 'charge',
     perks: [
-      [{ id: 'run_and_gun', name: 'Run and Gun', desc: 'Shoot while moving without the accuracy penalty.', mods: { aim: 5 }, flag: 'runAndGun' },
+      [{ id: 'run_and_gun', name: 'Run and Gun', desc: '+5 Aim. Fires on the move while advancing on a target.', mods: { aim: 5 }, flag: 'runAndGun' },
        { id: 'bayonet_drill', name: 'Bayonet Drill', desc: 'Charge also knocks the target prone.', mods: { dmgPct: 5 }, flag: 'chargeKnockdown' }],
       [{ id: 'adrenaline', name: 'Adrenaline', desc: '+15% damage while below half HP.', mods: {}, flag: 'adrenaline' },
        { id: 'hardened', name: 'Hardened', desc: '+20 HP, +5 Armor.', mods: { hp: 20, arm: 5 } }],
@@ -31,7 +31,7 @@ export const SPECIALTIES = [
     perks: [
       [{ id: 'shaped_charges', name: 'Shaped Charges', desc: 'Breach Charge sets 40% faster.', mods: { breachSpeedPct: 40 } },
        { id: 'concussive', name: 'Concussive', desc: 'Breach Charge stun lasts twice as long.', mods: {}, flag: 'longStun' }],
-      [{ id: 'door_ram', name: 'Door Ram', desc: '+10 Armor, +10% damage vs units in doorways.', mods: { arm: 10 }, flag: 'doorwayBonus' },
+      [{ id: 'door_ram', name: 'Door Ram', desc: '+10 Armor, +10% damage vs units in or next to a doorway.', mods: { arm: 10 }, flag: 'doorwayBonus' },
        { id: 'close_quarters', name: 'Close Quarters', desc: '+15% damage at 2 tiles or less.', mods: { dmgPct: 5 }, flag: 'closeQuarters' }],
       [{ id: 'blast_proof', name: 'Blast Proof', desc: 'Takes 50% less from explosions and decompression.', mods: { hazardResistPct: 50 } },
        { id: 'chain_breach', name: 'Chain Breach', desc: 'Breach Charge also opens the next door in the path.', mods: {}, flag: 'chainBreach' }],
@@ -66,7 +66,7 @@ export const SPECIALTIES = [
       [{ id: 'triage', name: 'Triage', desc: '+25% healing.', mods: { healPct: 25 } },
        { id: 'field_surgeon', name: 'Field Surgeon', desc: '+20% revive success.', mods: { reviveChance: 20 } }],
       [{ id: 'combat_stims', name: 'Combat Stims', desc: 'Healed allies get +20% damage for 5 s.', mods: {}, flag: 'stims' },
-       { id: 'smoke_cover', name: 'Smoke Cover', desc: 'Reviving pops smoke (target counts as full cover).', mods: {}, flag: 'smokeRevive' }],
+       { id: 'smoke_cover', name: 'Smoke Cover', desc: 'Reviving pops smoke: the revived Soldier and anyone beside them count as in full cover for 7.5 s.', mods: {}, flag: 'smokeRevive' }],
       [{ id: 'guardian_angel', name: 'Guardian Angel', desc: 'Squad takes 15% lower KIA chance in the aftermath.', mods: { survivalPct: 15 }, flag: 'squadSurvival' },
        { id: 'bedside_manner', name: 'Bedside Manner', desc: 'Squad injuries heal 25% faster.', mods: { healTimePct: -25 }, flag: 'squadHealTime' }],
     ],
@@ -83,9 +83,9 @@ export const SPECIALTIES = [
       [{ id: 'overclock', name: 'Overclock', desc: '+40% hack speed.', mods: { hackSpeedPct: 40 } },
        { id: 'scanner', name: 'Scanner', desc: '+30% detection of hidden enemies and hazards.', mods: { detectPct: 30 } }],
       [{ id: 'turret_whisperer', name: 'Turret Whisperer', desc: 'Hacked turrets fight for you instead of shutting down.', mods: {}, flag: 'turnTurrets' },
-       { id: 'hazard_control', name: 'Hazard Control', desc: 'Hack can shut down ship hazards.', mods: { hazardResistPct: 20 }, flag: 'disableHazards' }],
-      [{ id: 'combat_drone', name: 'Combat Drone', desc: 'Deploys a small drone that fights alongside the squad.', mods: {}, flag: 'drone' },
-       { id: 'system_crash', name: 'System Crash', desc: 'Hacking the bridge console cuts reinforcements.', mods: {}, flag: 'stopReinforcements' }],
+       { id: 'hazard_control', name: 'Hazard Control', desc: '+20% hazard resistance. Shuts down hazards (vacuum, radiation) in the room the Tech is in.', mods: { hazardResistPct: 20 }, flag: 'disableHazards' }],
+      [{ id: 'combat_drone', name: 'Combat Drone', desc: 'Starts each mission with a Combat Drone (40 HP, SMG) that follows the Tech and fights.', mods: {}, flag: 'drone' },
+       { id: 'system_crash', name: 'System Crash', desc: 'Once the Tech reaches a quiet bridge, no more reinforcements arrive.', mods: {}, flag: 'stopReinforcements' }],
     ],
   },
   {
@@ -116,7 +116,7 @@ export const SPECIALTIES = [
     perks: [
       [{ id: 'backstab', name: 'Backstab', desc: 'Attacks from stealth always crit.', mods: {}, flag: 'stealthCrit' },
        { id: 'light_feet', name: 'Light Feet', desc: '+10 Speed, +10 Stealth.', mods: { spd: 10, stl: 10 } }],
-      [{ id: 'saboteur', name: 'Saboteur', desc: 'Can plant charges on turrets and reactors.', mods: { breachSpeedPct: 20 }, flag: 'sabotage' },
+      [{ id: 'saboteur', name: 'Saboteur', desc: 'Plants charges on turrets. Rigging a reactor knocks out every turret and unlocks every door.', mods: { breachSpeedPct: 20 }, flag: 'sabotage' },
        { id: 'vanish', name: 'Vanish', desc: 'Cloak triggers automatically when first hit below 30% HP.', mods: {}, flag: 'autoCloak' }],
       [{ id: 'assassin', name: 'Assassin', desc: '+25% damage vs leaders.', mods: { dmgVs: { leader: 25 } } },
        { id: 'ghost_protocol', name: 'Ghost Protocol', desc: 'Cloak lasts 50% longer.', mods: { abilityCdPct: -10 }, flag: 'longCloak' }],

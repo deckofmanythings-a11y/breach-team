@@ -18,7 +18,7 @@ export const TACTICS = [
   { id: 'blitz', name: 'Blitz',
     desc: 'Go fast, hit hard. Reaches the bridge before the defenders organise, but takes more fire.',
     aggression: 90, coverUse: 15, advancePct: 135, rangePct: 50, objectiveFocus: 75, noisePct: 150, retreatAt: 60,
-    mods: { dmgPct: 10, dmgTakenPct: 15, aim: -5 } },
+    mods: { dmgPct: 10, dmgTakenPct: 20, aim: -5 } },
   { id: 'steady', name: 'Slow & Steady',
     desc: 'Clear every room, always fight from cover. Safest, but slow: reinforcements have time to arrive.',
     aggression: 30, coverUse: 90, advancePct: 75, rangePct: 90, objectiveFocus: 25, noisePct: 90, retreatAt: 40,

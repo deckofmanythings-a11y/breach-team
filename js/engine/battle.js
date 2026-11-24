@@ -27,7 +27,9 @@ import { ENGINE_VERSION } from '../data/version.js';
 // warns about any flag in the data that isn't listed here, so nothing silently does nothing.
 export const IMPLEMENTED_FLAGS = ['chargeKnockdown', 'adrenaline', 'longStun', 'closeQuarters', 'silentShot', 'killZone',
   'squadSurvival', 'squadHealTime', 'turnTurrets', 'stopReinforcements', 'noPanic', 'fortressAura', 'bulletStorm',
-  'stealthCrit', 'autoCloak', 'longCloak', 'closeRangePenalty'];
+  'stealthCrit', 'autoCloak', 'longCloak', 'closeRangePenalty',
+  'runAndGun', 'spearhead', 'killingSpree', 'doorwayBonus', 'chainBreach', 'stims', 'smokeRevive', 'disableHazards',
+  'drone', 'sabotage', 'grenade', 'smoke', 'tracker', 'meleeMaster', 'slowBladeWeak'];
 
 const PERK_BY_ID = {};
 for (const sp of SPECIALTIES) for (const pair of sp.perks) for (const p of pair) PERK_BY_ID[p.id] = p;
@@ -40,6 +42,12 @@ const SPOT_NOISE = 40;         // alarm added when an enemy first spots the squa
 const FORCE_DOOR_TICKS = 80;   // anyone can force a locked door, slowly
 const OPEN_DOOR_TICKS = 3;
 const REVIVE_HP_PCT = 30;
+const GRENADE = { charges: 2, dmg: [16, 24], range: 6, cd: 60, noise: 12 };   // Frag Grenades: blast hits the target tile + all 8 around it
+const SMOKE = { charges: 1, ticks: 60, triggerHpPct: 60 };                   // Smoke Grenades: popped automatically when hurt below 60% HP
+const STIM = { ticks: 40, dmgPct: 20 };                                        // Combat Stims
+const SPEARHEAD = { ticks: 40, dmgTakenPct: -25 };
+const FIRE_START_PCT = 15;                                                     // flamer hit sets the room on fire
+const SABOTAGE_TICKS = { turret: 20, reactor: 40 };
 const ENEMY_AI = {
   grunt:   { aggression: 50, coverUse: 50, rangePct: 80, hunts: true },
   rusher:  { aggression: 100, coverUse: 0, rangePct: 10, hunts: true },
@@ -72,6 +80,10 @@ export function simulate(input) {
   for (const d of map.doors) doorAt[idx(d.x, d.y)] = d.id;
   const roomAdj = map.rooms.map(() => []);
   for (const d of map.doors) { roomAdj[d.a].push(d.b); roomAdj[d.b].push(d.a); }
+  const nearDoorGrid = new Uint8Array(W * map.h);
+  for (const d of map.doors) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) nearDoorGrid[idx(d.x + dx, d.y + dy)] = 1;
+  const clouds = [];   // smoke: { x, y, until } covers a 3x3 area
+  const inSmoke = (u) => clouds.some(c => c.until > t && Math.abs(c.x - u.x) <= 1 && Math.abs(c.y - u.y) <= 1);
   const passable = (x, y) => { const v = map.tiles[idx(x, y)]; return v === T_FLOOR || v === T_DOOR; };
   const occ = new Int16Array(W * map.h).fill(-1);
   const cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
@@ -123,6 +135,8 @@ export function simulate(input) {
     u.id = units.length; u.state = 'active'; u.busy = u.busy || 0; u.cd = 0;
     u.stunUntil = 0; u.panicUntil = 0; u.suppUntil = 0; u.cloakUntil = 0; u.owUntil = 0; u.owShots = 0;
     u.task = null; u.hidden = !!u.hidden;
+    u.grenades = u.flags?.grenade ? GRENADE.charges : 0; u.grenadeCd = 0; u.smokes = u.flags?.smoke ? SMOKE.charges : 0;
+    u.stimUntil = 0; u.spearUntil = 0;
     u.tally = { kills: 0, dmgDealt: 0, dmgTaken: 0, minHp: u.hp, downed: 0, ticksDown: 0, overkillPct: 0, revives: 0, hacks: 0, breaches: 0, assists: 0, shots: 0, hits: 0 };
     units.push(u);
     if (u.state === 'active') occ[idx(u.x, u.y)] = u.id;
@@ -213,6 +227,11 @@ export function simulate(input) {
     ev(0, 'spawn', u.id, 'S', u.kind, u.x, u.y);
     if (late) ev(0, 'scramble', u.id, room);
   }
+  function droneUnit(owner) {
+    const p = freeTileNear(owner.x, owner.y); if (!p) return;
+    const dr = enemyUnit('sys_drone', p[0], p[1], { side: 'S', owner: owner.id, busy: owner.busy });
+    ev(0, 'spawn', dr.id, 'S', dr.kind, dr.x, dr.y);
+  }
 
   // ---------- Enemy spawn ----------
   const enemies = [];
@@ -242,6 +261,7 @@ export function simulate(input) {
     for (const f of map.features) if (f.kind === 'turret' && f.active && occ[idx(f.x, f.y)] < 0) enemies.push(enemyUnit('sys_turret', f.x, f.y));
     for (const e of enemies) ev(0, 'spawn', e.id, 'E', e.kind, e.x, e.y);
   }
+  for (const s of squad) if (s.flags.drone) droneUnit(s);
   if (entry.stunTicks) for (const e of enemies) if (map.roomAt[idx(e.x, e.y)] === spawnRoom) e.stunUntil = entry.setupTicks + entry.stunTicks;
 
   // ---------- Objectives ----------
@@ -320,6 +340,7 @@ export function simulate(input) {
   function goDown(u, overkill) {
     occ[idx(u.x, u.y)] = -1;
     u.task = null;
+    if (u.ai === 'drone') { u.state = 'dead'; ev(t, 'dead', u.id); return; }
     if (u.side === 'S') {
       u.state = 'down'; u.downAt = t; u.tally.downed++;
       u.tally.overkillPct = Math.max(u.tally.overkillPct, Math.floor((overkill * 100) / u.maxHp));
@@ -337,10 +358,19 @@ export function simulate(input) {
     tg.hp -= dmg; tg.tally.dmgTaken += dmg;
     if (src) src.tally.dmgDealt += dmg;
     if (tg.hp < tg.tally.minHp) tg.tally.minHp = tg.hp;
-    if (tg.hp <= 0) { if (src) src.tally.kills++; goDown(tg, -tg.hp); return; }
+    if (tg.hp <= 0) {
+      if (src) {
+        src.tally.kills++;
+        if (src.flags.killingSpree && src.cd > t) { src.cd = t + ((src.cd - t) >> 1); ev(t, 'ability', src.id, 'killing_spree'); }
+      }
+      goDown(tg, -tg.hp); return;
+    }
+    if (tg.smokes > 0 && tg.hp * 100 < tg.maxHp * SMOKE.triggerHpPct) { tg.smokes--; popSmoke(tg); }
     if (dmg * 4 >= tg.maxHp) panicCheck(tg, 10);
     if (tg.flags.autoCloak && tg.hp * 10 < tg.maxHp * 3 && t >= tg.cd) cloak(tg);
   }
+
+  function popSmoke(u) { clouds.push({ x: u.x, y: u.y, until: t + SMOKE.ticks }); ev(t, 'smoke', u.x, u.y, SMOKE.ticks); }
 
   function fortressAura(tg) {
     for (const v of units) if (v.side === tg.side && v.state === 'active' && v.flags.fortressAura && v !== tg && cheb(v, tg) <= 2) return -15;
@@ -350,8 +380,10 @@ export function simulate(input) {
   function shoot(u, tg, bonusDmg = 0, dmgScale = 100) {
     const w = u.w; if (!w) return;
     const dist = cheb(u, tg);
-    const coverVal = dist > 1 ? [0, 20, 40][map.cover[idx(tg.x, tg.y)]] : 0;
-    const hit = hitChance({ aim: u.st.aim, weaponAcc: w.acc, targetEvasion: evasionOf(tg.st.spd, tg.m.evasion || 0),
+    let coverVal = dist > 1 ? [0, 20, 40][map.cover[idx(tg.x, tg.y)]] : 0;
+    if (dist > 1 && inSmoke(tg)) coverVal = 40;
+    const meleeDodge = w.melee && tg.flags.meleeMaster ? 20 : 0;
+    const hit = hitChance({ aim: u.st.aim, weaponAcc: w.acc, targetEvasion: evasionOf(tg.st.spd, (tg.m.evasion || 0) + meleeDodge),
       cover: coverVal, coverPct: tg.m.coverPct || 0, distTiles: dist, range: w.range, falloff: w.falloff, suppressed: u.suppUntil > t });
     u.tally.shots++;
     const wasHidden = u.hidden;
@@ -370,17 +402,49 @@ export function simulate(input) {
     if (u.flags.closeQuarters && dist <= 2) dmgPct += 15;
     if (u.flags.closeRangePenalty && dist <= 2) dmgPct -= 15;
     if (u.cloakBonus) { dmgPct += ABILITIES.cloak.power.dmgPct; u.cloakBonus = false; }
+    if (u.stimUntil > t) dmgPct += STIM.dmgPct;
+    if (u.flags.meleeMaster && w.melee) dmgPct += 25;
+    if (u.flags.doorwayBonus && nearDoorGrid[idx(tg.x, tg.y)]) dmgPct += 10;
+    const bladeThroughShield = w.melee && tg.flags.slowBladeWeak;   // the slow blade penetrates the shield
     const crit = rng.roll(critChance(u.st.aim, w.crit, u.m.critPct || 0)) || (u.flags.stealthCrit && wasHidden);
-    let d = applyDamage({ raw, dmgPct, vsPct: vs, crit, critDmgPct: u.m.critDmgPct || 0, targetArm: tg.st.arm, pierce: (w.pierce || 0) + (u.m.pierce || 0),
-      dmgTakenPct: (tg.m.dmgTakenPct || 0) + fortressAura(tg) + (tg.side === 'S' && retreat.on ? (retreatDef.cover || 0) : 0) });
+    let d = applyDamage({ raw, dmgPct, vsPct: vs, crit, critDmgPct: u.m.critDmgPct || 0, targetArm: bladeThroughShield ? 0 : tg.st.arm, pierce: (w.pierce || 0) + (u.m.pierce || 0),
+      dmgTakenPct: (tg.m.dmgTakenPct || 0) + fortressAura(tg) + (tg.side === 'S' && retreat.on ? (retreatDef.cover || 0) : 0) + (tg.spearUntil > t ? SPEARHEAD.dmgTakenPct : 0) });
     d = Math.max(1, Math.floor((d * dmgScale) / 100));
     ev(t, 'shot', u.id, tg.id, d, crit ? 1 : 0);
     hurt(tg, d, u);
+    if (w.type === 'flamer' && rng.roll(FIRE_START_PCT)) startFire(map.roomAt[idx(tg.x, tg.y)]);
     if (w.splash || w.chain) {
       const extra = units.filter(v => v !== tg && v.side === tg.side && isTargetable(v) && cheb(v, tg) <= (w.chain ? 2 : 1));
       const n = w.chain ? Math.min(w.chain, extra.length) : extra.length;
       for (let i = 0; i < n; i++) { const half = Math.max(1, d >> 1); ev(t, 'splash', u.id, extra[i].id, half); hurt(extra[i], half, u); }
     }
+  }
+
+  function startFire(room) {
+    if (room < 0 || hazards.some(h => h.room === room && h.def === HAZARDS.fire && h.until >= t)) return;
+    hazards.push({ room, def: HAZARDS.fire, until: t + HAZARDS.fire.ticks }); ev(t, 'fire', room, HAZARDS.fire.ticks);
+  }
+
+  function throwGrenade(u, at) {
+    u.grenades--; u.grenadeCd = t + GRENADE.cd; u.busy = t + 10;
+    if (u.hidden) { u.hidden = false; ev(t, 'reveal', u.id); }
+    ev(t, 'grenade', u.id, at.x, at.y);
+    addAlarm(GRENADE.noise, u.x, u.y);
+    for (const v of units) {
+      if (v.side === u.side || !isTargetable(v) || Math.abs(v.x - at.x) > 1 || Math.abs(v.y - at.y) > 1) continue;
+      const d = applyDamage({ raw: rng.range(GRENADE.dmg[0], GRENADE.dmg[1]), dmgPct: u.m.dmgPct || 0, targetArm: v.st.arm, dmgTakenPct: v.m.dmgTakenPct || 0 });
+      ev(t, 'blast', u.id, v.id, d); hurt(v, d, u);
+    }
+  }
+  // Best grenade target: a visible foe in range with at least one other foe next to it.
+  function grenadeTarget(u, foes) {
+    let best = null, bestN = 1;
+    for (const f of foes) {
+      if (cheb(u, f) > GRENADE.range || cheb(u, f) < 2) continue;
+      let n = 0; for (const g of foes) if (Math.abs(g.x - f.x) <= 1 && Math.abs(g.y - f.y) <= 1) n++;
+      if (n > bestN) { bestN = n; best = f; }
+    }
+    return best;
   }
 
   function applySuppress(u, tg) {
@@ -466,6 +530,16 @@ export function simulate(input) {
         addAlarm(20, d.x, d.y);
         const stun = ABILITIES.breach_charge.power.stunTicks * (u.flags.longStun ? 2 : 1);
         for (const e of units) if (e.side === 'E' && e.state === 'active' && (map.roomAt[idx(e.x, e.y)] === d.a || map.roomAt[idx(e.x, e.y)] === d.b)) { e.stunUntil = t + stun; ev(t, 'stun', e.id, stun); }
+        if (u.flags.chainBreach) {
+          // Also blow the next closed door toward the bridge.
+          const cf = consoleField();
+          const far = cf[idx(map.rooms[d.a].cx, map.rooms[d.a].cy)] < cf[idx(map.rooms[d.b].cx, map.rooms[d.b].cy)] ? d.a : d.b;
+          const next = map.doors.filter(o => o !== d && !o.open && (o.a === far || o.b === far)).sort((p, q) => cf[idx(p.x, p.y)] - cf[idx(q.x, q.y)] || p.id - q.id)[0];
+          if (next) {
+            next.open = true; next.locked = false; ev(t, 'door', next.id, 'chain', u.id);
+            for (const e of units) if (e.side === 'E' && e.state === 'active' && (map.roomAt[idx(e.x, e.y)] === next.a || map.roomAt[idx(e.x, e.y)] === next.b)) { e.stunUntil = Math.max(e.stunUntil, t + stun); ev(t, 'stun', e.id, stun); }
+          }
+        }
       } else if (k.how === 'hack') u.tally.hacks++;
       else addAlarm(10, d.x, d.y);
     } else if (k.kind === 'hackTurret') {
@@ -480,6 +554,16 @@ export function simulate(input) {
       o.done = true; ev(t, 'objdone', o.id);
       if (o.def.kind === 'hack') u.tally.hacks++;
       for (const v of squad) if (v.state === 'active' && map.roomAt[idx(v.x, v.y)] === o.room) v.tally.assists++;
+    } else if (k.kind === 'hackHazard') {
+      const h = hazards[k.hazard]; if (h.until > t) { h.until = t; u.tally.hacks++; ev(t, 'hazard_off', h.room, u.id); }
+    } else if (k.kind === 'sabotageTurret') {
+      const tr = units[k.target];
+      if (tr.state === 'active') { tr.state = 'dead'; occ[idx(tr.x, tr.y)] = -1; u.tally.kills++; ev(t, 'sabotage', u.id, 'turret', tr.id); ev(t, 'dead', tr.id); }
+    } else if (k.kind === 'sabotageReactor') {
+      reactorSabotaged = true; ev(t, 'sabotage', u.id, 'reactor', k.room);
+      for (const tr of units) if (tr.turret && tr.side === 'E' && tr.state === 'active') { tr.off = true; ev(t, 'turret', tr.id, 'off'); }
+      for (const d of map.doors) if (d.locked) { d.locked = false; ev(t, 'door', d.id, 'unlocked', u.id); }
+      addAlarm(30, u.x, u.y);
     } else if (k.kind === 'deployTurret') {
       const p = freeTileNear(u.x, u.y);
       if (p) { const tr = enemyUnit('sys_turret', p[0], p[1]); tr.alerted = true; ev(t, 'spawn', tr.id, 'E', tr.kind, tr.x, tr.y); }
@@ -493,6 +577,7 @@ export function simulate(input) {
     const r = map.roomAt[idx(u.x, u.y)];
     if (r >= 0 && !visited.has(r)) {
       visited.add(r);
+      if (u.flags.spearhead) { u.spearUntil = t + SPEARHEAD.ticks; ev(t, 'ability', u.id, 'spearhead'); }
       const loot = map.rooms[r].features.filter(f => f.kind === 'loot').length;
       if (loot) { lootCrates += loot; ev(t, 'loot', r, loot); }
     }
@@ -500,6 +585,12 @@ export function simulate(input) {
 
   // Overwatch: called after an enemy moves.
   function checkOverwatch(mover) {
+    // Motion Tracker: the first time each enemy walks into view near a tracker carrier, the squad is ready for it.
+    if (!mover.greeted && mover.side === 'E' && isTargetable(mover) && squad.some(s => s.state === 'active' && s.flags.tracker && cheb(s, mover) <= 10)) {
+      const shooter = squad.filter(s => s.state === 'active' && !s.task && s.w && cheb(s, mover) <= s.w.range + 3 && los(s.x, s.y, mover.x, mover.y))
+        .sort((a, b) => cheb(a, mover) - cheb(b, mover) || a.id - b.id)[0];
+      if (shooter) { mover.greeted = true; ev(t, 'ability', shooter.id, 'tracker_fire'); const keep = shooter.busy; shoot(shooter, mover); shooter.busy = keep; }
+    }
     for (const s of squad) {
       if (s.state !== 'active' || s.owUntil <= t || s.owShots <= 0 || !isTargetable(mover)) continue;
       if (cheb(s, mover) <= s.w.range + 4 && los(s.x, s.y, mover.x, mover.y)) {
@@ -576,6 +667,14 @@ export function simulate(input) {
       if (u.hidden && !tg.alerted && dist > 1 && tactic.aggression < 30) return advance(u);
       // Abilities.
       if (u.ability === 'cloak' && t >= u.cd && !u.hidden) return cloak(u);
+      if (u.grenades > 0 && t >= u.grenadeCd) { const g = grenadeTarget(u, foes); if (g) return throwGrenade(u, g); }
+      if (u.flags.sabotage) {
+        const tr = foes.find(f => f.turret && !f.off && cheb(u, f) <= 6);
+        if (tr) {
+          if (cheb(u, tr) <= 1) { u.task = { kind: 'sabotageTurret', target: tr.id, until: t + SABOTAGE_TICKS.turret }; u.busy = t + SABOTAGE_TICKS.turret; ev(t, 'work', u.id, 'sabotage', tr.id, 'turret', SABOTAGE_TICKS.turret); return; }
+          if (stepAlong(u, field(tr.x, tr.y))) return;
+        }
+      }
       if (u.ability === 'hack' && t >= u.cd) {
         const tr = foes.find(f => f.turret && cheb(u, f) <= 6);
         if (tr) {
@@ -603,7 +702,14 @@ export function simulate(input) {
       const pref = Math.max(1, Math.floor((u.w.range * tactic.rangePct) / 100));
       if (melee ? dist > 1 : dist > u.w.range + 3) { if (stepAlong(u, field(tg.x, tg.y))) return; }
       if (!melee && rng.roll(tactic.coverUse) && seekCover(u, tg, false)) return;
-      if (!melee && dist > pref && rng.roll(tactic.aggression) && stepAlong(u, field(tg.x, tg.y))) return;
+      if (!melee && dist > pref && rng.roll(tactic.aggression)) {
+        const before = u.x * 1000 + u.y;
+        if (stepAlong(u, field(tg.x, tg.y))) {
+          // Run and Gun: fire on the move (the shot doesn't add any time).
+          if (u.flags.runAndGun && before !== u.x * 1000 + u.y && tg.state === 'active' && los(u.x, u.y, tg.x, tg.y)) { const keep = u.busy; shoot(u, tg); u.busy = keep; }
+          return;
+        }
+      }
       if (melee && dist > 1) { u.busy = t + 3; return; }
       return shoot(u, tg);
     }
@@ -613,7 +719,21 @@ export function simulate(input) {
       u.cd = cdFor(u, 'overwatch'); u.owUntil = t + ABILITIES.overwatch.dur; u.owShots = u.flags.killZone ? 3 : 1;
       ev(t, 'ability', u.id, 'overwatch');
     }
-    if (u.ability === 'hack' && u.flags.stopReinforcements && map.roomAt[idx(u.x, u.y)] === map.bridge) reinforcementsCut = true;
+    if (u.ability === 'hack' && u.flags.stopReinforcements && map.roomAt[idx(u.x, u.y)] === map.bridge && !reinforcementsCut) { reinforcementsCut = true; ev(t, 'ability', u.id, 'system_crash'); }
+    if (u.flags.disableHazards && t >= u.cd) {
+      const here = map.roomAt[idx(u.x, u.y)];
+      const hi = hazards.findIndex(h => h.room === here && h.until > t && h.def.hackable);
+      if (hi >= 0) {
+        const ticks = Math.max(8, Math.floor((ABILITIES.hack.power.hackTicks * 100) / (100 + (u.m.hackSpeedPct || 0) + (u.st.tech >> 1))));
+        u.cd = cdFor(u, 'hack'); u.task = { kind: 'hackHazard', hazard: hi, until: t + ticks }; u.busy = t + ticks;
+        ev(t, 'work', u.id, 'hazard', here, 'hack', ticks); return;
+      }
+    }
+    if (u.flags.sabotage && !reactorSabotaged && reactorSpot) {
+      const f = field(reactorSpot.x, reactorSpot.y), d = f[idx(u.x, u.y)];
+      if (d === 0) { u.task = { kind: 'sabotageReactor', room: reactorSpot.room, until: t + SABOTAGE_TICKS.reactor }; u.busy = t + SABOTAGE_TICKS.reactor; ev(t, 'work', u.id, 'sabotage', reactorSpot.room, 'reactor', SABOTAGE_TICKS.reactor); return; }
+      if (d > 0 && d <= 12 && stepAlong(u, f)) return;
+    }
     // Optional objectives on the way.
     if (tactic.objectiveFocus < 80 && u.ability !== 'patch_up') {
       for (let i = 1; i < objectives.length; i++) {
@@ -655,6 +775,8 @@ export function simulate(input) {
       const p = occ[idx(v.x, v.y)] < 0 ? [v.x, v.y] : freeTileNear(v.x, v.y);
       v.x = p[0]; v.y = p[1]; occ[idx(v.x, v.y)] = v.id; v.busy = t + 10;
       u.tally.revives++; ev(t, 'revive', u.id, v.id, 1);
+      if (u.flags.stims) v.stimUntil = t + STIM.ticks;
+      if (u.flags.smokeRevive) popSmoke(v);
     } else ev(t, 'revive', u.id, v.id, 0);
   }
   function heal(u, v) {
@@ -663,10 +785,13 @@ export function simulate(input) {
     const amt = Math.floor(((p.heal + Math.floor((u.st.tech * p.techScale) / 10)) * (100 + (u.m.healPct || 0))) / 100);
     v.hp = Math.min(v.maxHp, v.hp + amt);
     u.busy = t + 10; ev(t, 'heal', u.id, v.id, amt);
+    if (u.flags.stims) v.stimUntil = t + STIM.ticks;
   }
 
   // ---------- Enemy AI ----------
-  let reinforcementsCut = false;
+  let reinforcementsCut = false, reactorSabotaged = false;
+  const reactorRoom = map.rooms.find(r => r.type === 'reactor');
+  const reactorSpot = reactorRoom ? (reactorRoom.features.find(f => f.kind === 'terminal') || { x: reactorRoom.cx, y: reactorRoom.cy, room: reactorRoom.id }) : null;
   function enemyDecide(e) {
     if (e.off) { e.busy = t + 50; return; }
     const foes = visibleFoes(e);
@@ -712,6 +837,19 @@ export function simulate(input) {
       if (stepAlong(e, field(huntTile[0], huntTile[1]))) { checkOverwatch(e); return; }
     }
     e.busy = t + 8;
+  }
+
+  // Combat Drone: shoots whatever it sees, otherwise sticks close to its Tech.
+  function droneDecide(u) {
+    const foes = visibleFoes(u);
+    if (foes.length) {
+      const tg = pickTarget(u, foes);
+      if (cheb(u, tg) > u.w.range + 3 && stepAlong(u, field(tg.x, tg.y))) return;
+      return shoot(u, tg);
+    }
+    const o = units[u.owner];
+    if (o.state === 'active' && cheb(u, o) > 2 && stepAlong(u, field(o.x, o.y))) return;
+    u.busy = t + 5;
   }
 
   // ---------- Retreat ----------
@@ -838,7 +976,8 @@ export function simulate(input) {
       if (u.cloakUntil && u.cloakUntil === t && u.hidden) { u.hidden = false; ev(t, 'reveal', u.id); }
       if (u.busy > t || u.stunUntil > t) continue;
       if (u.task) { if (t >= u.task.until) finishTask(u); else continue; }
-      if (u.side === 'S' && !u.turret) squadDecide(u);
+      if (u.ai === 'drone') droneDecide(u);
+      else if (u.side === 'S' && !u.turret) squadDecide(u);
       else if (u.turret && u.side === 'S') { const foes = visibleFoes(u); if (foes.length) shoot(u, pickTarget(u, foes)); else u.busy = t + 5; }
       else { enemyDecide(u); if (u.state === 'active' && !u.turret) checkOverwatch(u); }
     }

@@ -75,6 +75,9 @@ export const FACTIONS = [
 export const SYSTEM_UNITS = [
   { id: 'sys_turret', name: 'Defense Turret', cost: 0, ai: 'turret', weapon: 'carbine_std',
     stats: { hp: 60, aim: 40, arm: 25, spd: 0, grit: 100, tech: 0, stl: 0 }, tags: ['synthetic', 'static'], hackable: true },
+  // Fights for the SQUAD (Tech perk: Combat Drone). Lives in the unit table so the engine can build it like any unit.
+  { id: 'sys_drone', name: 'Combat Drone', cost: 0, ai: 'drone', weapon: 'smg_std',
+    stats: { hp: 40, aim: 45, arm: 10, spd: 60, grit: 100, tech: 0, stl: 10 }, tags: ['synthetic'] },
 ];
 
 export const FACTION_BY_ID = Object.fromEntries(FACTIONS.map(f => [f.id, f]));
