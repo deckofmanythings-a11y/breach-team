@@ -38,8 +38,20 @@ export function avatar(s, size = 44) {
   const [a, b] = s.colors || ['#456', '#fb0'];
   return `<div class="avatar" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}" data-look="${s.look || 0}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}" data-b="${b}" style="width:${size}px;height:${size}px;background-color:${a};border-color:${b}" title="${SPECIALTY_BY_ID[s.specialty]?.name || ''}">${ICON[s.specialty] || '?'}</div>`;
 }
-export function statGrid(st) {
-  return `<div class="stats">${STATS.map(k => `<div title="${STAT_INFO[k].name}: ${STAT_INFO[k].desc}"><b>${st[k]}</b><span>${STAT_INFO[k].short}</span></div>`).join('')}</div>`;
+// Stat tiles. With a specialty, each number is coloured by how far it is from that specialty's
+// starting value (red = below, white = about the same, green -> gold = well above).
+export function statGrid(st, specialty) {
+  const base = SPECIALTY_BY_ID[specialty]?.base;
+  return `<div class="stats">${STATS.map(k => {
+    let cls = '', tip = `${STAT_INFO[k].name}: ${STAT_INFO[k].desc}`;
+    if (base) {
+      const b = base[k], d = st[k] - b, r = d / Math.max(b, 20);
+      cls = r <= -0.15 ? 's-down2' : d < 0 ? 's-down' : r < 0.1 ? '' : r < 0.3 ? 's-up' : r < 0.6 ? 's-up2' : 's-up3';
+      tip += `
+Starting value ${b} (${d >= 0 ? '+' : ''}${d})`;
+    }
+    return `<div class="${cls}" data-tip="${esc(tip)}"><b>${st[k]}</b><span>${STAT_INFO[k].short}</span></div>`;
+  }).join('')}</div>`;
 }
 export function itemLabel(it, plain = false) {
   const base = ITEM_BY_ID[it.base], r = RARITY_BY_ID[it.rarity];

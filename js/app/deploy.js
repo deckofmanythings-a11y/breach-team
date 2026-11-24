@@ -1,6 +1,7 @@
 // Pre-mission: target ship, entry, squad, tactic, retreat plan. Then launch.
 import * as G from './state.js?v=3';
 import { el, esc, avatar, toast } from './ui.js';
+import { levelBadge } from './badges.js';
 import { SHIPS, SHIP_BY_ID } from '../data/ships.js';
 import { ENTRIES, RETREATS, ENTRY_BY_ID } from '../data/entries.js';
 import { TACTICS } from '../data/tactics.js';
@@ -52,8 +53,8 @@ export function renderDeploy(panel) {
   if (!ready.length) sq.append(el('<div class="dim">Nobody is fit to deploy. Wait for injuries to heal, pay to heal them in the Barracks, or hire a Rookie.</div>'));
   for (const s of ready) {
     const on = p.squad.includes(s.uid);
-    const c = el(`<div class="card click ${on ? 'sel' : ''}"><div class="soldier-head">${avatar(s, 36)}<div><div class="name">${esc(s.name)}</div>
-      <div class="small dim">${SPECIALTY_BY_ID[s.specialty].name} · Lv ${s.level}${G.condition(s) === 'wounded' ? ' · <span class="warn">wounded</span>' : ''}</div></div></div></div>`);
+    const c = el(`<div class="card click ${on ? 'sel' : ''}"><div class="soldier-head">${avatar(s, 36)}${levelBadge(s.level, (s.colors || [])[1], 'sm')}<div><div class="name">${esc(s.name)}</div>
+      <div class="small dim">${SPECIALTY_BY_ID[s.specialty].name}${G.condition(s) === 'wounded' ? ' · <span class="warn">wounded</span>' : ''}</div></div></div></div>`);
     c.onclick = () => {
       if (on) p.squad = p.squad.filter(id => id !== s.uid);
       else if (p.squad.length < entry.maxSquad) p.squad.push(s.uid);

@@ -206,12 +206,10 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   g.memorial.push({ uid: 'old', name: 'Old Timer', specialty: 'assault', stats: {}, kills: 1 });
   g.mothership = { level: 2 };
   while (!g.gameOver && tries++ < 400) {
+    g.soldiers = g.soldiers.slice(0, 3);   // trim BEFORE the run (a rescued prisoner may join after it)
     for (const s of g.soldiers) { s.injuries = []; s.status = 'ready'; s.stats = { hp: 1, aim: 1, arm: 0, spd: 1, grit: 0, tech: 0, stl: 0 }; }
-    const squad = g.soldiers.slice(0, 4).map(s => s.uid);
-    if (!squad.length) break;
-    const m = R.runMission(g, { ship: 'corvette', entry: 'vent_crawl', tactic: 'blitz', retreat: 'shuttle', squad: squad.slice(0, 3) });
+    const m = R.runMission(g, { ship: 'corvette', entry: 'vent_crawl', tactic: 'blitz', retreat: 'shuttle', squad: g.soldiers.map(s => s.uid) });
     if (m.report.gameOver) over = m.report;
-    if (!g.gameOver) g.soldiers = g.soldiers.filter(s => squad.slice(0, 3).includes(s.uid));   // keep only the doomed squad
   }
   ok(g.gameOver && over && g.soldiers.length === 0, `a mission with no survivors ends the game (${tries} runs)`);
   R.upkeep(g, Date.now() + 3600e3);

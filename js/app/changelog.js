@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.1', date: '2026-11-24', items: [
+    "Stats are colour-coded against a new Soldier's starting values for that specialty: red below, white about the same, green higher, gold exceptional. Hover or long-press a stat for the exact numbers.",
+    'Levels now stand out: a big level medallion on every Barracks card and Soldier page, and smaller ones in Deploy, the Store and the Memorial.',
+  ] },
   { v: '0.7.0', date: '2026-11-24', items: [
     'New Home page: your commander at a glance, with your top Soldiers, service record, the current contract, your last mission and quick links.',
     'Restart Account (on the Home page): wipe all progress and start over with a fresh squad.',

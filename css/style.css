@@ -119,7 +119,7 @@ table.rep { width: 100%; border-collapse: collapse; } table.rep td, table.rep th
 .scard.click:hover .scard-art { filter: brightness(1.08); }
 .scard-tags { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 .scard-tags .tag { font-size: 12px; padding: 2px 9px; background: rgba(8, 12, 16, .82); backdrop-filter: blur(2px); }
-.scard-tags .tag.perk { background: var(--accent); order: -1; margin-right: auto; }
+.scard-tags .tag.perk { background: var(--accent); }
 .scard-title { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 12px 10px; background: linear-gradient(transparent, rgba(6, 9, 13, .75) 45%, rgba(6, 9, 13, .95)); }
 .scard-name { font: 700 23px/1.1 Rajdhani, sans-serif; letter-spacing: .03em; color: #fff; text-shadow: 0 2px 4px #000; }
 .scard-title .callsign { font-size: 17px; line-height: 1.2; text-shadow: 0 1px 3px #000; }
@@ -198,3 +198,25 @@ button.big { padding: 10px 18px; font-size: 15px; font-weight: 700; }
   #topbar .ver { display: none; }
   #acct { font-size: 12px; padding: 5px 8px; }
 }
+
+/* Stat colours vs the specialty's starting value */
+.stats .s-down2 b, span.s-down2 { color: #ff5a5a; }
+.stats .s-down b { color: #ffa65a; }
+.stats .s-up b, span.s-up { color: #a8f06a; }
+.stats .s-up2 b, span.s-up2 { color: #3ee07a; }
+.stats .s-up3 b, span.s-up3 { color: #ffd34d; }
+.stats .s-up3 b { text-shadow: 0 0 8px rgba(255, 211, 77, .55); }
+.stats .s-down2 { box-shadow: inset 0 -2px 0 #ff5a5a66; } .stats .s-up2 { box-shadow: inset 0 -2px 0 #3ee07a55; } .stats .s-up3 { box-shadow: inset 0 -2px 0 #ffd34d88; }
+.stats > div[data-tip] { cursor: help; }
+
+/* Level medallion */
+.lvl { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none; border-radius: 50%;
+  border: 3px solid var(--lc); background: radial-gradient(circle at 50% 35%, #26384a, #0b1118 75%); color: #fff;
+  font: 700 20px/1 Rajdhani, sans-serif; text-shadow: 0 1px 3px #000; box-shadow: 0 2px 8px #000a, 0 0 0 1px #000 inset; vertical-align: middle; }
+.lvl small { font-size: 9px; letter-spacing: .12em; color: var(--lc); font-weight: 700; margin-bottom: -1px; }
+.lvl-sm { width: 30px; height: 30px; font-size: 14px; border-width: 2px; } .lvl-sm small { font-size: 7px; }
+.lvl-md { width: 40px; height: 40px; }
+.lvl-lg { width: 58px; height: 58px; font-size: 27px; border-width: 4px; } .lvl-lg small { font-size: 10px; }
+.scard-level { position: absolute; top: 8px; left: 8px; }
+.scard-tags { left: 74px; }
+.soldier-head .lvl-lg { margin-left: -18px; margin-top: 30px; align-self: flex-start; position: relative; z-index: 1; }

@@ -6,15 +6,16 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=6';
-import { renderStore } from './store.js?v=2';
+import { renderDeploy } from './deploy.js?v=7';
+import { renderStore } from './store.js?v=3';
 import { renderLadder } from './ladder.js?v=2';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
-import { setContract } from './deploy.js?v=6';
+import { levelBadge } from './badges.js';
+import { setContract } from './deploy.js?v=7';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
@@ -26,7 +27,7 @@ import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 
-export const APP_VERSION = '0.7.0';
+export const APP_VERSION = '0.7.1';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -170,17 +171,18 @@ function soldierCard(s) {
   const next = s.level >= MAX_LEVEL ? null : xpToReach(s.level + 1);
   return el(`<div class="card click scard ${c}" style="--sa:${a};--sb:${b}">
     <div class="portrait scard-art" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}" data-look="${s.look || 0}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}">
+      <div class="scard-level">${levelBadge(s.level, b, 'lg')}</div>
       <div class="scard-tags"><span class="tag ${c}">${{ healthy: 'Ready', wounded: 'Wounded', benched: 'Recovering', mia: 'Missing' }[c]}</span>
         ${nextUntil ? `<span class="tag timer" data-until="${nextUntil}">${timeLeft(nextUntil)}</span>` : ''}
         ${s.pendingPerks.length ? '<span class="tag perk">Perk!</span>' : ''}</div>
       <div class="scard-title">
         <div class="scard-name">${esc(s.name)}</div>
         ${s.callsign ? `<div class="callsign">"${esc(s.callsign)}"</div>` : ''}
-        <div class="scard-sub"><span class="scard-lv">Lv ${s.level}</span> ${sp.name}</div>
+        <div class="scard-sub">${sp.name}</div>
       </div>
     </div>
     <div class="scard-body">
-      ${statGrid(st)}
+      ${statGrid(st, s.specialty)}
       <div class="scard-xp"><span>XP</span><div class="bar xpbar" title="XP to next level"><i style="width:${xpPct(s)}%"></i></div><span>${next ? `${s.xp}/${next}` : 'MAX'}</span></div>
       <div class="scard-foot"><span>${s.missions} missions</span><span>${s.kills} kills</span></div>
       ${ribbons(s.medals)}
@@ -218,7 +220,7 @@ export function openSoldier(s) {
   const cost = G.healCost(s);
   const reopen = () => { openSoldier(G.soldierById(s.uid)); render(); };
   const box = el(`<div class="box">
-    <div class="spread"><div class="soldier-head">${avatar(s, 56)}<div>
+    <div class="spread"><div class="soldier-head">${avatar(s, 56)}${levelBadge(s.level, (s.colors || [])[1], 'lg')}<div>
       <div class="name" style="font-size:18px">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
       <div class="dim">${sp.name} · Level ${s.level} · ${s.missions} missions · ${s.kills} kills</div></div></div>
       <button id="x">Close</button></div>
@@ -226,8 +228,8 @@ export function openSoldier(s) {
     <div class="small dim" style="margin:8px 0">${esc(sp.desc)}</div>
     <div class="small">XP ${s.xp}${next ? ` / ${next}` : ' (max level)'}</div>
     ${next ? `<div class="bar"><i style="width:${xpPct(s)}%"></i></div>` : ''}
-    ${statGrid(st)}
-    <div class="small dim" style="margin-top:4px">Stats include gear and injuries.</div>
+    ${statGrid(st, s.specialty)}
+    <div class="small dim" style="margin-top:4px">Stats include gear and injuries. Colours compare each stat with a new ${esc(sp.name)}'s starting value: <span class="s-down2">below</span> · about the same · <span class="s-up">higher</span> · <span class="s-up2">much higher</span> · <span class="s-up3">exceptional</span>. Hover or long-press a stat for the numbers.</div>
 
     <h3 style="margin-top:14px">Ability: ${ab.name}</h3><div class="small">${esc(ab.desc)}</div>
 
@@ -371,7 +373,7 @@ function renderMemorial() {
   const wrap = el(`<div><h2>Memorial Wall</h2><div class="dim section">They went in first so the rest could come home.</div><div class="grid" id="list"></div></div>`);
   const list = wrap.querySelector('#list');
   if (!S.memorial.length) list.append(el('<div class="dim">No one has fallen. Yet.</div>'));
-  for (const m of S.memorial) list.append(el(`<div class="card"><div class="soldier-head">${avatar(m)}<div><div class="name">${esc(m.name)} ${m.callsign ? `<span class="callsign">"${esc(m.callsign)}"</span>` : ''}</div>
+  for (const m of S.memorial) list.append(el(`<div class="card"><div class="soldier-head">${avatar(m)}${levelBadge(m.level, (m.colors || [])[1], 'sm')}<div><div class="name">${esc(m.name)} ${m.callsign ? `<span class="callsign">"${esc(m.callsign)}"</span>` : ''}</div>
     <div class="small dim">${SPECIALTY_BY_ID[m.specialty].name} · Lv ${m.level} · ${m.missions} missions · ${m.kills} kills</div>
     <div class="small">${esc(m.diedHow || 'Fell on the ' + m.diedOn)}, ${new Date(m.diedAt).toLocaleDateString()}${m.gearLost ? ' · <span class="bad">gear lost</span>' : ''}</div>
     ${m.recovered ? '<div class="small warn">Remains signed out of the morgue. The name on the form is blacked out.</div>' : ''}

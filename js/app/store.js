@@ -1,5 +1,6 @@
 // Store: Booster Packs + today's stock. Everything is bought on the server (boarding-api).
 import * as sfx from '../audio/sfx.js';
+import { levelBadge } from './badges.js';
 import * as G from './state.js?v=3';
 import { el, esc, avatar, itemLabel, modal, closeModal, statGrid, toast } from './ui.js';
 import { PACKS, PITY_RELIC_AFTER, GRADE_BY_ID, ROSTER_CAP } from '../data/economy.js';
@@ -47,8 +48,8 @@ export function renderStore(panel, run) {
     const g = GRADE_BY_ID[s.grade];
     rec.append(el(`<div class="card ${bought.has(s.slot) ? 'off' : ''}"><div class="soldier-head">${avatar(s)}<div style="flex:1">
       <div class="name">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
-      <div class="small dim">${g.name} ${SPECIALTY_BY_ID[s.specialty].name} · Lv ${s.level}</div></div></div>
-      ${statGrid(s.stats)}
+      <div class="small dim">${levelBadge(s.level, (s.colors || [])[1], 'sm')} ${g.name} ${SPECIALTY_BY_ID[s.specialty].name}</div></div></div>
+      ${statGrid(s.stats, s.specialty)}
       <div class="spread" style="margin-top:8px"><b style="color:var(--accent)">${s.price} BUCs</b>
       ${bought.has(s.slot) ? '<span class="dim">Hired</span>' : `<button data-buy="${s.slot}" ${S.bucs < s.price || full ? 'disabled' : ''}>Hire</button>`}</div></div>`));
   }
@@ -81,7 +82,7 @@ function reveal(pack, r) {
     ${(r.cyborg || []).length ? '<div class="banner bad">An unregistered unit has been delivered to your Barracks. No sender. No paperwork.</div>' : ''}
     ${soldiers.map(s => `<div class="card" style="margin-bottom:8px"><div class="soldier-head">${avatar(s)}<div>
       <div class="name">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
-      <div class="small dim">${GRADE_BY_ID[s.grade]?.name || ''} ${SPECIALTY_BY_ID[s.specialty].name} · Lv ${s.level}</div>${s.bio ? `<div class="small"><i>${esc(s.bio)}</i></div>` : ''}</div></div>${statGrid(s.stats)}</div>`).join('')}
+      <div class="small dim">${levelBadge(s.level, (s.colors || [])[1], 'sm')} ${GRADE_BY_ID[s.grade]?.name || ''} ${SPECIALTY_BY_ID[s.specialty].name}</div>${s.bio ? `<div class="small"><i>${esc(s.bio)}</i></div>` : ''}</div></div>${statGrid(s.stats, s.specialty)}</div>`).join('')}
     <div style="display:grid;gap:6px">${items.map(it => `<div class="item"><span>${itemLabel(it)} <span class="dim small">${ITEM_BY_ID[it.base].slot}</span>
       ${ITEM_BY_ID[it.base].flavor ? `<div class="small dim"><i>${esc(ITEM_BY_ID[it.base].flavor)}</i></div>` : ''}</span></div>`).join('')}</div>
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="primary" id="ok">Nice</button></div></div>`);
