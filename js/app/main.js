@@ -9,6 +9,7 @@ import { initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js?v=6';
 import { renderStore } from './store.js?v=2';
 import { renderLadder } from './ladder.js?v=2';
+import './../render/portrait.js';
 import { setContract } from './deploy.js?v=6';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
@@ -21,7 +22,7 @@ import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 
-export const APP_VERSION = '0.6.3';
+export const APP_VERSION = '0.6.4';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -139,21 +140,25 @@ function soldierCard(s) {
   const st = G.effectiveStats(s);
   const nextUntil = Math.max(0, ...s.injuries.map(i => i.until), s.status === 'mia' ? s.miaUntil : 0);
   const sp = SPECIALTY_BY_ID[s.specialty];
-  return el(`<div class="card click">
-    <div class="soldier-head">${avatar(s)}
-      <div style="flex:1;min-width:0">
-        <div class="name">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
-        <div class="dim small">${sp.name} · Lv ${s.level}</div>
-      </div>
-      <div style="text-align:right">
-        <span class="tag ${c}">${{ healthy: 'Ready', wounded: 'Wounded', benched: 'Recovering', mia: 'Missing' }[c]}</span>
-        ${nextUntil ? `<div class="small dim" data-until="${nextUntil}">${timeLeft(nextUntil)}</div>` : ''}
-        ${s.pendingPerks.length ? '<div><span class="tag perk">Perk!</span></div>' : ''}
+  const [a, b] = s.colors || ['#3a5a8c', '#f2c14e'];
+  const next = s.level >= MAX_LEVEL ? null : xpToReach(s.level + 1);
+  return el(`<div class="card click scard ${c}" style="--sa:${a};--sb:${b}">
+    <div class="portrait scard-art" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}">
+      <div class="scard-tags"><span class="tag ${c}">${{ healthy: 'Ready', wounded: 'Wounded', benched: 'Recovering', mia: 'Missing' }[c]}</span>
+        ${nextUntil ? `<span class="tag timer" data-until="${nextUntil}">${timeLeft(nextUntil)}</span>` : ''}
+        ${s.pendingPerks.length ? '<span class="tag perk">Perk!</span>' : ''}</div>
+      <div class="scard-title">
+        <div class="scard-name">${esc(s.name)}</div>
+        ${s.callsign ? `<div class="callsign">"${esc(s.callsign)}"</div>` : ''}
+        <div class="scard-sub"><span class="scard-lv">Lv ${s.level}</span> ${sp.name}</div>
       </div>
     </div>
-    ${statGrid(st)}
-    <div class="bar xpbar" title="XP to next level"><i style="width:${xpPct(s)}%"></i></div>
-    ${ribbons(s.medals)}
+    <div class="scard-body">
+      ${statGrid(st)}
+      <div class="scard-xp"><span>XP</span><div class="bar xpbar" title="XP to next level"><i style="width:${xpPct(s)}%"></i></div><span>${next ? `${s.xp}/${next}` : 'MAX'}</span></div>
+      <div class="scard-foot"><span>${s.missions} missions</span><span>${s.kills} kills</span></div>
+      ${ribbons(s.medals)}
+    </div>
   </div>`);
 }
 

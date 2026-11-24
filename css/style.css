@@ -109,3 +109,28 @@ table.rep { width: 100%; border-collapse: collapse; } table.rep td, table.rep th
 
 /* Phase 6: token portraits */
 .avatar.tok { background-size: cover; background-position: center; border: none; color: transparent; text-shadow: none; }
+
+/* Barracks: big portrait cards */
+#roster { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.scard { padding: 0; overflow: hidden; border-top: 4px solid var(--sb); display: flex; flex-direction: column; }
+.scard-art { position: relative; aspect-ratio: 1 / 1; background: var(--sa) center / cover no-repeat; transition: filter .2s; }
+.scard-art:not(.loaded) { background-image: linear-gradient(160deg, var(--sa), #0b0f14); }
+.scard.benched .scard-art, .scard.mia .scard-art { filter: grayscale(.85) brightness(.7); }
+.scard.click:hover .scard-art { filter: brightness(1.08); }
+.scard-tags { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.scard-tags .tag { font-size: 12px; padding: 2px 9px; background: rgba(8, 12, 16, .82); backdrop-filter: blur(2px); }
+.scard-tags .tag.perk { background: var(--accent); order: -1; margin-right: auto; }
+.scard-title { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 12px 10px; background: linear-gradient(transparent, rgba(6, 9, 13, .75) 45%, rgba(6, 9, 13, .95)); }
+.scard-name { font: 700 23px/1.1 Rajdhani, sans-serif; letter-spacing: .03em; color: #fff; text-shadow: 0 2px 4px #000; }
+.scard-title .callsign { font-size: 17px; line-height: 1.2; text-shadow: 0 1px 3px #000; }
+.scard-sub { margin-top: 3px; font-size: 14px; font-weight: 600; color: #e6eef5; text-shadow: 0 1px 3px #000; }
+.scard-lv { display: inline-block; padding: 0 7px; margin-right: 4px; border-radius: 4px; background: var(--sb); color: #111; font: 800 14px Rajdhani, sans-serif; text-shadow: none; }
+.scard-body { padding: 10px 12px 12px; }
+.scard .stats { margin-top: 0; gap: 5px; }
+.scard .stats div { padding: 5px 0 4px; }
+.scard .stats b { font-size: 18px; line-height: 1.1; }
+.scard .stats span { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: #9fb3c6; }
+.scard-xp { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--dim); }
+.scard-xp .bar { flex: 1; height: 7px; }
+.scard-foot { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: #b6c6d4; }
+.scard .ribbons { margin-top: 8px; }

@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.6.4', date: '2026-11-24', items: [
+    'Bigger Barracks cards: each Soldier now shows their full painted portrait in their own colours, with larger, easier-to-read stats.',
+  ] },
   { v: '0.6.3', date: '2026-11-24', items: [
     'Small text fixes.',
   ] },
