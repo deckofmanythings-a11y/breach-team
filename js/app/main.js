@@ -1,45 +1,60 @@
-// Breach Team client. Phase 3: local save, roster, deploy, mission playback, report.
-import * as G from './state.js';
+// Breach Team client. The server (boarding-api) owns each player's save; this file renders it
+// and sends actions. Missions are re-simulated locally from the server's input for playback.
+import * as G from './state.js?v=3';
+import * as api from './api.js';
 import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLeft, ribbon, ribbons, xpPct } from './ui.js';
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
-import { showWhatsNew, initWhatsNew } from './changelog.js';
+import { initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js';
+import { renderStore } from './store.js';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
-import { ITEM_BY_ID, SLOTS, RARITY_BY_ID, RARITY_ORDER } from '../data/gear.js';
+import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
-import { SHIP_BY_ID } from '../data/ships.js';
 import { replayMission, setExit, setOpenSoldier } from './mission.js';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
-G.load();
 const panel = document.getElementById('panel');
-let route = location.hash.slice(1) || 'barracks';
+const nav = document.getElementById('nav');
+const acct = document.getElementById('acct');
+let route = location.hash.slice(1).split('&')[0] || 'barracks';
+let authMode = api.isRecoveryLink ? 'recover' : 'signin';
 
-function refreshTop() { document.getElementById('bucs').textContent = G.shownBucs().toLocaleString(); }
+function refreshTop() {
+  document.getElementById('bucs').textContent = G.shownBucs().toLocaleString();
+  const on = G.signedIn();
+  nav.hidden = !on; document.querySelector('.bucs').hidden = !on;
+  acct.hidden = !on; acct.textContent = on ? `${G.playerName()} · Sign out` : '';
+}
 G.onChange(refreshTop);
-refreshTop();
 
-export function go(r) { route = r; location.hash = r; render(); }
+export function go(r) { route = r; if (location.hash.slice(1) !== r) location.hash = r; render(); }
 setExit(go);
 setOpenSoldier((uid) => { go('barracks'); const s = G.soldierById(uid); if (s) openSoldier(s); });
-window.addEventListener('hashchange', () => { const r = location.hash.slice(1); if (r && r !== route) { route = r; render(); } });
-document.getElementById('nav').addEventListener('click', e => { const b = e.target.closest('button[data-go]'); if (b) go(b.dataset.go); });
+window.addEventListener('hashchange', () => { const r = location.hash.slice(1); if (r && r !== route && /^[a-z]+$/.test(r)) { route = r; render(); } });
+nav.addEventListener('click', e => { const b = e.target.closest('button[data-go]'); if (b) go(b.dataset.go); });
+acct.onclick = async () => { await api.signOut(); G.clear(); closeModal(); authMode = 'signin'; render(); };
+
+// Run a server action; show its error as a toast. Returns the response or null.
+async function run(fn) {
+  panel.classList.add('busy');
+  try { return await fn(); }
+  catch (e) { toast(e.message || 'Something went wrong.'); if (e.status === 401) { G.clear(); render(); } return null; }
+  finally { panel.classList.remove('busy'); }
+}
 
 export function render() {
+  refreshTop();
   for (const b of document.querySelectorAll('#nav button')) b.classList.toggle('on', b.dataset.go === route);
-  G.tick();
-  if (route === 'barracks' || route === 'deploy') {
-    const e = G.emergencyRecruit();
-    if (e) toast(`Fleet Command sends a replacement: ${e.name} (${SPECIALTY_BY_ID[e.specialty].name}).`);
-  }
   panel.innerHTML = '';
+  if (!G.signedIn()) { if (route === 'codex') return renderCodex(panel); return needsName ? nameScreen() : authScreen(); }
   if (route === 'deploy') return renderDeploy(panel);
+  if (route === 'store') return renderStore(panel, run);
   if (route === 'armory') return renderArmory();
   if (route === 'log') return renderLog();
   if (route === 'memorial') return renderMemorial();
@@ -47,8 +62,70 @@ export function render() {
   route = 'barracks'; renderBarracks();
 }
 
-// Healing timers tick visibly.
-setInterval(() => { if (G.tick() && (route === 'barracks')) render(); else for (const n of document.querySelectorAll('[data-until]')) n.textContent = timeLeft(+n.dataset.until); }, 1000);
+// Healing timers tick visibly; when one runs out, the server heals it on the next refresh.
+setInterval(async () => {
+  for (const n of document.querySelectorAll('[data-until]')) n.textContent = timeLeft(+n.dataset.until);
+  if (document.getElementById('modal').hidden && (route === 'barracks' || route === 'deploy') && await G.refreshIfDue()) render();
+}, 1000);
+
+// ---------- Auth ----------
+let needsName = false;
+function authScreen() {
+  const recovering = authMode === 'recover';
+  const wrap = el(`<div class="auth card">
+    <h2>${recovering ? 'Set a new password' : authMode === 'signup' ? 'Create account' : authMode === 'forgot' ? 'Reset password' : 'Sign in'}</h2>
+    <p class="dim">${recovering ? 'Choose a new password for your account.' : 'Command a squad of boarders, take enemy ships, and climb the ladder with your friends. Your roster is saved online.'}</p>
+    ${api.authLinkError ? `<div class="bad small">${esc(api.authLinkError)}</div>` : ''}
+    <form id="authf">
+      ${recovering ? '' : '<label>Email<input type="email" id="em" autocomplete="email" required></label>'}
+      ${authMode === 'forgot' ? '' : `<label>${recovering ? 'New password' : 'Password'}<input type="password" id="pw" minlength="6" autocomplete="${authMode === 'signin' ? 'current-password' : 'new-password'}" required></label>`}
+      <button class="primary" style="margin-top:12px;width:100%">${({ signin: 'Sign in', signup: 'Create account', forgot: 'Send reset email', recover: 'Save password' })[authMode]}</button>
+      <div class="small" id="aerr" style="margin-top:8px"></div>
+    </form>
+    ${recovering ? '' : `<div class="spread small" style="margin-top:10px">
+      <a href="#" data-mode="${authMode === 'signin' ? 'signup' : 'signin'}">${authMode === 'signin' ? 'New here? Create an account' : 'Have an account? Sign in'}</a>
+      ${authMode === 'signin' ? '<a href="#" data-mode="forgot">Forgot password</a>' : ''}</div>`}
+    <p class="small dim" style="margin-top:16px">Want to read the rules first? <a href="#codex">Open the Codex</a>.</p>
+  </div>`);
+  wrap.onclick = (e) => { const m = e.target.closest('[data-mode]'); if (m) { e.preventDefault(); authMode = m.dataset.mode; render(); } };
+  wrap.querySelector('#authf').onsubmit = async (e) => {
+    e.preventDefault();
+    const em = wrap.querySelector('#em')?.value.trim(), pw = wrap.querySelector('#pw')?.value, err = wrap.querySelector('#aerr');
+    err.className = 'small bad'; err.textContent = '';
+    let r;
+    if (authMode === 'signin') r = await api.signIn(em, pw);
+    else if (authMode === 'signup') r = await api.signUp(em, pw);
+    else if (authMode === 'forgot') { r = await api.resetPassword(em); if (!r.error) { err.className = 'small good'; err.textContent = 'Check your email for a reset link.'; return; } }
+    else r = await api.sb.auth.updateUser({ password: pw });
+    if (r.error) { err.textContent = r.error.message; return; }
+    if (authMode === 'signup' && !r.data.session) { err.className = 'small good'; err.textContent = 'Check your email to confirm your account, then sign in.'; return; }
+    authMode = 'signin';
+    await start();
+  };
+  panel.append(wrap);
+}
+function nameScreen() {
+  const wrap = el(`<div class="auth card"><h2>Name your command</h2>
+    <p class="dim">Your commander name shows on the ladder. 2–20 characters.</p>
+    <form id="nf"><input id="dn" maxlength="20" minlength="2" required placeholder="Commander name" style="width:100%">
+    <button class="primary" style="margin-top:12px;width:100%">Take command</button><div class="small bad" id="nerr" style="margin-top:8px"></div></form>
+    <a href="#" id="so" class="small">Sign out</a></div>`);
+  wrap.querySelector('#nf').onsubmit = async (e) => {
+    e.preventDefault();
+    try { await G.register(wrap.querySelector('#dn').value); needsName = false; toast('Welcome aboard, Commander. Your starter squad is ready.'); go('barracks'); }
+    catch (er) { wrap.querySelector('#nerr').textContent = er.message; }
+  };
+  wrap.querySelector('#so').onclick = async (e) => { e.preventDefault(); await api.signOut(); needsName = false; render(); };
+  panel.append(wrap);
+}
+async function start() {
+  if (!(await api.session())) { render(); return; }
+  panel.innerHTML = '<div class="dim">Contacting Fleet Command…</div>';
+  try { needsName = (await G.boot()) === 'name'; }
+  catch (e) { panel.innerHTML = ''; panel.append(el(`<div class="card bad">Couldn't reach the server: ${esc(e.message)} <button id="retry">Retry</button></div>`)); panel.querySelector('#retry').onclick = start; return; }
+  render();
+}
+api.sb.auth.onAuthStateChange((evt) => { if (evt === 'PASSWORD_RECOVERY') { authMode = 'recover'; G.clear(); render(); } });
 
 // ---------- Barracks ----------
 function soldierCard(s) {
@@ -78,8 +155,7 @@ function renderBarracks() {
   const S = G.state();
   const wrap = el(`<div><div class="spread section"><div><h2>Barracks</h2><div class="dim">${S.soldiers.length}/${ROSTER_CAP} Soldiers · ${S.missions} missions flown</div></div>
     <div class="row"><select id="hireSpec">${SPECIALTIES.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
-    <button id="hire">Hire Rookie (${G.HIRE_PRICE} BUCs)</button></div></div><div class="grid" id="roster"></div>
-    <p class="dim small" style="margin-top:20px">Booster packs and the Store arrive in Phase 5. For now you can hire level-1 Rookies of any specialty.</p></div>`);
+    <button id="hire">Hire Rookie (${G.HIRE_PRICE} BUCs)</button><button data-go="store" id="tostore">Store &amp; Packs</button></div></div><div class="grid" id="roster"></div></div>`);
   const roster = wrap.querySelector('#roster');
   const perkers = S.soldiers.filter(s => s.pendingPerks.length);
   if (perkers.length) roster.before(el(`<div class="banner">★ ${perkers.map(s => esc(s.name)).join(', ')} ${perkers.length > 1 ? 'have' : 'has'} a perk to choose. Open their page.</div>`));
@@ -87,20 +163,23 @@ function renderBarracks() {
   for (const s of S.soldiers.slice().sort((a, b) => order[G.condition(a)] - order[G.condition(b)] || b.level - a.level)) {
     const card = soldierCard(s); card.onclick = () => openSoldier(s); roster.append(card);
   }
-  wrap.querySelector('#hire').disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= ROSTER_CAP;
-  wrap.querySelector('#hire').onclick = () => { const s = G.hireRookie(wrap.querySelector('#hireSpec').value); if (s) { toast(`${s.name} joined the team.`); render(); } };
+  const hire = wrap.querySelector('#hire');
+  hire.disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= ROSTER_CAP;
+  hire.onclick = async () => { const r = await run(() => G.act('hire', { specialty: wrap.querySelector('#hireSpec').value })); if (r) { toast(`${G.soldierById(r.soldier)?.name} joined the team.`); render(); } };
+  wrap.querySelector('#tostore').onclick = () => go('store');
   panel.append(wrap);
 }
 
 // ---------- Soldier detail ----------
 export function openSoldier(s) {
+  if (!s) { closeModal(); return; }
   const S = G.state();
   const sp = SPECIALTY_BY_ID[s.specialty];
   const st = G.effectiveStats(s);
   const ab = ABILITIES[sp.ability];
-  const c = G.condition(s);
   const next = s.level >= MAX_LEVEL ? null : xpToReach(s.level + 1);
   const cost = G.healCost(s);
+  const reopen = () => { openSoldier(G.soldierById(s.uid)); render(); };
   const box = el(`<div class="box">
     <div class="spread"><div class="soldier-head">${avatar(s, 56)}<div>
       <div class="name" style="font-size:18px">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
@@ -108,7 +187,7 @@ export function openSoldier(s) {
       <button id="x">Close</button></div>
     <div class="small dim" style="margin:8px 0">${esc(sp.desc)}</div>
     <div class="small">XP ${s.xp}${next ? ` / ${next}` : ' (max level)'}</div>
-    ${next ? `<div class="bar"><i style="width:${Math.min(100, Math.floor(((s.xp - xpToReach(s.level)) * 100) / (next - xpToReach(s.level))))}%"></i></div>` : ''}
+    ${next ? `<div class="bar"><i style="width:${xpPct(s)}%"></i></div>` : ''}
     ${statGrid(st)}
     <div class="small dim" style="margin-top:4px">Stats include gear and injuries.</div>
 
@@ -147,7 +226,6 @@ export function openSoldier(s) {
     <div class="spread" style="margin-top:16px"><button class="danger" id="dismiss">Dismiss Soldier</button><span class="dim small">Dismissing is permanent. Gear goes back to the Armory.</span></div>
   </div>`);
 
-  // Perks
   const perks = box.querySelector('#perks');
   PERK_LEVELS.forEach((L, tier) => {
     const pair = sp.perks[tier];
@@ -157,14 +235,13 @@ export function openSoldier(s) {
     const row = el(`<div class="row" style="margin-bottom:6px"><span class="small dim" style="width:52px">Lv ${L}</span></div>`);
     for (const p of pair) {
       const b = el(`<button class="${chosen === p.id ? 'primary' : ''}" ${!pending ? 'disabled' : ''} title="${esc(p.desc)}"><b>${p.name}</b> <span class="small">${esc(p.desc)}</span></button>`);
-      if (pending) b.onclick = () => { G.choosePerk(s, p.id); openSoldier(s); render(); };
+      if (pending) b.onclick = async () => { if (await run(() => G.act('perk', { soldier: s.uid, perk: p.id }))) reopen(); };
       row.append(b);
     }
     if (pending) row.append(el('<span class="tag perk">Choose one</span>'));
     perks.append(row);
   });
 
-  // Gear
   const gear = box.querySelector('#gear');
   for (const slot of SLOTS) {
     const cur = s.gear[slot] && G.itemById(s.gear[slot]);
@@ -174,27 +251,27 @@ export function openSoldier(s) {
       const who = G.equippedBy(it.uid);
       return `<option value="${it.uid}" ${cur && cur.uid === it.uid ? 'selected' : ''}>${esc(itemLabel(it, true))}${who && who !== s ? ` (on ${esc(who.name)})` : ''}</option>`;
     }).join('')}</select>`);
-    sel.onchange = () => { G.equip(s, slot, sel.value || null); openSoldier(s); render(); };
+    sel.onchange = async () => { await run(() => G.act('equip', { soldier: s.uid, slot, item: sel.value || null })); reopen(); };
     const row = el(`<div class="row"><span style="width:62px" class="dim">${slot[0].toUpperCase() + slot.slice(1)}</span></div>`);
     row.append(sel);
     gear.append(row);
     if (slot === 'weapon') gear.append(el(`<div class="small dim">Can use: ${sp.weapons.join(', ')}</div>`));
   }
 
-  // Customize
-  const saveCustom = () => {
-    s.name = box.querySelector('#nm').value.trim() || s.name; s.callsign = box.querySelector('#cs').value.trim();
-    s.sex = box.querySelector('#sx').value; s.colors = [box.querySelector('#c1').value, box.querySelector('#c2').value];
-    G.save(); box.querySelector('.avatar').outerHTML = avatar(s, 56); render();
+  const saveCustom = async () => {
+    const fields = { name: box.querySelector('#nm').value, callsign: box.querySelector('#cs').value, sex: box.querySelector('#sx').value,
+      colors: [box.querySelector('#c1').value, box.querySelector('#c2').value] };
+    if (await run(() => G.act('customize', { soldier: s.uid, fields }))) { const n = G.soldierById(s.uid); box.querySelector('.avatar').outerHTML = avatar(n, 56); render(); }
   };
   for (const id of ['nm', 'cs', 'sx', 'c1', 'c2']) box.querySelector('#' + id).onchange = saveCustom;
   for (const b of box.querySelectorAll('.preset')) b.onclick = () => { const p = COLOR_PRESETS[+b.dataset.i]; box.querySelector('#c1').value = p[0]; box.querySelector('#c2').value = p[1]; saveCustom(); };
 
   box.querySelector('#x').onclick = closeModal;
-  const heal = box.querySelector('#heal'); if (heal) heal.onclick = () => { if (G.healNow(s)) { toast(`${s.name} is patched up.`); openSoldier(s); render(); } };
-  box.querySelector('#dismiss').onclick = () => {
+  const heal = box.querySelector('#heal');
+  if (heal) heal.onclick = async () => { if (await run(() => G.act('heal', { soldier: s.uid }))) { toast(`${s.name} is patched up.`); reopen(); } };
+  box.querySelector('#dismiss').onclick = async () => {
     if (!confirm(`Dismiss ${s.name}? This can't be undone.`)) return;
-    G.dismiss(s); closeModal(); render();
+    if (await run(() => G.act('dismiss', { soldier: s.uid }))) { closeModal(); render(); }
   };
   modal(box);
 }
@@ -202,12 +279,19 @@ export function openSoldier(s) {
 // ---------- Armory ----------
 function renderArmory() {
   const S = G.state();
-  const wrap = el(`<div><h2>Armory</h2><div class="dim section">${S.items.length} items. Equip gear from a Soldier's page in the Barracks.</div><div id="list" style="display:grid;gap:6px;max-width:900px"></div></div>`);
+  const wrap = el(`<div><h2>Armory</h2><div class="dim section">${S.items.length} items. Equip gear from a Soldier's page in the Barracks. Unequipped gear can be sold for a quarter of its Store price.</div><div id="list" style="display:grid;gap:6px;max-width:900px"></div></div>`);
   const list = wrap.querySelector('#list');
   const items = S.items.slice().sort((a, b) => SLOTS.indexOf(ITEM_BY_ID[a.base].slot) - SLOTS.indexOf(ITEM_BY_ID[b.base].slot) || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity));
   for (const it of items) {
     const who = G.equippedBy(it.uid);
-    list.append(el(`<div class="item"><span>${itemLabel(it)} <span class="dim small">${ITEM_BY_ID[it.base].slot}</span>${ITEM_BY_ID[it.base].flavor ? `<div class="small dim"><i>${esc(ITEM_BY_ID[it.base].flavor)}</i></div>` : ''}</span><span class="dim small">${who ? 'on ' + esc(who.name) : 'unequipped'}</span></div>`));
+    const row = el(`<div class="item"><span>${itemLabel(it)} <span class="dim small">${ITEM_BY_ID[it.base].slot}</span>${ITEM_BY_ID[it.base].flavor ? `<div class="small dim"><i>${esc(ITEM_BY_ID[it.base].flavor)}</i></div>` : ''}</span>
+      <span class="row">${who ? `<span class="dim small">on ${esc(who.name)}</span>` : `<button class="sell">Sell (${G.sellPrice(it)})</button>`}</span></div>`);
+    const b = row.querySelector('.sell');
+    if (b) b.onclick = async () => {
+      if (RARITY_ORDER.indexOf(it.rarity) >= RARITY_ORDER.indexOf('prototype') && !confirm(`Sell ${itemLabel(it, true)} for ${G.sellPrice(it)} BUCs?`)) return;
+      if (await run(() => G.act('sell', { item: it.uid }))) render();
+    };
+    list.append(row);
   }
   panel.append(wrap);
 }
@@ -244,4 +328,5 @@ function renderMemorial() {
 }
 
 initWhatsNew(APP_VERSION);
-render();
+refreshTop();
+start();

@@ -99,3 +99,10 @@ table.rep { width: 100%; border-collapse: collapse; } table.rep td, table.rep th
   .bucs { white-space: nowrap; font-size: 15px; } .bucs b { font-size: 18px; }
   #whatsnew { white-space: nowrap; }
 }
+
+/* Phase 5 */
+.auth { max-width: 420px; margin: 40px auto; padding: 22px; }
+.auth label { display: block; margin-top: 10px; font-size: 13px; color: var(--dim); } .auth input { width: 100%; margin-top: 4px; }
+.auth a, .codex a { color: var(--accent2); }
+#acct { font-size: 12px; padding: 4px 9px; background: transparent; white-space: nowrap; }
+#panel.busy { opacity: .7; pointer-events: none; }

@@ -2,5 +2,5 @@
   "name": "breach-team",
   "private": true,
   "type": "module",
-  "scripts": { "check": "node test/data-check.mjs", "test": "node test/data-check.mjs && node test/determinism.mjs", "balance": "node test/balance.mjs" }
+  "scripts": { "check": "node test/data-check.mjs", "test": "node test/data-check.mjs && node test/determinism.mjs && node test/rules.mjs", "balance": "node test/balance.mjs" }
 }

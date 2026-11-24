@@ -1,5 +1,5 @@
 // Pre-mission: target ship, entry, squad, tactic, retreat plan. Then launch.
-import * as G from './state.js';
+import * as G from './state.js?v=3';
 import { el, esc, avatar, toast } from './ui.js';
 import { SHIPS, SHIP_BY_ID } from '../data/ships.js';
 import { ENTRIES, RETREATS, ENTRY_BY_ID } from '../data/entries.js';
@@ -7,8 +7,7 @@ import { TACTICS } from '../data/tactics.js';
 import { FACTION_BY_ID } from '../data/factions.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { simulate } from '../engine/battle.js';
-import { rollAftermath } from '../engine/aftermath.js';
-import { randomSeed } from '../engine/rng.js';
+import * as api from './api.js';
 import { playMission } from './mission.js';
 
 const LAST = 'bt_last_deploy';
@@ -73,14 +72,17 @@ export function renderDeploy(panel) {
 
 function persist() { localStorage.setItem(LAST, JSON.stringify(pick)); }
 
-function launch(panel) {
+async function launch(panel) {
   const p = pick;
-  const squadSoldiers = p.squad.map(G.soldierById).filter(Boolean);
-  const input = { seed: randomSeed(), ship: p.ship, entry: p.entry, tactic: p.tactic, retreat: p.retreat, squad: squadSoldiers.map(G.engineSoldier) };
-  const battle = simulate(input);
-  const after = rollAftermath(battle, input.squad);
-  // Apply results now (held back on screen until playback ends), so a refresh can't undo a death.
-  const colors = Object.fromEntries(squadSoldiers.map(s => [s.uid, s.colors]));
-  const report = G.applyMission(input, battle, after, SHIP_BY_ID[p.ship].name);
-  playMission(panel, battle, report, colors);
+  const go = document.getElementById('go'); if (go) { go.disabled = true; go.textContent = 'Launching…'; }
+  let r;
+  try { r = await api.call('deploy', { plan: { ship: p.ship, entry: p.entry, tactic: p.tactic, retreat: p.retreat, squad: p.squad } }); }
+  catch (e) { toast(e.message); if (go) { go.disabled = false; go.textContent = 'Launch boarding action'; } return; }
+  // The server fought the mission and saved the result. Hide the BUCs until playback ends,
+  // then re-simulate from the server's input and check we got the same mission.
+  G.holdBucs(r.report.bucs);
+  G.setFrom(r);
+  const battle = simulate(r.report.input);
+  if (battle.hash !== r.report.hash) toast('Warning: this replay doesn\'t match the server result. Please report it.');
+  playMission(panel, battle, r.report, r.report.colors || {});
 }

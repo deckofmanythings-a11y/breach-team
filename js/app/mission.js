@@ -2,7 +2,7 @@
 // replays its event log. Results stay hidden until playback ends (or the player skips).
 import { el, esc, avatar, itemLabel, ribbon } from './ui.js';
 import { COMMENDATION_BY_ID } from '../data/commendations.js';
-import * as G from './state.js';
+import * as G from './state.js?v=3';
 import { T_VOID, T_WALL, T_DOOR } from '../engine/mapgen.js';
 import { simulate } from '../engine/battle.js';
 import { TICKS_PER_SEC } from '../data/stats.js';
@@ -32,7 +32,6 @@ export async function replayMission(panel, h) {
 export async function playMission(panel, battle, report, colors, isReplay = false) {
   if (current) current.destroy();
   panel.innerHTML = '';
-  if (!isReplay) G.holdBucs(report.bucs);
   const map = battle.map;
   const ship = SHIP_BY_ID[battle.ship];
   const faction = FACTION_BY_ID[ship.faction];

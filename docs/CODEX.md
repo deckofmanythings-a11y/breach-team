@@ -209,6 +209,8 @@ Every ship can also mount hackable **Defense Turrets**.
 
 ## 9. BUCs
 
+Your roster, BUCs, packs and Store purchases live on the server (sign in to play). Missions are fought on the server with a fresh random seed, then replayed in your browser from that same seed, so what you watch is exactly what happened.
+
 - Start with **500 BUCs** and four Soldiers: Assault, Breacher, Marksman, Medic.
 - **Success** pays the ship's reward + optional objective bonuses + 25 per loot crate.
 - **Retreat** pays salvage: 30% of the reward × % of rooms cleared.
@@ -223,12 +225,13 @@ Every ship can also mount hackable **Defense Turrets**.
 | Boarding Crate | 600 | 1 Soldier + 3 items, one Prototype+, better odds |
 | Elite Crate | 1,500 | Veteran+ Soldier + 3 items, one Relic, better odds |
 
-- After **12 packs** in a row without a Relic, the next pack is guaranteed one.
+- After **12 item packs** in a row without a Relic, the next one is guaranteed one.
+- Packs never contain Xeno gear (alien ships only).
 - Recruit grades: Rookie (level 1, 65%), Seasoned (level 3, 26%), Veteran (level 5, 7.5%), Elite (level 8, 1.5%).
 
 ### Store
 
-- Daily rotation (midnight Pacific): 6 items + 2 Soldiers.
+- Daily rotation (midnight Pacific): 6 items + 2 Soldiers, the same for every player. Each can be bought once per player per day.
 - Item prices: Standard 60, Mil-Spec 150, Prototype 400, Relic 1,100. Xeno is never sold.
 - Soldier prices: Rookie 150, Seasoned 400, Veteran 900, Elite 2,000.
 - Selling returns 25%. Roster cap: 24 Soldiers.

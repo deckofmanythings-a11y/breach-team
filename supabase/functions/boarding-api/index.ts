@@ -1,0 +1,125 @@
+// boarding-api — the whole Breach Team backend, dispatched on `action`.
+// Server-authoritative: the player's save lives in bp_players and only changes here, through the
+// same js/game/rules.js the browser ships (synced into _shared/breach by scripts/sync-engine.mjs).
+// Missions run here with a server-chosen seed; the browser re-simulates from the returned input
+// and checks the hash before playing it back.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+import * as R from '../_shared/breach/game/rules.js';
+import { ENGINE_VERSION } from '../_shared/breach/data/version.js';
+
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+class Fail extends Error { constructor(msg: string, public status = 400) { super(msg); } }
+
+function serviceKey(): string {
+  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (legacy) return legacy;
+  const raw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (raw) {
+    const p = JSON.parse(raw);
+    if (typeof p === 'string') return p;
+    if (p.default) return p.default;
+    const first = Object.values(p)[0];
+    if (typeof first === 'string') return first;
+  }
+  throw new Error('No service role key available.');
+}
+const db = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey(), { auth: { persistSession: false } });
+
+async function userId(req: Request): Promise<string> {
+  const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!jwt) throw new Fail('Not signed in.', 401);
+  const { data, error } = await db.auth.getUser(jwt);
+  if (error || !data?.user) throw new Fail('Session expired, please sign in again.', 401);
+  return data.user.id;
+}
+
+type Row = { user_id: string; display_name: string; save: any; version: number };
+async function loadRow(uid: string): Promise<Row | null> {
+  const r = await db.from('bp_players').select('user_id, display_name, save, version').eq('user_id', uid).maybeSingle();
+  if (r.error) throw new Fail('Load failed: ' + r.error.message, 500);
+  return r.data as Row | null;
+}
+
+// Load the save, run `fn` on it (plus upkeep), write it back with an optimistic lock.
+// Retries if another request changed the save in between.
+async function withSave(uid: string, fn: (g: any, now: number) => any) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await loadRow(uid);
+    if (!row) throw new Fail('No commander profile yet.', 409);
+    const g = R.migrate(row.save);
+    const now = Date.now();
+    const notes = R.upkeep(g, now);
+    let out: any;
+    try { out = fn(g, now) || {}; }
+    catch (e) { if (e instanceof R.GameError) throw new Fail(e.message); throw e; }
+    const w = await db.from('bp_players').update({ save: g, version: row.version + 1, updated_at: new Date(now).toISOString() })
+      .eq('user_id', uid).eq('version', row.version).select('version');
+    if (w.error) throw new Fail('Save failed: ' + w.error.message, 500);
+    if (w.data?.length) return { ...out, save: g, notes, name: row.display_name };
+  }
+  throw new Fail('Your save was busy, try again.', 409);
+}
+
+const storeView = (g: any, now: number) => {
+  const day = R.storeDay(now);
+  return { ...R.storeStock(day), bought: g.store?.day === day ? g.store.bought : [] };
+};
+
+const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
+  async me(uid) {
+    const row = await loadRow(uid);
+    if (!row) return { needsName: true };
+    return withSave(uid, (g, now) => ({ store: storeView(g, now) }));
+  },
+  async register(uid, b) {
+    const name = String(b.display_name || '').trim();
+    if (name.length < 2 || name.length > 20 || !/^[\p{L}\p{N} _.'-]+$/u.test(name)) throw new Fail('Display name: 2–20 letters, numbers, spaces or _ . \' -');
+    if (await loadRow(uid)) throw new Fail('You already have a commander profile.');
+    const g = R.newGame(Date.now());
+    const r = await db.from('bp_players').insert({ user_id: uid, display_name: name, save: g });
+    if (r.error) throw new Fail(r.error.code === '23505' ? 'That name is taken.' : 'Could not create profile: ' + r.error.message, r.error.code === '23505' ? 400 : 500);
+    return { save: g, name, notes: [], store: storeView(g, Date.now()) };
+  },
+  heal: (uid, b) => withSave(uid, (g, now) => R.heal(g, b.soldier, now)),
+  equip: (uid, b) => withSave(uid, (g) => R.equip(g, b.soldier, b.slot, b.item || null)),
+  perk: (uid, b) => withSave(uid, (g) => R.choosePerk(g, b.soldier, b.perk)),
+  customize: (uid, b) => withSave(uid, (g) => R.customize(g, b.soldier, b.fields || {})),
+  hire: (uid, b) => withSave(uid, (g, now) => R.hire(g, b.specialty, now)),
+  dismiss: (uid, b) => withSave(uid, (g) => R.dismiss(g, b.soldier)),
+  sell: (uid, b) => withSave(uid, (g) => R.sellItem(g, b.item)),
+  pack: (uid, b) => withSave(uid, (g, now) => R.openPack(g, b.pack, now)),
+  buy: (uid, b) => withSave(uid, (g, now) => ({ ...R.buyStore(g, b.slot, now), store: storeView(g, now) })),
+  async deploy(uid, b) {
+    let mission: any = null;
+    const out = await withSave(uid, (g, now) => { mission = R.runMission(g, b.plan || {}, now); return { report: mission.report }; });
+    const { input, battle, after } = mission;
+    const ins = await db.from('bp_missions').insert({
+      user_id: uid, ship: input.ship, entry: input.entry, tactic: input.tactic, retreat: input.retreat, result: battle.result,
+      squad_size: input.squad.length, kia: after.soldiers.filter((s: any) => s.fate === 'kia').length, bucs: after.bucs,
+      seed: input.seed, engine_version: ENGINE_VERSION, hash: battle.hash, input,
+    });
+    if (ins.error) console.error('bp_missions insert failed', ins.error.message);   // the save already counts; log only
+    return out;
+  },
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  try {
+    const body = await req.json().catch(() => ({}));
+    const fn = actions[body.action];
+    if (!fn) throw new Fail('Unknown action.');
+    const uid = await userId(req);
+    return json({ ok: true, ...(await fn(uid, body) as object) });
+  } catch (e) {
+    const status = e instanceof Fail ? e.status : 500;
+    if (status >= 500) console.error(e);
+    return json({ ok: false, error: (e as Error).message || String(e) }, status);
+  }
+});
