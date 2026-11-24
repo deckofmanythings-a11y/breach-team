@@ -13,6 +13,7 @@ import { OBJECTIVES, SHIP_BY_ID } from '../data/ships.js';
 import { ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { STAT_INFO } from '../data/stats.js';
+import { soldierToken, unitToken, FACTION_RING, loadImage, floorSrc } from '../render/tokens.js';
 
 let PIXI = null;
 let current = null;   // active playback (destroyed when leaving)
@@ -74,27 +75,47 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     if (v === T_WALL) g0.rect(x * TS, y * TS, TS, TS).fill(0x34485c);
     else g0.rect(x * TS, y * TS, TS, TS).fill(map.rooms[map.roomAt[y * map.w + x]]?.type === 'bridge' ? 0x1d2a1f : 0x17212b);
   }
-  // floor grid
-  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) if (map.tiles[y * map.w + x] === 1) g0.rect(x * TS, y * TS, TS, TS).stroke({ width: 1, color: 0x1f2d3a, alpha: .6 });
+  // Ship floor art: ONE whole image per faction, laid across the entire floor once (never tiled),
+  // cropped to the ship's aspect, dimmed so units stay readable, masked to floor tiles.
+  const floorMask = new PIXI.Graphics(); world.addChild(floorMask);
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) if (map.tiles[y * map.w + x] !== T_VOID && map.tiles[y * map.w + x] !== T_WALL) floorMask.rect(x * TS, y * TS, TS, TS).fill(0xffffff);
+  loadImage(floorSrc(ship.faction)).then(img => {
+    if (!app.renderer || world.destroyed) return;
+    const bw = (maxX - minX + 1) * TS, bh = (maxY - minY + 1) * TS;
+    const src = PIXI.Texture.from(img);
+    const k = Math.min(img.width / bw, img.height / bh);
+    const fw = bw * k, fh = bh * k;
+    const tex = new PIXI.Texture({ source: src.source, frame: new PIXI.Rectangle((img.width - fw) / 2, (img.height - fh) / 2, fw, fh) });
+    const sp = new PIXI.Sprite(tex);
+    sp.x = minX * TS; sp.y = minY * TS; sp.width = bw; sp.height = bh;
+    sp.mask = floorMask; sp.tint = 0x8c8c8c; sp.alpha = 0.6;
+    world.addChildAt(sp, world.getChildIndex(floorMask));
+  }).catch(() => {});
+  const g1 = new PIXI.Graphics(); world.addChild(g1);
+  // bridge tint + floor grid
+  for (const r of map.rooms) if (r.type === 'bridge') g1.rect(r.x * TS, r.y * TS, r.w * TS, r.h * TS).fill({ color: 0x4ade80, alpha: 0.08 });
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) if (map.tiles[y * map.w + x] === 1) g1.rect(x * TS, y * TS, TS, TS).stroke({ width: 1, color: 0x0b1118, alpha: .35 });
   // cover
   for (let i = 0; i < map.cover.length; i++) if (map.cover[i]) {
     const x = i % map.w, y = (i - x) / map.w, s = map.cover[i] === 2 ? 14 : 9;
-    g0.rect(x * TS + (TS - s) / 2, y * TS + (TS - s) / 2, s, s).fill(map.cover[i] === 2 ? 0x5a6b78 : 0x3e4c57);
+    g1.rect(x * TS + (TS - s) / 2, y * TS + (TS - s) / 2, s, s).fill(map.cover[i] === 2 ? 0x5a6b78 : 0x3e4c57);
   }
   // features
   for (const f of map.features) {
     const cx = f.x * TS + TS / 2, cy = f.y * TS + TS / 2;
-    if (f.kind === 'console') g0.circle(cx, cy, 8).fill(0xffd34d);
-    else if (f.kind === 'terminal') g0.rect(cx - 5, cy - 5, 10, 10).fill(0x3dd6ff);
-    else if (f.kind === 'pods') g0.roundRect(cx - 8, cy - 6, 16, 12, 5).fill(0x4f7dff);
-    else if (f.kind === 'loot') g0.rect(cx - 6, cy - 6, 12, 12).fill(0xc9a227);
-    else if (f.kind === 'vent') g0.rect(cx - 7, cy - 3, 14, 6).stroke({ width: 2, color: 0x6c7f8f });
+    if (f.kind === 'console') g1.circle(cx, cy, 8).fill(0xffd34d);
+    else if (f.kind === 'terminal') g1.rect(cx - 5, cy - 5, 10, 10).fill(0x3dd6ff);
+    else if (f.kind === 'pods') g1.roundRect(cx - 8, cy - 6, 16, 12, 5).fill(0x4f7dff);
+    else if (f.kind === 'loot') g1.rect(cx - 6, cy - 6, 12, 12).fill(0xc9a227);
+    else if (f.kind === 'vent') g1.rect(cx - 7, cy - 3, 14, 6).stroke({ width: 2, color: 0x6c7f8f });
   }
   for (const r of map.rooms) {
     const t = new PIXI.Text({ text: r.name.toUpperCase(), style: { fontFamily: 'Rajdhani', fontSize: 13, fill: 0x5b738a, fontWeight: '700', letterSpacing: 1 } });
     t.x = r.x * TS + 3; t.y = r.y * TS + 2; world.addChild(t);
   }
   const gDyn = new PIXI.Graphics(); world.addChild(gDyn);
+  const unitLayer = new PIXI.Container(); world.addChild(unitLayer);
+  const gTop = new PIXI.Graphics(); world.addChild(gTop);
   const gFx = new PIXI.Graphics(); world.addChild(gFx);
 
   // ---- Playback state ----
@@ -105,8 +126,35 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   for (const r of map.rooms) if (r.hazard) hazards.push({ room: r.id, kind: r.hazard, until: 1e9 });
   const fx = [];
   let alarm = 0, hold = 0, holdNeed = OBJECTIVES.take_bridge.ticks, tick = 0, ei = 0, speed = 1, done = false;
-  const colorsByUnit = {};
-  battle.soldiers.forEach(s => { colorsByUnit[s.unit] = colors[s.uid] || ['#3a5a8c', '#f2c14e']; });
+  const colorsByUnit = {}, sexByUnit = {};
+  const squadIn = report.input?.squad || [];
+  battle.soldiers.forEach((s, i) => { colorsByUnit[s.unit] = colors[s.uid] || ['#3a5a8c', '#f2c14e']; sexByUnit[s.unit] = squadIn[i]?.sex || 'm'; });
+
+  // Token textures: [normal, grey] per unit, built asynchronously; shapes are drawn until ready.
+  const TOK = TS * 1.4;
+  const texFor = new Map();
+  function tokenOf(u) {
+    const old = texFor.get(u.id);
+    if (old && old.side === u.side) return old;
+    if (old?.sprite) old.sprite.destroy();               // e.g. a turret hacked over to our side
+    const entry = { ready: false, side: u.side }; texFor.set(u.id, entry);
+    const def = UNIT_BY_ID[u.kind];
+    let mk;
+    if (info[u.id].side === 'S' && u.kind !== 'sys_drone') {
+      const s = { specialty: u.kind, sex: sexByUnit[u.id], colors: colorsByUnit[u.id] };
+      mk = (grey) => soldierToken(s, { grey });
+    } else {
+      const ring = u.side === 'S' ? '#3dd6ff' : (FACTION_RING[def?.faction] || '#9aa4ad');
+      mk = (grey) => unitToken(u.kind, def?.tags.includes('civilian') ? '#9aa4ad' : ring, { grey, leader: def?.tags.includes('leader') });
+    }
+    Promise.all([mk(false), mk(true)]).then(([a, b]) => {
+      entry.tex = PIXI.Texture.from(a); entry.grey = PIXI.Texture.from(b);
+      entry.sprite = new PIXI.Sprite(entry.tex); entry.sprite.anchor.set(0.5); entry.sprite.width = entry.sprite.height = TOK;
+      if (texFor.get(u.id) !== entry) return;   // replaced while loading
+      unitLayer.addChild(entry.sprite); entry.ready = true;
+    }).catch(() => { entry.failed = true; });
+    return entry;
+  }
 
   const name = (id) => { const u = info[id]; if (!u) return '?'; return u.side === 'S' && u.kind !== 'sys_drone' ? u.name.split(' ')[0] : u.name; };
   const say = (t, html, cls = '') => { const d = el(`<div class="${cls}"><span class="t">${fmt(t)}</span>${html}</div>`); feed.prepend(d); };
@@ -186,36 +234,30 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     for (const h of hazards) if (h.until > tick) { const r = map.rooms[h.room]; gDyn.rect(r.x * TS, r.y * TS, r.w * TS, r.h * TS).fill({ color: HAZARD_TINT[h.kind] || 0xffffff, alpha: .12 + .05 * Math.sin(tick / 3) }); }
     // bridge hold bar
     if (hold) { const r = map.rooms[map.bridge]; gDyn.rect(r.x * TS, (r.y + r.h) * TS - 6, (r.w * TS * Math.min(hold, holdNeed)) / holdNeed, 6).fill(0x4ade80); }
+    gTop.clear();
     for (const u of U.values()) {
       u.px += (u.x - u.px) * 0.35; u.py += (u.y - u.py) * 0.35;
-      if (u.state === 'gone' || u.state === 'out') continue;
+      const tk = tokenOf(u);
+      const gone = u.state === 'gone' || u.state === 'out';
+      if (tk.ready) tk.sprite.visible = !gone && u.state !== 'dead';
+      if (gone) continue;
       const [cx, cy] = center(u);
       const kind = u.kind, def = UNIT_BY_ID[kind];
-      const alpha = u.hidden ? 0.35 : 1;
-      if (u.state === 'dead') { gDyn.circle(cx, cy, 5).fill({ color: 0x3a1a1a, alpha: .8 }); continue; }
-      if (u.state === 'down' || u.state === 'captured') {
-        const c = u.side === 'S' ? HEX(colorsByUnit[u.id]?.[0] || '#888') : palette[0];
-        gDyn.circle(cx, cy, 8).fill({ color: c, alpha: .5 });
-        gDyn.moveTo(cx - 6, cy - 6).lineTo(cx + 6, cy + 6).moveTo(cx + 6, cy - 6).lineTo(cx - 6, cy + 6).stroke({ width: 3, color: 0xff4444 });
-        continue;
-      }
-      const off = u.state === 'off';
-      if (def?.ai === 'turret') {
-        gDyn.poly([cx, cy - 10, cx + 9, cy + 7, cx - 9, cy + 7]).fill({ color: off ? 0x444444 : u.side === 'S' ? 0x3dd6ff : 0xd04040, alpha }).stroke({ width: 2, color: 0x111111 });
-      } else if (kind === 'sys_drone') {
-        gDyn.poly([cx, cy - 7, cx + 7, cy, cx, cy + 7, cx - 7, cy]).fill({ color: 0x3dd6ff, alpha }).stroke({ width: 1.5, color: 0xffffff });
-      } else if (u.side === 'S') {
-        const [a, b] = colorsByUnit[u.id] || ['#3a5a8c', '#f2c14e'];
-        gDyn.circle(cx, cy, 9).fill({ color: HEX(a), alpha }).stroke({ width: 3, color: HEX(b), alpha });
-      } else if (def?.tags.includes('civilian')) {
-        gDyn.circle(cx, cy, 6).fill({ color: 0x9aa4ad, alpha });
+      if (u.state === 'dead') { gDyn.circle(cx, cy, 6).fill({ color: 0x3a1a1a, alpha: .8 }); continue; }
+      const downed = u.state === 'down' || u.state === 'captured', off = u.state === 'off';
+      if (tk.ready) {
+        tk.sprite.position.set(cx, cy);
+        tk.sprite.texture = downed || off ? tk.grey : tk.tex;
+        tk.sprite.alpha = u.hidden ? 0.4 : downed ? 0.75 : 1;
+        tk.sprite.width = tk.sprite.height = downed ? TOK * 0.85 : TOK;
       } else {
-        const lead = def?.tags.includes('leader'), s = lead ? 11 : 8;
-        const col = def?.tags.includes('synthetic') ? palette[1] : palette[0];
-        gDyn.rect(cx - s, cy - s, s * 2, s * 2).fill({ color: col, alpha }).stroke({ width: lead ? 3 : 2, color: lead ? 0xffd34d : palette[2], alpha });
+        // Placeholder shapes until the token art has loaded (or if it failed).
+        const alpha = u.hidden ? 0.35 : 1;
+        if (u.side === 'S' && kind !== 'sys_drone' && def?.ai !== 'turret') { const [a, b] = colorsByUnit[u.id] || ['#3a5a8c', '#f2c14e']; gDyn.circle(cx, cy, 9).fill({ color: HEX(a), alpha }).stroke({ width: 3, color: HEX(b), alpha }); }
+        else gDyn.rect(cx - 8, cy - 8, 16, 16).fill({ color: palette[0], alpha }).stroke({ width: 2, color: palette[2], alpha });
       }
-      // HP bar
-      if (u.hp < u.max) { const w = 18, p = Math.max(0, u.hp) / u.max; gDyn.rect(cx - w / 2, cy - 15, w, 3).fill(0x220000); gDyn.rect(cx - w / 2, cy - 15, w * p, 3).fill(p > .5 ? 0x4ade80 : p > .25 ? 0xfacc15 : 0xef4444); }
+      if (downed) gTop.moveTo(cx - 7, cy - 7).lineTo(cx + 7, cy + 7).moveTo(cx + 7, cy - 7).lineTo(cx - 7, cy + 7).stroke({ width: 3.5, color: 0xff3b3b });
+      else if (u.hp < u.max) { const w = 22, p = Math.max(0, u.hp) / u.max, y = cy - TOK / 2 - 5; gTop.rect(cx - w / 2, y, w, 4).fill(0x220000); gTop.rect(cx - w / 2, y, w * p, 4).fill(p > .5 ? 0x4ade80 : p > .25 ? 0xfacc15 : 0xef4444); }
     }
     for (let i = fx.length - 1; i >= 0; i--) {
       const f = fx[i], age = tick - f.t;
@@ -223,6 +265,8 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
       if (f.k === 'shot') {
         const [ax, ay] = center(f.a), [bx, by] = center(f.b);
         gFx.moveTo(ax, ay).lineTo(bx + (f.hit ? 0 : 6), by + (f.hit ? 0 : -6)).stroke({ width: f.crit ? 3 : 1.5, color: f.crit ? 0xff5050 : f.hit ? 0xffe27a : 0x8a96a3, alpha: 1 - age / f.life });
+        if (age < 1.5) gFx.circle(ax, ay, 5).fill({ color: 0xfff1a8, alpha: 0.9 });                                   // muzzle flash
+        if (f.hit && age < 2) gFx.circle(bx, by, f.crit ? 7 : 4).fill({ color: f.crit ? 0xff5050 : 0xffc04d, alpha: 0.85 });   // impact
       } else if (f.k === 'boom') {
         gFx.circle(f.x * TS + TS / 2, f.y * TS + TS / 2, (f.big ? 36 : 20) * (0.4 + age / f.life)).fill({ color: 0xff9a2e, alpha: .6 * (1 - age / f.life) });
       } else if (f.k === 'smoke') {

@@ -106,3 +106,6 @@ table.rep { width: 100%; border-collapse: collapse; } table.rep td, table.rep th
 .auth a, .codex a { color: var(--accent2); }
 #acct { font-size: 12px; padding: 4px 9px; background: transparent; white-space: nowrap; }
 #panel.busy { opacity: .7; pointer-events: none; }
+
+/* Phase 6: token portraits */
+.avatar.tok { background-size: cover; background-position: center; border: none; color: transparent; text-shadow: none; }

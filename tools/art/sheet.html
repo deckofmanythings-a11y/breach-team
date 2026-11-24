@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8"><title>Token contact sheet</title>
+<style>body{background:#0b0f14;color:#d7e3ee;font:12px Inter,system-ui;padding:10px;margin:0}
+.t{display:grid;grid-template-columns:170px repeat(5,96px);gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid #1c2733}
+.t b{font-size:12px}.v{text-align:center;color:#8197ab;font-size:10px}canvas{display:block}</style>
+<div id="out"></div>
+<script type="module">
+import { loadImage, makeToken, RAW_CROP } from '../../js/render/tokens.js';
+// Lists tools/art/raw via the dev server's directory index; ?g=soldier|enemy|system filters.
+const g = new URLSearchParams(location.search).get('g') || '';
+const html = await (await fetch('raw/')).text();
+const files = [...html.matchAll(/href="([^"]+\.png)"/g)].map(m => decodeURIComponent(m[1])).filter(f => !g || (g === 'soldier' ? f.startsWith('soldier-') : g === 'system' ? f.startsWith('sys_') : !f.startsWith('soldier-') && !f.startsWith('sys_')));
+const byId = {}; for (const f of files) (byId[f.split('__')[0]] ||= []).push(f);
+const out = document.getElementById('out');
+for (const [id, fs] of Object.entries(byId)) {
+  const row = document.createElement('div'); row.className = 't'; row.innerHTML = `<b>${id}</b>`;
+  for (const f of fs) {
+    const img = await loadImage('raw/' + f);
+    const tok = makeToken(img, { armor: '#3a5a8c', ring: '#f2c14e', recolor: f.startsWith('soldier-'), crop: RAW_CROP });
+    const c = document.createElement('canvas'); c.width = c.height = 96; c.getContext('2d').drawImage(tok, 0, 0, 96, 96);
+    const v = document.createElement('div'); v.className = 'v'; v.append(c, f.split('__')[1].replace('.png', '')); row.append(v);
+  }
+  out.append(row);
+}
+</script>

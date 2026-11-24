@@ -88,7 +88,7 @@ export function effectiveStats(g, s) {
   return applyStatMods(s.stats, sumMods([...Object.values(gear).map(itemMods), ...s.injuries.map(i => INJURY_BY_ID[i.id].mods)]));
 }
 export function engineSoldier(g, s) {
-  return { uid: s.uid, name: s.name, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
+  return { uid: s.uid, name: s.name, sex: s.sex, specialty: s.specialty, level: s.level, stats: s.stats, perks: s.perks.filter(Boolean), gear: gearOf(g, s), injuries: s.injuries.map(i => i.id) };
 }
 export const itemPrice = (it) => ITEM_PRICE[it.rarity] || 0;
 export const sellPrice = (it) => it.rarity === 'xeno' ? XENO_SELL : Math.floor((itemPrice(it) * SELL_PCT) / 100);

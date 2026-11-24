@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Mission render test</title>
+<link rel="stylesheet" href="../../css/style.css">
+<script type="importmap">{"imports":{"pixi.js":"https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.mjs"}}</script></head>
+<body><main id="panel"></main><div id="modal" hidden></div><div id="toast" hidden></div>
+<script type="module">
+// Local render test: runs a mission with the shared rules (no account, nothing saved) and plays it.
+// ?ship=raider&entry=shuttle&tactic=blitz
+import * as R from '../../js/game/rules.js';
+import { playMission } from '../../js/app/mission.js';
+const q = new URLSearchParams(location.search);
+const g = R.newGame();
+g.soldiers[0].colors = ['#3a5a8c', '#f2c14e']; g.soldiers[1].colors = ['#6b2d2d', '#e0e0e0']; g.soldiers[2].colors = ['#5a3a7a', '#7fd1ff']; g.soldiers[3].colors = ['#e8e8e8', '#ff4f6d'];
+const out = R.runMission(g, { ship: q.get('ship') || 'raider', entry: q.get('entry') || 'shuttle', tactic: q.get('tactic') || 'balanced', retreat: 'teleport_recall', squad: g.soldiers.map(s => s.uid) });
+playMission(document.getElementById('panel'), out.battle, out.report, out.report.colors, true);
+</script></body></html>

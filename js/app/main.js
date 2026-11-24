@@ -15,8 +15,9 @@ import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { replayMission, setExit, setOpenSoldier } from './mission.js';
+import './../render/tokens.js';
 
-export const APP_VERSION = '0.3.0';
+export const APP_VERSION = '0.4.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');

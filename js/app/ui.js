@@ -35,7 +35,7 @@ export function closeModal() { const m = document.getElementById('modal'); m.hid
 const ICON = { assault: 'AS', breacher: 'BR', marksman: 'MK', medic: 'MD', tech: 'TC', heavy: 'HV', infiltrator: 'IN' };
 export function avatar(s, size = 44) {
   const [a, b] = s.colors || ['#456', '#fb0'];
-  return `<div class="avatar" style="width:${size}px;height:${size}px;background:${a};border-color:${b}" title="${SPECIALTY_BY_ID[s.specialty]?.name || ''}">${ICON[s.specialty] || '?'}</div>`;
+  return `<div class="avatar" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}" data-a="${a}" data-b="${b}" style="width:${size}px;height:${size}px;background-color:${a};border-color:${b}" title="${SPECIALTY_BY_ID[s.specialty]?.name || ''}">${ICON[s.specialty] || '?'}</div>`;
 }
 export function statGrid(st) {
   return `<div class="stats">${STATS.map(k => `<div title="${STAT_INFO[k].name}: ${STAT_INFO[k].desc}"><b>${st[k]}</b><span>${STAT_INFO[k].short}</span></div>`).join('')}</div>`;

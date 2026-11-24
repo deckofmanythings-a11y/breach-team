@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8"><title>Token preview</title>
+<style>body{background:#0b0f14;color:#d7e3ee;font:13px Inter,system-ui;padding:14px}h2{font:700 16px sans-serif;margin:14px 0 4px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}canvas{display:block}.c{text-align:center;color:#8197ab;font-size:11px}
+.map{background:#17212b;padding:10px;border-radius:8px;display:flex;gap:6px;align-items:center}</style>
+<h1>Token preview: recolor + rings at game size</h1>
+<div id="out"></div>
+<script type="module">
+import { loadImage, makeToken, RAW_CROP } from '../../js/render/tokens.js';
+const files = (new URLSearchParams(location.search).get('f') || '').split(',').filter(Boolean);
+const SCHEMES = [['#3a5a8c', '#f2c14e'], ['#6b2d2d', '#e0e0e0'], ['#2f5d3a', '#c9a227'], ['#3b3b44', '#ff6b35'], ['#5a3a7a', '#7fd1ff'], ['#e8e8e8', '#ff4f6d']];
+const out = document.getElementById('out');
+for (const f of files) {
+  const img = await loadImage('raw/' + f);
+  const soldier = f.startsWith('soldier-');
+  const h = document.createElement('h2'); h.textContent = f; out.append(h);
+  const row = document.createElement('div'); row.className = 'row'; out.append(row);
+  const list = soldier ? SCHEMES : [[null, { pirate: '#c4581c', corp: '#1fb5a8', mil: '#8a8f86', sys: '#d04040' }[f.split('_')[0]] || '#888']];
+  for (const [armor, ring] of list) {
+    const t = makeToken(img, { armor, ring, recolor: soldier, leader: /captain|chief|officer/.test(f), crop: RAW_CROP });
+    const cell = document.createElement('div'); cell.className = 'c';
+    const big = document.createElement('canvas'); big.width = big.height = 128; big.getContext('2d').drawImage(t, 0, 0);
+    const map = document.createElement('div'); map.className = 'map';
+    for (const s of [40, 28]) { const m = document.createElement('canvas'); m.width = m.height = s; m.getContext('2d').imageSmoothingQuality = 'high'; m.getContext('2d').drawImage(t, 0, 0, s, s); map.append(m); }
+    cell.append(big, map, armor ? armor : 'faction ring'); row.append(cell);
+  }
+}
+</script>

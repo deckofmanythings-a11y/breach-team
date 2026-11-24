@@ -3,6 +3,14 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.4.0', date: '2026-11-24', items: [
+    'Art pass: every Soldier and enemy now has a painted portrait token on the mission map.',
+    'Your Soldier's armor colour is painted onto their portrait, and their accent colour is the ring. Change colours in the Barracks and the token updates instantly.',
+    'Each enemy faction has its own ring colour (Pirates orange, Corporate teal, Marines grey), and leaders wear a gold star.',
+    'Each ship class has its own deck: rusty pirate plating, clean corporate panels, olive military tread.',
+    'Muzzle flashes and impact sparks; Downed units grey out with a red X.',
+    'Portraits replace the initials everywhere: Barracks, Deploy, Store, Memorial.',
+  ] },
   { v: '0.3.0', date: '2026-11-24', items: [
     'Online accounts: sign in to keep your roster on the server and play from any device. Old browser-only saves don\'t carry over: everyone starts with a fresh starter squad.',
     'Store: four Booster Packs (Recruit, Armory, Boarding Crate, Elite Crate) with guaranteed rarities, plus a daily stock of gear and recruits that is the same for every player.',
