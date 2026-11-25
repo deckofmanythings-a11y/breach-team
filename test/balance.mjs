@@ -8,6 +8,7 @@ import { SHIPS } from '../js/data/ships.js';
 import { ENTRIES } from '../js/data/entries.js';
 import { TACTICS } from '../js/data/tactics.js';
 import { TICKS_PER_SEC } from '../js/data/stats.js';
+import { ENGINE_VERSION } from '../js/data/version.js';
 
 const N = +(process.argv[2] || 60);
 const only = process.argv[3];
@@ -42,7 +43,7 @@ for (const ship of SHIPS) {
     let succ = 0, ticks = 0, sTicks = 0, downed = 0, kia = 0, left = 0, bucs = 0;
     for (let i = 0; i < N; i++) {
       const squad = makeSquad(i * 31 + 7, SQUADS[entry.maxSquad], prof.level, prof.rarity);
-      const b = simulate({ engineVersion: 2, seed: 50000 + i * 7919, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: 'teleport_recall', squad });
+      const b = simulate({ engineVersion: ENGINE_VERSION, seed: 50000 + i * 7919, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: 'teleport_recall', squad });
       const a = rollAftermath(b, squad);
       if (b.result === 'success') { succ++; sTicks += b.ticks; }
       ticks += b.ticks; bucs += a.bucs;

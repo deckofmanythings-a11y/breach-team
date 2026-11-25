@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.3', date: '2026-11-24', items: [
+    "The Cargo Hauler is easier, as a one-star ship should be: no defence turret and a smaller security team. A fresh Level 1 squad now takes it about 85% of the time (it was closer to 65%), and losses are much rarer.",
+    'Hired Rookies now report with a standard-issue weapon and armour for their specialty, instead of turning up with a sidearm and no armour.',
+  ] },
   { v: '0.7.2', date: '2026-11-24', items: [
     'Mission map camera: drag to pan, scroll the mouse wheel or pinch to zoom, double-click to zoom in. The + / − buttons zoom too, and the percentage button snaps back to the whole ship.',
     'Ship walls are now painted: every faction has its own bulkhead plating, with raised edges and shadows so rooms and corridors read at a glance.',

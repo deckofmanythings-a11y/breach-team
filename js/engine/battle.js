@@ -10,6 +10,7 @@
 // }
 import { createRng, hashString, fnv1a } from './rng.js';
 import { generateShip, T_FLOOR, T_DOOR } from './mapgen.js';
+import { shipAt } from './ship-at.js';
 import { sumMods, applyStatMods, itemMods, weaponProfile } from './progression.js';
 import { hitChance, critChance, applyDamage, evasionOf, ticksPerTile, panicChance, detectChance, RETREAT_AT_TICK, HARD_END_TICK } from '../data/stats.js';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
@@ -60,7 +61,7 @@ const ENEMY_AI = {
 };
 
 export function simulate(input) {
-  const ship = SHIP_BY_ID[input.ship];
+  const ship = shipAt(SHIP_BY_ID[input.ship], input.engineVersion ?? 1);
   const tactic = TACTIC_BY_ID[input.tactic];
   const entry = ENTRY_BY_ID[input.entry];
   const retreatDef = RETREAT_BY_ID[input.retreat];
@@ -70,7 +71,7 @@ export function simulate(input) {
   if (!input.squad?.length || input.squad.length > entry.maxSquad) throw new Error('bad squad size');
 
   const seed = input.seed >>> 0;
-  const map = generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id);
+  const map = generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id, input.engineVersion ?? 1);
   const rng = createRng(hashString('sim:' + seed));
   const V = input.engineVersion ?? 1;      // engine version this mission was fought on (gates v2-only behaviour)
   const DARK_SIGHT = 6, ACID_DMG = 6, EGG_RANGE = 3, POSSESS_TICKS = 100, GRAVITY_EVERY = 120;

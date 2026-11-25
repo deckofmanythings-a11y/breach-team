@@ -3,6 +3,7 @@
 // that wall, and a door tile in it links them. The ship grows from the airlock outward
 // (mostly "east", so ships read left-to-right), the bridge is attached to the room farthest
 // from the airlock, then a few extra doors are punched to create loops (flanking routes).
+import { shipAt } from './ship-at.js';
 import { ROOMS, SHIP_BY_ID } from '../data/ships.js';
 
 export const T_VOID = 0, T_FLOOR = 1, T_WALL = 2, T_DOOR = 3;
@@ -101,8 +102,8 @@ function buildLayout(rng, ship) {
   return { rooms, doors };
 }
 
-export function generateShip(rng, shipId) {
-  const ship = SHIP_BY_ID[shipId];
+export function generateShip(rng, shipId, V = 1) {
+  const ship = shipAt(SHIP_BY_ID[shipId], V);
   let layout = null;
   for (let tries = 0; tries < 20 && !layout; tries++) layout = buildLayout(rng, ship);
   if (!layout) throw new Error('mapgen failed for ' + shipId);

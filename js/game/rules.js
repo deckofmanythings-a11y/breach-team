@@ -2,6 +2,7 @@
 // The boarding-api Edge Function runs these (server-authoritative); the browser uses the
 // read-only helpers to display things. Every mutation throws GameError on a bad request.
 import { createRng, randomSeed, hashString } from '../engine/rng.js';
+import { HIRE_KIT } from '../data/hire-kit.js';
 import { growSoldier, applyXp, sumMods, applyStatMods, itemMods, rollItem, rollRarity, rollAffixes } from '../engine/progression.js';
 import { simulate } from '../engine/battle.js';
 import { rollAftermath } from '../engine/aftermath.js';
@@ -187,6 +188,7 @@ export function hire(g, specialty, now = Date.now()) {
   if (g.soldiers.length >= ROSTER_CAP) fail('The Barracks are full.');
   spend(g, HIRE_PRICE);
   const s = makeRecruit(createRng(randomSeed()), specialty, 1, now);
+  for (const [slot, base] of Object.entries(HIRE_KIT[specialty] || {})) s.gear[slot] = addItem(g, { base, rarity: 'standard', affixes: [] }).uid;
   g.soldiers.push(s);
   return { soldier: s.uid };
 }

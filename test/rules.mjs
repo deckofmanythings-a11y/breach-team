@@ -1,5 +1,9 @@
 // Tests for js/game/rules.js (the server-authoritative save rules). Run: node test/rules.mjs
 import * as R from '../js/game/rules.js';
+import { simulate } from '../js/engine/battle.js';
+import { shipAt } from '../js/engine/ship-at.js';
+import { SHIP_BY_ID } from '../js/data/ships.js';
+import { ENGINE_VERSION } from '../js/data/version.js';
 import { PACKS, PITY_RELIC_AFTER } from '../js/data/economy.js';
 import { RARITY_ORDER, ITEM_BY_ID } from '../js/data/gear.js';
 import { GRADE_BY_ID } from '../js/data/economy.js';
@@ -225,6 +229,25 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(threw, 'no new commander without a Game Over');
   C.restartAccount(g);
   ok(g.memorial.length === 0 && !g.mothership && !g.generation && g.soldiers.length === 4, 'Restart Account wipes everything');
+}
+
+// ---- Easy-ship balance (engine v3) and hired Rookies' standard kit ----
+{
+  const g = R.newGame(0); g.bucs = 5000;
+  const { soldier } = R.hire(g, 'heavy');
+  const s = g.soldiers.find(x => x.uid === soldier);
+  ok(R.itemById(g, s.gear.weapon)?.base === 'lmg_std' && R.itemById(g, s.gear.armor)?.base === 'armor_heavy', 'a hired Rookie reports with a standard weapon and armour');
+  const h = SHIP_BY_ID.hauler;
+  ok(shipAt(h, 2).turrets === 1 && shipAt(h, 2).crewBudget === 8, 'old hauler replays keep their old numbers');
+  ok(shipAt(h, 3).turrets === 0 && shipAt(h, 3).crewBudget === 6, 'engine v3 hauler has no turret and a smaller crew');
+  // A fresh starter squad should usually take the tier-1 ship.
+  let wins = 0; const N = 60;
+  for (let i = 0; i < N; i++) {
+    const f = R.newGame(0);
+    const b = simulate({ engineVersion: ENGINE_VERSION, seed: 4242 + i * 97, ship: 'hauler', entry: 'shuttle', tactic: 'balanced', retreat: 'teleport_recall', squad: f.soldiers.map(x => R.engineSoldier(f, x)) });
+    if (b.result === 'success') wins++;
+  }
+  ok(wins >= N * 0.75, `a fresh starter squad wins the Cargo Hauler most of the time (${wins}/${N})`);
 }
 
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');

@@ -53,6 +53,7 @@ export const OBJECTIVES = {
 //   scrambleAdd   added to teleport entry/retreat failure (shields, interference)
 //   optional      optional objectives this class can roll (1-2 per mission)
 //   reward        BUCs for a successful capture before multipliers (economy.js)
+//   revisions     [{ v, ...fields }]: from engine version v on, these fields replace the ones above (old replays keep the old numbers)
 const HUMAN_SHIPS = [
   {
     id: 'hauler', name: 'Cargo Hauler', faction: 'corpsec', tier: 1,
@@ -65,6 +66,8 @@ const HUMAN_SHIPS = [
     turrets: 1, lockedPct: 10, scrambleAdd: 0,
     optional: ['grab_cargo', 'data_core'],
     reward: 220,
+    // Engine v3: a fresh Level 1 squad won only ~65% here, so the easy ship got easier (no turret, smaller crew).
+    revisions: [{ v: 3, crewBudget: 6, turrets: 0, reinforce: { waves: 1, firstAt: 400, every: 0, budget: 3 } }],
   },
   {
     id: 'raider', name: 'Pirate Raider', faction: 'pirates', tier: 2,
