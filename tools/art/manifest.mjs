@@ -106,6 +106,20 @@ const ALIEN_FLOORS = {
   'floor-thrall':   'passenger liner carpet and metal deck smeared with glowing green ichor, debris',
 };
 for (const [id, p] of Object.entries(ALIEN_FLOORS)) TOKENS.push({ id, prompt: `flat material texture swatch seen from directly overhead, ${p}`, group: 'floor', floor: true, negative: 'people, person, character, furniture, walls, perspective, horizon, corridor, hallway, vanishing point, ceiling, doorway, text, letters, numbers' });
+// Ship walls: ONE whole image per faction, laid across every wall tile once (never tiled), like the floors.
+export const WALL_STYLE = 'flat material texture swatch seen from directly overhead, the top surface of thick starship bulkhead walls, heavy armour plating, chunky raised panels, deep seams, rivets and conduits, flat even lighting, no perspective, painted sci-fi concept art texture, detailed, filling the whole frame';
+const WALLS = {
+  'wall-pirates':  'mismatched rusty scrap-metal plates bolted and welded together, dented, chipped red and orange paint, grime',
+  'wall-corpsec':  'flat grid of square clean white and light grey armour plates with thin teal seams, flat surface, corporate',
+  'wall-military': 'dark gunmetal armour plates, heavy rivets, yellow and black hazard stripes, stencilled numbers',
+  'wall-hive':     'black glossy organic chitin ridges and resin, purple glowing veins, alien hive growth',
+  'wall-mycelid':  'corroded bulkhead plates smothered in thick pale fungus, shelf mushrooms, faint green glow',
+  'wall-lattice':  'dense cluster of faceted violet and blue crystal blocks, glowing light inside',
+  'wall-wraith':   'flat grid of jet black hexagonal armour plates with faint thin red glowing seams, flat surface, sinister',
+  'wall-drifters': 'flat grid of smooth pearl white rounded alien armour tiles with thin soft blue glowing seams, flat surface',
+  'wall-thrall':   'flat brass-trimmed metal plates and cracked wood veneer panels splattered with glowing green ichor',
+};
+for (const [id, prompt] of Object.entries(WALLS)) TOKENS.push({ id, prompt, group: 'floor', floor: true, wall: true, negative: 'people, person, character, furniture, perspective, horizon, corridor, hallway, vanishing point, ceiling, doorway, floor, text, letters, numbers, window, tunnel, room, interior, lights, robot, mech, armor suit, torso, face' });
 // Rare recruits (hidden eggs): ORIGINAL faces with costume nods only, never a real actor's likeness.
 const RARE = {
   'egg-rec_wisecrack': 'a wisecracking young man, nervous lopsided grin, sweaty face, tech headset, starship boarding trooper',

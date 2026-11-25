@@ -63,6 +63,12 @@ h2 { font-size: 26px; } h3 { font-size: 18px; color: var(--accent2); }
 .hudtop { position: absolute; left: 10px; top: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
 .hudtop > * { pointer-events: auto; background: rgba(11,15,20,.8); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
 .hudtop button { padding: 3px 8px; }
+.stage canvas { touch-action: none; cursor: grab; }
+.stage canvas.dragging { cursor: grabbing; }
+.zoomctl { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+.zoomctl button { width: 46px; height: 38px; padding: 0; font-size: 20px; font-weight: 700; background: rgba(11,15,20,.85); border: 1px solid var(--line); border-radius: 6px; }
+.zoomctl #zfit { font-size: 11px; height: 26px; }
+@media (max-width: 760px) { .zoomctl button { width: 52px; height: 44px; } }
 .side { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .feed { flex: 1; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12px; }
 .feed div { padding: 2px 0; border-bottom: 1px solid #16212c; } .feed .t { color: var(--dim); margin-right: 6px; font-variant-numeric: tabular-nums; }

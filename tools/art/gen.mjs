@@ -6,7 +6,7 @@
 import { writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TOKENS, STYLE, OBJECT_STYLE, FLOOR_STYLE, NEGATIVE } from './manifest.mjs';
+import { TOKENS, STYLE, OBJECT_STYLE, FLOOR_STYLE, WALL_STYLE, NEGATIVE } from './manifest.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RAW = join(HERE, 'raw');
@@ -59,7 +59,7 @@ for (const t of list) for (let k = 0; k < variants; k++) {
   const file = join(RAW, `${t.id}__${seed}.png`);
   if (existsSync(file) && !has('force')) { console.log('exists', t.id, seed); continue; }
   const t0 = Date.now();
-  writeFileSync(file, await run(t.prompt, seed, t.negative, t.floor ? FLOOR_STYLE : t.object ? OBJECT_STYLE : STYLE));
+  writeFileSync(file, await run(t.prompt, seed, t.negative, t.wall ? WALL_STYLE : t.floor ? FLOOR_STYLE : t.object ? OBJECT_STYLE : STYLE));
   console.log(`made ${t.id} seed ${seed} (${((Date.now() - t0) / 1000).toFixed(1)}s) [${++n}]`);
 }
 

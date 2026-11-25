@@ -158,3 +158,13 @@ for fid, seed in FLOOR_PICKS.items():   # floors: whole image, never cropped to 
     src = Image.open(os.path.join(RAW, f'{fid}__{seed}.png')).convert('RGB').resize((768, 768), Image.LANCZOS)
     path = os.path.join(FLOOR_OUT, f'{fid}.jpg'); src.save(path, quality=80, optimize=True); ftotal += os.path.getsize(path)
 print(f'{len(FLOOR_PICKS)} floors written to assets/floors ({ftotal // 1024} KB total)')
+
+WALL_PICKS = {'wall-pirates': 139156, 'wall-corpsec': 151228, 'wall-military': 139271, 'wall-hive': 138824, 'wall-mycelid': 139139,
+              'wall-lattice': 139138, 'wall-wraith': 151132, 'wall-drifters': 177182, 'wall-thrall': 151124}
+WALL_OUT = os.path.join(HERE, '..', '..', 'assets', 'walls')
+os.makedirs(WALL_OUT, exist_ok=True)
+wtotal = 0
+for wid, seed in WALL_PICKS.items():   # walls: whole image, never cropped to a patch (same rule as floors)
+    src = Image.open(os.path.join(RAW, f'{wid}__{seed}.png')).convert('RGB').resize((768, 768), Image.LANCZOS)
+    path = os.path.join(WALL_OUT, f'{wid}.jpg'); src.save(path, quality=80, optimize=True); wtotal += os.path.getsize(path)
+print(f'{len(WALL_PICKS)} walls written to assets/walls ({wtotal // 1024} KB total)')

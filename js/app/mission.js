@@ -64,14 +64,63 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) if (map.tiles[y * map.w + x] !== T_VOID) { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); }
   const world = new PIXI.Container(); app.stage.addChild(world);
   const TS = 24;   // world tile size; the container is scaled to fit
+  // ---- Camera: fit by default; drag to pan, wheel / pinch / buttons to zoom ----
+  let fitScale = 1, userMoved = false;
   function fit() {
     const w = app.screen.width, h = app.screen.height - 40;
     const sc = Math.min(w / ((maxX - minX + 1) * TS), h / ((maxY - minY + 1) * TS)) * 0.96;
+    fitScale = sc; userMoved = false;
     world.scale.set(sc);
     world.x = (w - (maxX - minX + 1) * TS * sc) / 2 - minX * TS * sc;
     world.y = 40 + (h - (maxY - minY + 1) * TS * sc) / 2 - minY * TS * sc;
+    zoomLabel();
   }
-  fit(); app.renderer.on('resize', fit);
+  // Keep at least a strip of the ship on screen so it can't be lost off the edge.
+  function clampView() {
+    const s = world.scale.x, w = app.screen.width, h = app.screen.height, m = 80;
+    const l = world.x + minX * TS * s, r = world.x + (maxX + 1) * TS * s;
+    const t = world.y + minY * TS * s, b = world.y + (maxY + 1) * TS * s;
+    if (r < m) world.x += m - r; if (l > w - m) world.x -= l - (w - m);
+    if (b < m) world.y += m - b; if (t > h - m) world.y -= t - (h - m);
+  }
+  function zoomAt(px, py, factor) {
+    const s0 = world.scale.x, s1 = Math.min(fitScale * 6, Math.max(fitScale * 0.75, s0 * factor)), k = s1 / s0;
+    world.x = px - (px - world.x) * k; world.y = py - (py - world.y) * k;
+    world.scale.set(s1); userMoved = true; clampView(); zoomLabel();
+  }
+  function zoomLabel() { const z = wrap.querySelector('#zfit'); if (z) z.textContent = `${Math.round(world.scale.x / fitScale * 100)}%`; }
+  fit(); app.renderer.on('resize', () => { if (userMoved) clampView(); else fit(); });
+
+  const cv = app.canvas, ptrs = new Map();
+  let pinch = null;
+  const local = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); const [x, y] = local(e); zoomAt(x, y, Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015))); }, { passive: false });
+  cv.addEventListener('pointerdown', (e) => {
+    cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, local(e)); cv.classList.add('dragging');
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) }; }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const prev = ptrs.get(e.pointerId); if (!prev) return;
+    const p = local(e); ptrs.set(e.pointerId, p);
+    if (ptrs.size === 1) { world.x += p[0] - prev[0]; world.y += p[1] - prev[1]; userMoved = true; clampView(); }
+    else if (ptrs.size === 2 && pinch) {
+      const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      // pan by half this finger's move (the midpoint's move), then zoom around the midpoint
+      world.x += (p[0] - prev[0]) / 2; world.y += (p[1] - prev[1]) / 2;
+      if (pinch.d > 0) zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, d / pinch.d);
+      pinch.d = d;
+    }
+  });
+  const up = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) cv.classList.remove('dragging'); };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('dblclick', (e) => { const [x, y] = local(e); zoomAt(x, y, 2); });
+  const zc = el(`<div class="zoomctl"><button id="zin" title="Zoom in">+</button><button id="zfit" title="Fit the whole ship">100%</button><button id="zout" title="Zoom out">−</button></div>`);
+  stageEl.append(zc);
+  const mid = () => [app.screen.width / 2, app.screen.height / 2];
+  zc.querySelector('#zin').onclick = () => zoomAt(...mid(), 1.4);
+  zc.querySelector('#zout').onclick = () => zoomAt(...mid(), 1 / 1.4);
+  zc.querySelector('#zfit').onclick = fit;
+  zoomLabel();
 
   // ---- Static layer ----
   const g0 = new PIXI.Graphics(); world.addChild(g0);
@@ -96,6 +145,35 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     sp.mask = floorMask; sp.tint = 0x8c8c8c; sp.alpha = 0.6;
     world.addChildAt(sp, world.getChildIndex(floorMask));
   }).catch(() => { floorMask.destroy(); });   // no floor art: drop the (otherwise visible) mask shape
+  // Wall art: same rule as the floor, one whole image per faction laid once across all wall tiles.
+  const isWall = (x, y) => x >= 0 && y >= 0 && x < map.w && y < map.h && map.tiles[y * map.w + x] === T_WALL;
+  const isFloor = (x, y) => x >= 0 && y >= 0 && x < map.w && y < map.h && map.tiles[y * map.w + x] !== T_WALL && map.tiles[y * map.w + x] !== T_VOID;
+  const wallMask = new PIXI.Graphics(); world.addChild(wallMask);
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) if (isWall(x, y)) wallMask.rect(x * TS, y * TS, TS, TS).fill(0xffffff);
+  loadImage(new URL(`../../assets/walls/wall-${ship.faction}.jpg?v=1`, import.meta.url).href).then(img => {
+    if (!app.renderer || world.destroyed) return;
+    const bw = (maxX - minX + 1) * TS, bh = (maxY - minY + 1) * TS;
+    const src = PIXI.Texture.from(img), k = Math.min(img.width / bw, img.height / bh), fw = bw * k, fh = bh * k;
+    const sp = new PIXI.Sprite(new PIXI.Texture({ source: src.source, frame: new PIXI.Rectangle((img.width - fw) / 2, (img.height - fh) / 2, fw, fh) }));
+    sp.x = minX * TS; sp.y = minY * TS; sp.width = bw; sp.height = bh;
+    sp.mask = wallMask; sp.tint = 0xc8c8c8;
+    world.addChildAt(sp, world.getChildIndex(wallMask));
+  }).catch(() => { wallMask.destroy(); });
+  // Raised-block edges: a lit rim on the wall, a soft shadow cast onto the floor beside it.
+  const gEdge = new PIXI.Graphics(); world.addChild(gEdge);
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+    if (!isWall(x, y)) continue;
+    const X = x * TS, Y = y * TS;
+    if (isFloor(x, y + 1)) { gEdge.rect(X, Y + TS, TS, 5).fill({ color: 0x000000, alpha: 0.45 }); gEdge.rect(X, Y + TS - 3, TS, 3).fill({ color: 0x000000, alpha: 0.5 }); }
+    if (isFloor(x + 1, y)) gEdge.rect(X + TS, Y, 4, TS).fill({ color: 0x000000, alpha: 0.35 });
+    if (isFloor(x, y - 1)) gEdge.rect(X, Y, TS, 2).fill({ color: 0xffffff, alpha: 0.28 });
+    if (isFloor(x - 1, y)) gEdge.rect(X, Y, 2, TS).fill({ color: 0xffffff, alpha: 0.18 });
+    // crisp outline where wall meets floor, so dark walls never melt into dark floors
+    if (isFloor(x, y + 1)) gEdge.rect(X, Y + TS - 1, TS, 1.5).fill({ color: 0x000000, alpha: 0.85 });
+    if (isFloor(x, y - 1)) gEdge.rect(X, Y - 0.5, TS, 1.5).fill({ color: 0x000000, alpha: 0.85 });
+    if (isFloor(x + 1, y)) gEdge.rect(X + TS - 1, Y, 1.5, TS).fill({ color: 0x000000, alpha: 0.85 });
+    if (isFloor(x - 1, y)) gEdge.rect(X - 0.5, Y, 1.5, TS).fill({ color: 0x000000, alpha: 0.85 });
+  }
   const g1 = new PIXI.Graphics(); world.addChild(g1);
   // bridge tint + floor grid
   for (const r of map.rooms) if (r.type === 'bridge') g1.rect(r.x * TS, r.y * TS, r.w * TS, r.h * TS).fill({ color: 0x4ade80, alpha: 0.08 });

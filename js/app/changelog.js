@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.2', date: '2026-11-24', items: [
+    'Mission map camera: drag to pan, scroll the mouse wheel or pinch to zoom, double-click to zoom in. The + / − buttons zoom too, and the percentage button snaps back to the whole ship.',
+    'Ship walls are now painted: every faction has its own bulkhead plating, with raised edges and shadows so rooms and corridors read at a glance.',
+  ] },
   { v: '0.7.1', date: '2026-11-24', items: [
     "Stats are colour-coded against a new Soldier's starting values for that specialty: red below, white about the same, green higher, gold exceptional. Hover or long-press a stat for the exact numbers.",
     'Levels now stand out: a big level medallion on every Barracks card and Soldier page, and smaller ones in Deploy, the Store and the Memorial.',
