@@ -56,10 +56,11 @@ export function nextRoomPrice(g, id) {
 }
 export const roomEffect = (id, level) => (level > 0 ? MS_ROOM_BY_ID[id]?.levels[level - 1] || {} : {});
 
-// Summed effects of every room this Mothership has.
+// Summed effects of every room this Mothership has. Rooms damaged in a lost defense (M5) count for
+// nothing until repaired.
 export function mothershipEffects(g) {
   const out = {};
-  for (const r of MS_ROOMS) for (const [k, v] of Object.entries(roomEffect(r.id, roomLevel(g, r.id)))) out[k] = (out[k] || 0) + v;
+  for (const r of MS_ROOMS) if (!g?.mothership?.damaged?.[r.id]) for (const [k, v] of Object.entries(roomEffect(r.id, roomLevel(g, r.id)))) out[k] = (out[k] || 0) + v;
   return out;
 }
 

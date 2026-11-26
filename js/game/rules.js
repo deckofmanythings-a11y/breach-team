@@ -14,7 +14,9 @@ import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '.
 import { MIA_RETURN_MIN, ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 import { credsForMission, backfillCreds } from '../data/creds.js';
-import { mothershipInput, entryMaxSquad, storePrice } from '../data/mothership-rooms.js';
+import { mothershipInput, entryMaxSquad, storePrice, MS_ROOMS, roomLevel } from '../data/mothership-rooms.js';
+import { DEFENSE_EVENTS, defenseChance, defenders, pickThreat, damageableRooms } from '../data/defense-events.js';   // new file for new names
+import { THREAT_BY_ID, DEFENSE } from '../data/threats.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { SHIP_BY_ID } from '../data/ships.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
@@ -339,7 +341,80 @@ export function runMission(g, plan, now = Date.now()) {
   const report = applyMission(g, input, battle, after, target.name, now);
   if (contract) { report.contract = { week: contract.week, score: contractScore(battle, after) }; }
   if (planned) { report.secret = true; report.plannedShip = planned; if (!(g.discovered ||= []).includes(target.id)) { g.discovered.push(target.id); report.firstContact = true; } }
-  return { input, battle, after, report };
+  // Rarely, the Mothership is boarded (or something got loose) the moment the squad is home. It's
+  // fought right away, in this same call, so it can't be dodged (docs/MOTHERSHIP.md, M5).
+  const drng = createRng(hashString('defense:' + input.seed));
+  const chance = defenseChance(g, target);
+  let defense = null;
+  if (chance && drng.roll(chance)) {
+    defense = runDefense(g, pickThreat(defenders(g), target), drng.int(0x7fffffff), now);
+    if (defense) report.defense = defense.report;
+  }
+  return { input, battle, after, report, defense };
+}
+
+// ---------- Mothership defense ----------
+// Fight a defense with everyone aboard and apply it. pick = { threat, power }. Returns
+// { input, battle, after, report } or null if nobody is aboard.
+export function runDefense(g, pick, seed, now = Date.now()) {
+  const roster = defenders(g).slice(0, DEFENSE.maxDefenders);
+  if (!roster.length || !THREAT_BY_ID[pick.threat]) return null;
+  const ms = mothershipInput(g);
+  const rooms = {};
+  for (const r of MS_ROOMS) { const lv = roomLevel(g, r.id); if (lv > 0) rooms[r.id] = lv; }
+  const input = { engineVersion: ENGINE_VERSION, mode: 'defend', seed: seed >>> 0, threat: pick.threat, power: pick.power, rooms, tactic: 'balanced',
+    squad: roster.map(s => engineSoldier(g, s)), ...(ms ? { mothership: ms } : {}) };
+  const battle = simulate(input);
+  const after = rollAftermath(battle, input.squad, input.mothership);
+  return { input, battle, after, report: applyDefense(g, input, battle, after, now) };
+}
+
+export function applyDefense(g, input, battle, after, now = Date.now()) {
+  const rng = createRng((input.seed ^ 0x2545f491) >>> 0);
+  const T = THREAT_BY_ID[input.threat];
+  const report = { at: now, defense: true, seed: input.seed, ship: 'mothership', shipName: 'the Mothership', threat: T.id, threatName: T.name, power: input.power,
+    result: battle.result, bucs: after.bucs, hash: battle.hash, soldiers: [], extras: [], input, stolen: 0, damaged: [],
+    colors: Object.fromEntries(input.squad.map(sq => [sq.uid, soldierById(g, sq.uid)?.colors])) };
+  g.bucs += after.bucs;
+  report.creds = credsForMission(after); g.creds = (g.creds || 0) + report.creds;
+  g.lastDefense = g.missions;
+  g.defenses ||= { fought: 0, won: 0 };
+  g.defenses.fought++; if (battle.result === 'success') g.defenses.won++;
+  const how = T.kind === 'outbreak' ? `Fell defending the Mothership during a ${T.name.toLowerCase()}` : `Fell defending the Mothership against a ${T.name.toLowerCase()}`;
+  after.soldiers.forEach((a, i) => {
+    const s = soldierById(g, a.uid); if (!s) return;
+    const rec = battle.soldiers[i];
+    const line = { uid: s.uid, name: s.name, specialty: s.specialty, state: a.state, fate: a.fate, kiaChance: a.kiaChance, xp: a.xp, injuries: a.injuries, kills: rec.kills, levelUps: [], perkPending: [], medals: [] };
+    s.kills += rec.kills;
+    const R = s.record;
+    R.defenses = (R.defenses || 0) + 1;
+    R.downed += rec.downed; R.revives += rec.revives;
+    if (a.state === 'downed' && a.fate !== 'kia') R.deathRolls++;
+    if (a.fate === 'kia') {
+      dropBuiltins(g, s);
+      line.medals = awardMedals(s);
+      g.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: 'the Mothership', diedHow: `${how} (${a.kiaChance}% death roll)`, diedResult: battle.result, defense: true });
+      g.soldiers = g.soldiers.filter(x => x !== s);
+    } else {
+      const up = applyXp(rng, s, a.xp);
+      s.level = up.level; s.xp = up.xp; s.stats = up.stats; s.pendingPerks.push(...up.perkPending);
+      line.levelUps = up.levelUps; line.perkPending = up.perkPending;
+      R.breakthroughs += up.levelUps.filter(l => l.breakthrough).length;
+      for (const id of a.injuries) if (s.injuries.length < MAX_INJURIES) { s.injuries.push({ id, until: now + healMs(id, a.healTimePct) }); R.injuries++; }
+      line.medals = awardMedals(s);
+    }
+    report.soldiers.push(line);
+  });
+  // A lost defense: the attackers carry off BUCs and wreck rooms on the way out.
+  if (battle.result !== 'success') {
+    report.stolen = Math.floor((g.bucs * DEFENSE_EVENTS.theftPct[battle.result]) / 100);
+    g.bucs -= report.stolen;
+    const pool = damageableRooms(g);
+    for (let n = DEFENSE_EVENTS.damagedRooms[battle.result]; n > 0 && pool.length; n--) report.damaged.push(pool.splice(rng.int(pool.length), 1)[0]);
+    if (report.damaged.length) { g.mothership ||= {}; g.mothership.damaged ||= {}; for (const id of report.damaged) g.mothership.damaged[id] = true; }
+  }
+  if (!g.soldiers.length) { g.gameOver = { at: now, ship: 'the Mothership', missions: g.missions }; report.gameOver = true; }
+  return report;
 }
 
 export function applyMission(g, input, battle, after, shipName, now = Date.now()) {

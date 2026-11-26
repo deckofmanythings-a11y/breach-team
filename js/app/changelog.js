@@ -3,6 +3,12 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.14.0', date: '2026-11-26', items: [
+    "The Mothership can be boarded. Rarely (never before your 12th mission, and not again for a while after), something follows the squad home: a corporate repo team, pirates, Fleet Marines, or, after an alien ship, a parasite outbreak. It's fought straight after the mission report, with every Soldier aboard, wounded or not.",
+    "Hold the Bridge until every wave is down or the attackers give up after 3 minutes. One Soldier in four stands Bridge watch; the rest fight from their stations, and the Mothership's turrets fight with you. Your rooms matter: more cover, Armory and Med Bay bonuses, Chapel Grit.",
+    "Win and you keep the salvage (BUCs) and the XP (CREDs). Lose and the attackers steal some of your BUCs and damage one or two rooms, which then give no bonus until you repair them in the Mothership tab. It's fully deadly: Downed defenders make death rolls, and if every Soldier dies, it's a Game Over.",
+    "Soldiers who fall defending the Mothership get a memorial badge. Defenses show in the Mission Log under the mission that triggered them, with their own replay.",
+  ] },
   { v: '0.13.0', date: '2026-11-26', items: [
     "Engine v5: the groundwork for defending the Mothership if it's ever boarded. Boarding missions play exactly as before.",
     "On the Mothership map, every fourth Soldier now stands Bridge watch, and everyone else waits at the station they'd fight from.",

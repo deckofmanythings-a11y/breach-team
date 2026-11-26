@@ -25,7 +25,7 @@ export function computeBarks(battle, input, colors) {
   const ship = SHIP_BY_ID[battle.ship];
 
   say(12, squadUnits[rng.int(squadUnits.length)], 'missionStart', 25);
-  if (ship.dark) say(20, squadUnits[rng.int(squadUnits.length)], 'enterDarkRoom', 70);
+  if (ship?.dark) say(20, squadUnits[rng.int(squadUnits.length)], 'enterDarkRoom', 70);
 
   const down = new Set();
   let downToOneSaid = false, bledSaid = false, hazardSaid = false;

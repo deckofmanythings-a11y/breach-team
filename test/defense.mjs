@@ -91,5 +91,65 @@ for (const t of THREATS) for (const rooms of [{}, MAXED]) for (let i = 0; i < 4;
   ok(diff === 0, 'boarding missions on v5 play exactly as v4');
 }
 
+// ---- M5: defense events ----
+{
+  const R = await import('../js/game/rules.js');
+  const DE = await import('../js/data/defense-events.js');
+  const MR = await import('../js/data/mothership-rooms.js');
+  const { buildRoom, repairRoom } = await import('../js/game/mothership.js');
+  const g = R.newGame();
+  g.missions = 5; ok(DE.defenseChance(g, { tier: 1 }) === 0, 'no defenses before mission 12');
+  g.missions = 12; ok(DE.defenseChance(g, {}) === DE.DEFENSE_EVENTS.basePct, 'base chance from mission 12');
+  ok(DE.defenseChance(g, { alien: true }) === DE.DEFENSE_EVENTS.alienPct, 'higher chance after an alien ship');
+  g.lastDefense = 10; ok(DE.defenseChance(g, {}) === 0, 'cooldown between defenses');
+  delete g.lastDefense;
+  const lv = (L, n = 6) => Array.from({ length: n }, () => ({ level: L }));
+  ok(DE.pickThreat(lv(1)).threat === 'corp_repo' && DE.pickThreat(lv(3)).threat === 'pirate_raid' && DE.pickThreat(lv(6)).threat === 'marine_strike', 'threat follows roster level');
+  ok(DE.pickThreat(lv(2), { alien: true }).threat === 'hive_outbreak', 'alien ship -> outbreak');
+  ok(DE.pickThreat([...lv(8, 6), ...lv(1, 10)]).threat === 'marine_strike', 'only the 6 best Soldiers set the threat');
+
+  // Applying a defense.
+  g.bucs = 1000; g.creds = 100000;
+  for (const id of ['med_bay', 'armory', 'training_deck']) buildRoom(g, id);
+  const out = R.runDefense(g, { threat: 'pirate_raid', power: 100 }, 77);
+  ok(out && out.report.defense && out.input.mode === 'defend' && out.input.squad.length === g.soldiers.length + out.report.soldiers.filter(x => x.fate === 'kia').length, 'everyone aboard defends');
+  ok(g.lastDefense === g.missions && g.defenses.fought === 1, 'defense is recorded');
+  ok(simulate(out.input).hash === out.report.hash, 'a defense replays to the same hash');
+  ok(out.report.soldiers.every(x => x.fate !== 'mia'), 'nobody goes Missing at home');
+  // A lost defense: theft and damage, applied through applyDefense with a forged battle.
+  const g2 = R.newGame(); g2.bucs = 1000; g2.creds = 100000; g2.missions = 30;
+  for (const id of ['med_bay', 'armory', 'training_deck', 'chapel']) buildRoom(g2, id);
+  const lost = R.runDefense(g2, { threat: 'marine_strike', power: 400 }, 5);
+  if (lost.report.result !== 'success') {
+    ok(lost.report.stolen > 0 && lost.report.damaged.length === DE.DEFENSE_EVENTS.damagedRooms[lost.report.result], `a lost defense steals BUCs and damages rooms (${lost.report.result})`);
+    const id = lost.report.damaged[0];
+    ok(DE.isDamaged(g2, id) && !Object.keys(MR.mothershipEffects(g2)).some(k => MR.roomEffect(id, MR.roomLevel(g2, id))[k] && k !== 'grit' && !['med_bay','armory','training_deck','chapel'].filter(x => x !== id && !DE.isDamaged(g2, x)).some(x => MR.roomEffect(x, 1)[k])), 'a damaged room adds nothing');
+    throws(() => buildRoom(g2, id), 'cannot upgrade a damaged room');
+    const before = g2.creds, price = DE.repairPrice(g2, id);
+    ok(price === 300, `repair costs half the level price (got ${price})`);
+    repairRoom(g2, id);
+    ok(!DE.isDamaged(g2, id) && g2.creds === before - price, 'repair restores the room');
+    throws(() => repairRoom(g2, id), 'cannot repair an intact room');
+  } else ok(false, 'expected the 400%-power marine strike to beat a starter squad');
+  // Game Over when every defender dies.
+  const g3 = R.newGame(); g3.missions = 30;
+  const inp = { engineVersion: 5, mode: 'defend', seed: 1, threat: 'corp_repo', power: 100, rooms: {}, tactic: 'balanced', squad: g3.soldiers.map(x => R.engineSoldier(g3, x)) };
+  const b3 = simulate(inp);
+  const rep3 = R.applyDefense(g3, inp, b3, { soldiers: b3.soldiers.map(x => ({ uid: x.uid, state: 'downed', fate: 'kia', kiaChance: 99, injuries: [], xp: 10, healTimePct: 0 })), bucs: 0 });
+  ok(rep3.gameOver && g3.gameOver && g3.memorial.length === 4 && g3.memorial.every(m => m.defense && /defending the Mothership/.test(m.diedHow)), 'all defenders dead = Game Over, with defender memorials');
+
+  // The real trigger, inside runMission: keep deploying until one fires.
+  const g4 = R.newGame(); g4.missions = 40; g4.bucs = 1e6;
+  let hit = null;
+  for (let i = 0; i < 400 && !hit; i++) {
+    for (const s of g4.soldiers) { s.injuries = []; s.status = 'ready'; }
+    while (g4.soldiers.length < 4) g4.soldiers.push(R.makeRecruit({ int: k => 0, roll: () => false, range: (a) => a }, 'assault', 1));
+    delete g4.gameOver;
+    const r = R.runMission(g4, { ship: 'hauler', entry: 'shuttle', tactic: 'steady', retreat: 'shuttle', squad: g4.soldiers.slice(0, 4).map(s => s.uid) });
+    if (r.report.defense) hit = r;
+  }
+  ok(hit && g4.history[0].defense === hit.report.defense && simulate(hit.report.defense.input).hash === hit.report.defense.hash, 'runMission sometimes triggers a defense, saved with the mission and replayable');
+}
+
 console.log(`defense: ${fails ? fails + ' FAILED' : 'all passed'}. Results:`, results);
 if (fails) process.exit(1);

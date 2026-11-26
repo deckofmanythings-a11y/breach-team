@@ -6,32 +6,32 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=13';
+import { renderDeploy } from './deploy.js?v=14';
 import { renderStore } from './store.js?v=4';
-import { renderLadder } from './ladder.js?v=8';
+import { renderLadder } from './ladder.js?v=9';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { memorialBadges } from './memorial-badge.js';
 import { shownCreds, backfillNotice } from './creds-view.js';
-import { renderMothership } from './mothership-view.js?v=3';
+import { renderMothership } from './mothership-view.js?v=4';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=13';
+import { setContract } from './deploy.js?v=14';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
-import { replayMission, setExit, setOpenSoldier } from './mission.js?v=5';
+import { replayMission, setExit, setOpenSoldier } from './mission.js?v=6';
 import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.13.0';
+export const APP_VERSION = '0.14.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -420,8 +420,10 @@ function renderLog() {
     const kia = h.soldiers.filter(x => x.fate === 'kia').length;
     const row = el(`<div class="card"><div class="spread"><div><b class="result-${h.result}">${{ success: 'SHIP TAKEN', retreat: 'RETREAT', wipe: 'SQUAD LOST' }[h.result]}</b> · ${esc(h.shipName)}
       <div class="small dim">${new Date(h.at).toLocaleString()} · ${h.entry} · ${h.tactic} · +${h.bucs} BUCs${h.creds ? ` · +${h.creds} CREDs` : ''}${kia ? ` · <span class="bad">${kia} KIA</span>` : ''}</div></div>
-      ${h.input ? '<button>Watch replay</button>' : ''}</div></div>`);
-    const b = row.querySelector('button'); if (b) b.onclick = () => replayMission(panel, h);
+      ${h.input ? '<button>Watch replay</button>' : ''}</div>
+      ${h.defense ? `<div class="small" style="margin-top:6px">🚨 Then the Mothership was boarded (${esc(h.defense.threatName)}): <b class="result-${h.defense.result === 'lost' ? 'wipe' : h.defense.result}">${{ success: 'HELD', lost: 'BRIDGE LOST', wipe: 'DEFENDERS DOWN' }[h.defense.result]}</b>${h.defense.soldiers.some(x => x.fate === 'kia') ? ` · <span class="bad">${h.defense.soldiers.filter(x => x.fate === 'kia').length} KIA</span>` : ''}${h.defense.stolen ? ` · −${h.defense.stolen} BUCs` : ''} <button class="small" data-defense style="padding:2px 8px">Watch defense</button></div>` : ''}</div>`);
+    const b = row.querySelector('button:not([data-defense])'); if (b) b.onclick = () => replayMission(panel, h);
+    const bd = row.querySelector('[data-defense]'); if (bd) bd.onclick = () => replayMission(panel, h.defense);
     list.append(row);
   }
   panel.append(wrap);

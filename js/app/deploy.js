@@ -9,7 +9,7 @@ import { FACTION_BY_ID } from '../data/factions.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { simulate } from '../engine/battle.js';
 import * as api from './api.js';
-import { playMission } from './mission.js?v=5';
+import { playMission } from './mission.js?v=6';
 import { holdCreds } from './creds-view.js';
 import { mothershipInput, entryMaxSquad } from '../data/mothership-rooms.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
@@ -110,8 +110,9 @@ There is no retreat. If the mission fails, every one of them dies and their gear
   catch (e) { toast(e.message); if (go) { go.disabled = false; go.textContent = 'Launch boarding action'; } return; }
   // The server fought the mission and saved the result. Hide the BUCs until playback ends,
   // then re-simulate from the server's input and check we got the same mission.
-  holdCreds(r.report.creds);
-  G.holdBucs(r.report.bucs);
+  const dz = r.report.defense;   // a Mothership defense fought straight after: hide its result too
+  holdCreds(r.report.creds + (dz?.creds || 0));
+  G.holdBucs(r.report.bucs + (dz ? dz.bucs - dz.stolen : 0));
   G.setFrom(r);
   const battle = simulate(r.report.input);
   if (battle.hash !== r.report.hash) toast('Warning: this replay doesn\'t match the server result. Please report it.');

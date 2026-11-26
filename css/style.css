@@ -251,3 +251,10 @@ details.commend > div { margin-top: 6px; }
 .ms-stage { height: 420px; } .ms-hint { position: absolute; left: 10px; top: 10px; z-index: 1; pointer-events: none; background: rgba(11,15,20,.8); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 @media (max-width: 900px) { .ms-stage { height: 52vh; } }
 .ms-modal { max-width: 420px; } .ms-modal .card { margin: 0; }
+
+/* Mothership defense (M5) */
+.mbadge.def { background: linear-gradient(180deg, #0d2a3a, #06121a); color: #9fe3ff; border: 1px solid #3dd6ff; }
+.mbadge.def .mbadge-icon { font-size: 12px; }
+.banner.incoming { border-color: #e8483b; animation: incoming 1.1s ease-in-out infinite alternate; }
+@keyframes incoming { from { box-shadow: 0 0 0 rgba(232,72,59,0); } to { box-shadow: 0 0 18px rgba(232,72,59,.55); } }
+.card.ms-room.damaged { border-color: #e8483b; background: linear-gradient(180deg, rgba(232,72,59,.12), transparent 60%); }

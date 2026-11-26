@@ -6,6 +6,7 @@ import { buildMothershipMap } from '../engine/mothership-map.js';
 import { createShipView } from '../render/ship-view.js';
 import { stationKey } from '../engine/defense-setup.js';
 import { DEFENSE } from '../data/threats.js';
+import { isDamaged, repairPrice } from '../data/defense-events.js';
 
 let view = null;
 const dropView = () => { if (view) { view.destroy(); view = null; } };
@@ -27,7 +28,8 @@ export function renderMothership(panel, run) {
     <h2>Mothership</h2>
     <div class="section banner info"><b class="ms-creds">${creds.toLocaleString()} CREDs</b>
       <div class="small dim">Your Soldiers earn 1 CRED for every XP point (about 200 a mission). Rooms carry over a Game Over.</div>
-      <div class="small" style="margin-top:6px"><b>Active bonuses:</b> ${esc(describeEffect(mothershipEffects(S)))}</div></div>
+      <div class="small" style="margin-top:6px"><b>Active bonuses:</b> ${esc(describeEffect(mothershipEffects(S)))}</div>
+      ${S.defenses?.fought ? `<div class="small dim" style="margin-top:4px">Boarded ${S.defenses.fought} time${S.defenses.fought > 1 ? 's' : ''}, held ${S.defenses.won}.</div>` : ''}</div>
     <div class="stage ms-stage" id="msstage"><div class="ms-hint small">Tap a room to build or upgrade it · drag to pan · pinch or scroll to zoom</div></div>
     <h3 style="margin-top:14px">All rooms</h3>
     <div class="grid ms-grid" id="rooms"></div>
@@ -41,7 +43,9 @@ export function renderMothership(panel, run) {
   dropView();
   const stage = wrap.querySelector('#msstage');
   const soldiers = S.soldiers.filter(s => s.status !== 'mia').map((s, i) => ({ s, room: hangout(S, s, i) }));
-  createShipView(stage, buildMothershipMap(S), {
+  const msMap = buildMothershipMap(S);
+  for (const sl of msMap.slots) if (sl.room && isDamaged(S, sl.room)) sl.name += ' ⚠ DAMAGED';
+  createShipView(stage, msMap, {
     faction: 'military', soldiers,
     onTap: (slot) => {
       if (!slot) return;
@@ -58,22 +62,33 @@ export function renderMothership(panel, run) {
 
 function roomCard(S, r, creds) {
   const lv = roomLevel(S, r.id);
-  const price = nextRoomPrice(S, r.id);
+  const fix = repairPrice(S, r.id);   // damaged in a lost defense
+  const price = fix === null ? nextRoomPrice(S, r.id) : null;
   const now = lv > 0 ? describeEffect(roomEffect(r.id, lv)) : null;
   const next = price !== null ? describeEffect(roomEffect(r.id, lv + 1)) : null;
-  const action = r.soon ? '' : price === null ? '<span class="good small">Fully upgraded</span>'
+  const action = r.soon ? '' : fix !== null ? `<button class="primary danger" data-repair="${r.id}" ${creds < fix ? 'disabled' : ''}>Repair · ${fix.toLocaleString()} CREDs</button>`
+    : price === null ? '<span class="good small">Fully upgraded</span>'
     : `<button class="primary" data-room="${r.id}" ${creds < price ? 'disabled' : ''}>${lv ? `Upgrade to L${lv + 1}` : 'Build'} · ${price.toLocaleString()} CREDs</button>`;
-  return el(`<div class="card ms-room ${r.soon ? 'off' : lv ? 'built' : ''}">
+  return el(`<div class="card ms-room ${r.soon ? 'off' : fix !== null ? 'damaged' : lv ? 'built' : ''}">
     <div class="spread"><h4><span class="ms-icon">${r.icon}</span> ${esc(r.name)}</h4>${r.soon ? '' : pips(lv)}</div>
     <div class="small dim">${esc(r.desc)}</div>
     ${r.soon ? `<div class="small warn" style="margin-top:6px">Coming ${esc(r.soon)}.</div>` : `
-    ${now ? `<div class="small" style="margin-top:6px"><b>Now (L${lv}):</b> ${esc(now)}</div>` : '<div class="small dim" style="margin-top:6px">Not built yet.</div>'}
+    ${fix !== null ? '<div class="small bad" style="margin-top:6px"><b>⚠ DAMAGED</b> in a boarding: its bonus is off until repaired.</div>' : ''}
+    ${now ? `<div class="small" style="margin-top:6px${fix !== null ? ';text-decoration:line-through;opacity:.6' : ''}"><b>Now (L${lv}):</b> ${esc(now)}</div>` : '<div class="small dim" style="margin-top:6px">Not built yet.</div>'}
     ${next ? `<div class="small" style="margin-top:2px"><b>${lv ? `L${lv + 1}` : 'Build'}:</b> ${esc(next)}</div>` : ''}
     <div style="margin-top:8px">${action}</div>`}
   </div>`);
 }
 
 async function onBuild(e, S, panel, run) {
+  const rp = e.target.closest('[data-repair]');
+  if (rp) {
+    const r = MS_ROOM_BY_ID[rp.dataset.repair], price = repairPrice(S, r.id);
+    if (!confirm(`Repair the ${r.name} for ${price.toLocaleString()} CREDs?`)) return;
+    const out = await run(() => G.act('repairRoom', { room: r.id }));
+    if (out) { closeModal(); toast(`${r.name} repaired.`); panel.replaceChildren(); renderMothership(panel, run); }
+    return;
+  }
   const b = e.target.closest('[data-room]'); if (!b) return;
   const r = MS_ROOM_BY_ID[b.dataset.room];
   const lv = roomLevel(S, r.id), price = nextRoomPrice(S, r.id);

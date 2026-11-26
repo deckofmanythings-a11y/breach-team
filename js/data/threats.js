@@ -39,5 +39,8 @@ export const DEFENSE = {
 export const DEFEND_OBJECTIVE = { name: 'Hold the Bridge', primary: true, room: 'bridge', ticks: DEFENSE.holdTicks, kind: 'defend',
   desc: 'Keep the attackers off the Bridge until every wave is down or they give up.' };
 
+// Soldiers past the 6th add half a share each (a big roster leaves more of itself guarding and
+// arriving late, so full shares made large rosters lose MORE often).
+export const effectiveDefenders = (n) => (n <= 6 ? n : 6 + (n - 6) / 2);
 export const waveBudget = (wave, defenders, power = 100) =>
-  Math.max(DEFENSE.minWaveBudget, Math.floor((DEFENSE.waveBudgetPerSoldier[wave] * defenders * power) / 100));
+  Math.max(DEFENSE.minWaveBudget, Math.floor((DEFENSE.waveBudgetPerSoldier[wave] * effectiveDefenders(defenders) * power) / 100));
