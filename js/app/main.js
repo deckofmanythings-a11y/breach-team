@@ -8,7 +8,7 @@ import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js?v=8';
 import { renderStore } from './store.js?v=3';
-import { renderLadder } from './ladder.js?v=2';
+import { renderLadder } from './ladder.js?v=3';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { LOOKS } from '../data/looks.js';
@@ -28,7 +28,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.8.0';
+export const APP_VERSION = '0.8.1';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');

@@ -1181,7 +1181,7 @@ export function simulate(input) {
 
   const out = {
     engineVersion: ENGINE_VERSION, seed, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: retreatDef.id,
-    result, ticks: endT, retreatReason: retreat.reason, retreatAt: retreat.at,
+    result, ticks: endT, clockLeft: V >= 4 ? Math.max(0, clockLimit - clock) : Math.max(0, RETREAT_AT_TICK - endT), retreatReason: retreat.reason, retreatAt: retreat.at,
     soldiers, objectives: objectives.map(o => ({ id: o.id, done: o.done })),
     progressPct, lootCrates, alarmLevel, reinforcementWaves: wave,
     enemies: { total: units.filter(u => u.side === 'E' || u.turret).length, killed: units.filter(u => u.state === 'dead').length },

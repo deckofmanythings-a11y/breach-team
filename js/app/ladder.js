@@ -74,7 +74,7 @@ async function watch(panel, missionId) {
   const after = rollAftermath(battle, input.squad);
   const ship = SHIP_BY_ID[input.ship];
   const report = {
-    shipName: `${ship.name} (${replay.name}'s contract run, ${replay.score} pts)`, bucs: after.bucs, input, extras: [],
+    shipName: `${ship.name} (${replay.name}'s contract run, ${replay.score} pts)`, bucs: after.bucs, ...(after.timeBonus?.bucs ? { timeBonus: after.timeBonus } : {}), input, extras: [],
     colors: Object.fromEntries(input.squad.map(s => [s.uid, s.colors || ['#3a5a8c', '#f2c14e']])),
     soldiers: after.soldiers.map((a, i) => ({ uid: a.uid, name: input.squad[i].name, specialty: input.squad[i].specialty, state: a.state, fate: a.fate,
       kiaChance: a.kiaChance, xp: a.xp, injuries: a.injuries, kills: battle.soldiers[i].kills, levelUps: [] })),

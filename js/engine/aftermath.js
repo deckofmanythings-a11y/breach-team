@@ -5,6 +5,7 @@ import { XP } from '../data/stats.js';
 import { SHIP_BY_ID, OBJECTIVES } from '../data/ships.js';
 import { MINOR, MAJOR, kiaChance, LEFT_BEHIND_KIA, REAR_GUARD_KIA_MULT, KIA_MIN_PCT, INJURY_DIV, REVIVED_MAJOR_PCT, DOWNED_EXTRA_MINOR_PCT } from '../data/injuries.js';
 import { successReward, failReward } from '../data/economy.js';
+import { blitzTimeBonus } from '../data/blitz-bonus.js';
 import { SPECIALTIES } from '../data/specialties.js';
 import { sumMods, itemMods } from './progression.js';
 import { SLOTS } from '../data/gear.js';
@@ -70,8 +71,9 @@ export function rollAftermath(battle, squad, mothership = null) {
   });
 
   const bonus = battle.objectives.filter(o => o.done && OBJECTIVES[o.id].bonusPct).map(o => OBJECTIVES[o.id].bonusPct);
-  const bucs = success ? successReward(ship, bonus, battle.lootCrates) : failReward(ship, battle.progressPct);
+  const timeBonus = blitzTimeBonus(ship, battle);
+  const bucs = (success ? successReward(ship, bonus, battle.lootCrates) : failReward(ship, battle.progressPct)) + timeBonus.bucs;
   const gearDrop = success && battle.objectives.some(o => o.done && OBJECTIVES[o.id].gearDrop);
   const prisoner = success && battle.objectives.some(o => o.done && o.id === 'free_prisoner');
-  return { soldiers: results, bucs, gearDrop, prisoner };
+  return { soldiers: results, bucs, timeBonus, gearDrop, prisoner };
 }

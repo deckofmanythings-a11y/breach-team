@@ -307,5 +307,17 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(v3Clock === 0, 'v3 missions keep the old fixed clock');
 }
 
+// ---- Blitz time bonus ----
+{
+  const { blitzTimeBonus } = await import('../js/data/blitz-bonus.js');
+  const ship = SHIP_BY_ID.raider;
+  const base = { engineVersion: 4, result: 'success', tactic: 'blitz', clockLeft: 40 * 8 };
+  ok(blitzTimeBonus(ship, base).bucs === Math.floor(ship.reward * 20 / 100), '40 s left = +20% of the reward');
+  ok(blitzTimeBonus(ship, { ...base, clockLeft: 90 * 8 }).bucs === Math.floor(ship.reward * 30 / 100), 'capped at +30%');
+  ok(blitzTimeBonus(ship, { ...base, tactic: 'steady' }).bucs === 0, 'only Blitz');
+  ok(blitzTimeBonus(ship, { ...base, result: 'retreat' }).bucs === 0, 'only on a win');
+  ok(blitzTimeBonus(ship, { ...base, engineVersion: 3 }).bucs === 0, 'not on old-engine missions');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

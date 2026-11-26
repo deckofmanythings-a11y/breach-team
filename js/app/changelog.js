@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.8.1', date: '2026-11-25', items: [
+    "Blitz time bonus: a successful Blitz pays extra BUCs for time left on the mission clock: +1% of the ship's reward for every 2 seconds, up to +30%. The mission report shows how much of your pay it was.",
+  ] },
   { v: '0.8.0', date: '2026-11-25', items: [
     "Mission clock rework. The 90-second clock now pauses while any Soldier is on the bridge, so a squad fighting for or holding the bridge is no longer pulled out mid-capture. The time left shows next to the elapsed time during a mission.",
     "Digging in: when the clock runs out and the squad is winning (more Soldiers standing than enemies in sight), it rolls its average Grit to push on for another 15 seconds. Up to three times, each harder than the last. Slow & Steady, with its Grit bonus, benefits most.",

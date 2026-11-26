@@ -502,6 +502,7 @@ function showReport(panel, battle, report, isReplay) {
     <h2 class="result-${battle.result}" style="font-size:34px">${title}</h2>
     <div class="dim">${esc(report.shipName)} · ${(battle.ticks / TICKS_PER_SEC).toFixed(0)} s · ${battle.enemies.killed} enemies killed${battle.objectives.filter(o => o.done && o.id !== 'take_bridge').map(o => ' · ✔ ' + OBJECTIVES[o.id].name).join('')}</div>
     <div style="font:700 26px Rajdhani;margin:10px 0">+${report.bucs} BUCs</div>
+    ${report.timeBonus?.bucs ? `<div class="small good" style="margin:-6px 0 8px">Includes a Blitz time bonus: +${report.timeBonus.bucs} BUCs for ${Math.floor(report.timeBonus.secs / 60)}:${String(report.timeBonus.secs % 60).padStart(2, '0')} left on the clock</div>` : ''}
     ${report.gameOver ? '<div class="banner bad"><b>No Soldiers left.</b> This was your commander&rsquo;s last mission.</div>' : ''}
     ${report.contract ? `<div class="banner info">Contract score: <b>${report.contract.score}</b>. Check the Ladder to see where it ranks.</div>` : ''}
     <table class="rep"><tr><th>Soldier</th><th>Outcome</th><th>Injuries</th><th>XP</th></tr>

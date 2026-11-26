@@ -338,7 +338,7 @@ export function runMission(g, plan, now = Date.now()) {
 export function applyMission(g, input, battle, after, shipName, now = Date.now()) {
   const rng = createRng((input.seed ^ 0x5bd1e995) >>> 0);
   const report = { at: now, seed: input.seed, ship: input.ship, shipName, entry: input.entry, tactic: input.tactic, retreat: input.retreat,
-    result: battle.result, bucs: after.bucs, hash: battle.hash, soldiers: [], extras: [], input,
+    result: battle.result, bucs: after.bucs, ...(after.timeBonus?.bucs ? { timeBonus: after.timeBonus } : {}), hash: battle.hash, soldiers: [], extras: [], input,
     colors: Object.fromEntries(input.squad.map(sq => [sq.uid, soldierById(g, sq.uid)?.colors])) };
   g.bucs += after.bucs; g.missions++;
   const survivors = after.soldiers.filter(a => a.fate !== 'kia');

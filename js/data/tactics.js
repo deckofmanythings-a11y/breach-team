@@ -16,7 +16,7 @@ export const TACTICS = [
     aggression: 50, coverUse: 50, advancePct: 100, rangePct: 80, objectiveFocus: 50, noisePct: 100, retreatAt: 50,
     mods: { aim: 5, grit: 10 } },
   { id: 'blitz', name: 'Blitz',
-    desc: 'Go fast, hit hard. Reaches the bridge before the defenders organise, but takes more fire.',
+    desc: 'Go fast, hit hard. Reaches the bridge before the defenders organise, but takes more fire. A win pays bonus BUCs for every second left on the clock.',
     aggression: 90, coverUse: 15, advancePct: 135, rangePct: 50, objectiveFocus: 75, noisePct: 150, retreatAt: 60,
     mods: { dmgPct: 10, dmgTakenPct: 20, aim: -5 } },
   { id: 'steady', name: 'Slow & Steady',
