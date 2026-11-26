@@ -222,5 +222,38 @@ for (const t of THREATS) for (const rooms of [{}, MAXED]) for (let i = 0; i < 4;
   ok(a6 > a5, `Intel Room: defenders shoot straighter (${(a6 / 6).toFixed(3)} vs ${(a5 / 6).toFixed(3)})`);
 }
 
+// v7: Pod Bay (Breaching Pod) and Infiltration Suite (Vent Crawl).
+{
+  const MR = await import('../js/data/mothership-rooms.js');
+  const R = await import('../js/game/rules.js');
+  const { buildRoom } = await import('../js/game/mothership.js');
+  const g = R.newGame(); g.creds = 1e6;
+  for (const id of ['pod_bay', 'infiltration']) { buildRoom(g, id); buildRoom(g, id); buildRoom(g, id); }
+  const ms = MR.mothershipInput(g);
+  ok(ms && ms.entry.podClose && ms.entry.podShock && ms.entry.ventClose && ms.entry.ventAmbush, 'Pod Bay + Infiltration Suite feed the mission entry');
+  const E = (id) => ({ id, maxSquad: 4 });
+  ok(MR.entryMaxSquad(E('breach_pod'), ms.entry) === 5 && MR.entryMaxSquad({ id: 'vent_crawl', maxSquad: 3 }, ms.entry) === 4 && MR.entryMaxSquad(E('teleport'), ms.entry) === 4, 'L3 seat counts only for its own entry');
+  const sq = makeSquad(2, SPECS.slice(0, 5), 5, 'milspec');
+  const base = { engineVersion: 7, seed: 31, ship: 'raider', tactic: 'balanced', retreat: 'shuttle', squad: sq };
+  let threw = false; try { simulate({ ...base, engineVersion: 6, entry: 'breach_pod', mothership: ms }); } catch { threw = true; }
+  ok(threw, 'Pod Bay / Infiltration keys need engine v7');
+  let shock = 0, closer = 0;
+  for (let i = 0; i < 12; i++) {
+    const a = simulate({ ...base, seed: 40 + i, entry: 'breach_pod', mothership: ms }), b = simulate({ ...base, seed: 40 + i, entry: 'breach_pod', squad: sq.slice(0, 4) });
+    shock += a.events.filter(e => e[1] === 'stun' && e[0] === 0).length;
+    const room = (bt) => { const s = bt.events.find(e => e[1] === 'spawn' && e[3] === 'S'); return bt.map.distFromBridge[bt.map.roomAt[s[6] * bt.map.w + s[5]]]; };
+    if (room(a) < room(b)) closer++;
+  }
+  ok(shock > 0 && closer > 0, `Pod Bay: impact stuns (${shock}) and pods land closer (${closer}/12)`);
+  const v = simulate({ ...base, entry: 'vent_crawl', mothership: ms, squad: sq.slice(0, 4) });
+  ok(v.soldiers.length === 4 && simulate({ ...base, entry: 'vent_crawl', squad: sq.slice(0, 3) }).hash === simulate({ ...base, engineVersion: 6, entry: 'vent_crawl', squad: sq.slice(0, 3) }).hash, 'Vent Crawl takes 4 with the Suite; without it v7 plays exactly as v6');
+  // The rooms hang off the Hangar on the Mothership map.
+  const { buildMothershipMap } = await import('../js/engine/mothership-map.js');
+  const m = buildMothershipMap(g), hangar = m.rooms.find(r => r.key === 'hangar').id;
+  ok(['pod_bay', 'infiltration'].every(k => { const r = m.rooms.find(x => x.key === k); return r && m.doors.some(d => d.a === hangar && d.b === r.id); }), 'Pod Bay and Infiltration Suite open into the Hangar');
+  const dfd = simulate(def({ engineVersion: 7, rooms: { pod_bay: 3, infiltration: 3 } }));
+  ok(dfd.result && simulate(def({ engineVersion: 7, rooms: { pod_bay: 3, infiltration: 3 } })).hash === dfd.hash, 'defense on a Mothership with the new rooms runs and replays');
+}
+
 console.log(`defense: ${fails ? fails + ' FAILED' : 'all passed'}. Results:`, results);
 if (fails) process.exit(1);

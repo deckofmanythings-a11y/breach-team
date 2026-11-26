@@ -12,6 +12,12 @@
 //   turrets, blastDoors               defense only (shown, not summed into missions): the map places the
 //                                     turrets; blast doors seal the Bridge in a defense (engine, Security L3)
 //   outbreakPct                       change to the chance of a parasite outbreak after an alien ship
+//   podShock, podClose                Breaching Pod (engine v7+): the impact stuns enemies in the rooms next
+//                                     to the breach for this many ticks; podClose lets the pod land right
+//                                     next to the Bridge
+//   ventClose, ventAmbush             Vent Crawl (engine v7+): vents can come out one room closer to the
+//                                     Bridge; every shot fired from hiding is a critical hit
+//   podSquadAdd, ventSquadAdd         extra squad size for that entry only (still capped at MAX_DEPLOY)
 //   intel                             scouting depth shown before boarding (engine/scout.js); defense: faster reactions
 import { MAX_DEPLOY } from './economy.js';
 
@@ -36,6 +42,12 @@ export const MS_ROOMS = [
   { id: 'chapel', name: 'Memorial Chapel', icon: '🕯',
     desc: 'The names of the fallen, where everyone walks past them. The squad fights with more Grit.',
     levels: [{ grit: 4 }, { grit: 8 }, { grit: 12 }] },
+  { id: 'pod_bay', name: 'Pod Bay', icon: '☄',
+    desc: 'Heavier breaching pods with shaped charges and better guidance. Upgrades the Breaching Pod entry.',
+    levels: [{ podClose: 1 }, { podClose: 1, podShock: 60 }, { podClose: 1, podShock: 60, podSquadAdd: 1 }] },
+  { id: 'infiltration', name: 'Infiltration Suite', icon: '🕶',
+    desc: 'Duct schematics, sound dampers and ambush drills. Upgrades the Vent Crawl entry.',
+    levels: [{ ventClose: 1 }, { ventClose: 1, ventAmbush: 1 }, { ventClose: 1, ventAmbush: 1, ventSquadAdd: 1 }] },
   { id: 'security', name: 'Security Post', icon: '🛡',
     desc: 'Turrets and blast doors for when someone boards YOU. No help on missions.',
     levels: [{ turrets: 1 }, { turrets: 2 }, { turrets: 3, blastDoors: 1 }] },
@@ -75,12 +87,13 @@ export function mothershipEffects(g) {
 export function mothershipInput(g) {
   const e = mothershipEffects(g);
   const pick = (keys) => { const o = {}; for (const k of keys) if (e[k]) o[k] = e[k]; return o; };
-  const ms = { mods: pick(['grit']), entry: pick(['teleportFailPct', 'squadAdd']), retreat: pick(['teleportFailPct', 'shuttleArrivePct']),
+  const ms = { mods: pick(['grit']), entry: pick(['teleportFailPct', 'squadAdd', 'podShock', 'podClose', 'podSquadAdd', 'ventClose', 'ventAmbush', 'ventSquadAdd']), retreat: pick(['teleportFailPct', 'shuttleArrivePct']),
     after: pick(['xpPct', 'healTimePct', 'survivalPct']) };
   return Object.values(ms).some(o => Object.keys(o).length) ? ms : null;
 }
 
-export const entryMaxSquad = (entry, msEntry) => Math.min(MAX_DEPLOY, entry.maxSquad + (msEntry?.squadAdd || 0));
+export const entryMaxSquad = (entry, msEntry) => Math.min(MAX_DEPLOY, entry.maxSquad + (msEntry?.squadAdd || 0)
+  + ((entry.id === 'breach_pod' ? msEntry?.podSquadAdd : entry.id === 'vent_crawl' ? msEntry?.ventSquadAdd : 0) || 0));
 // Integer % scaling used by the engine: scalePct(8, -33) = 5.
 export const scalePct = (n, pct) => Math.max(0, Math.floor((n * (100 + (pct || 0))) / 100));
 export const storePrice = (g, price) => scalePct(price, mothershipEffects(g).storePct);
@@ -96,6 +109,12 @@ export function describeEffect(eff) {
   if (eff.teleportFailPct) parts.push(eff.teleportFailPct <= -100 ? 'No teleport misfires' : `${-eff.teleportFailPct}% fewer teleport misfires`);
   if (eff.shuttleArrivePct) parts.push(`Retreat shuttle arrives ${-eff.shuttleArrivePct}% faster`);
   if (eff.squadAdd) parts.push(`+${eff.squadAdd} squad size on every entry (max ${MAX_DEPLOY})`);
+  if (eff.podShock) parts.push(`Breaching Pod impact stuns the neighbouring rooms for ${Math.round(eff.podShock / 8)}s`);
+  if (eff.podClose) parts.push('pods can land right next to the Bridge');
+  if (eff.podSquadAdd) parts.push(`+${eff.podSquadAdd} Breaching Pod squad size`);
+  if (eff.ventClose) parts.push('Vent Crawl can come out closer to the Bridge');
+  if (eff.ventAmbush) parts.push('shots fired from hiding always crit');
+  if (eff.ventSquadAdd) parts.push(`+${eff.ventSquadAdd} Vent Crawl squad size`);
   if (eff.turrets) parts.push(`${eff.turrets} turret${eff.turrets > 1 ? 's' : ''} defend${eff.turrets > 1 ? '' : 's'} the Mothership`);
   if (eff.blastDoors) parts.push('Blast doors seal the Bridge when boarded');
   if (eff.intel) parts.push(['', 'Scouts each target\'s crew before you board', 'Scouts crew and optional objectives', 'Scouts crew, objectives and the full map'][Math.min(3, eff.intel)] + `; +${4 * eff.intel} Aim for defenders when boarded`);

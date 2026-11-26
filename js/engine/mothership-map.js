@@ -23,6 +23,9 @@ export const MS_LAYOUT = [
   { key: 'teleporter',    room: 'teleporter',    type: 'teleporter',  name: 'Teleporter Array', x: 21, y: 29, w: 7,  h: 8,  door: [24, 28] },
   { key: 'security',      room: 'security',      type: 'security',    name: 'Security Post',    x: 29, y: 29, w: 6,  h: 8,  door: [32, 28] },
   { key: 'quarantine',    room: 'quarantine',    type: 'quarantine',  name: 'Quarantine Bay',   x: 36, y: 29, w: 7,  h: 8,  door: [39, 28] },
+  // Off the Hangar, fore and aft of it (door into the Hangar, not the spine).
+  { key: 'infiltration',  room: 'infiltration',  type: 'infiltration', name: 'Infiltration Suite', x: 2, y: 11, w: 10, h: 8, door: [7, 19], via: 'hangar' },
+  { key: 'pod_bay',       room: 'pod_bay',       type: 'podbay',      name: 'Pod Bay',          x: 2,  y: 33, w: 10, h: 8,  door: [7, 32], via: 'hangar' },
   { key: 'engineering',                          type: 'engineering', name: 'Engineering',      x: 44, y: 29, w: 9,  h: 8,  door: [48, 28], fixed: true },
 ];
 export const MS_SLOT_BY_ROOM = Object.fromEntries(MS_LAYOUT.filter(s => s.room).map(s => [s.room, s]));
@@ -42,6 +45,8 @@ const FIT = {
   teleporter:  { cover: [6, 6, 6],    feat: [['terminal'], ['terminal'], ['terminal', 'terminal']] },
   security:    { cover: [25, 30, 35], feat: [['terminal', 'turret'], ['terminal', 'turret', 'turret'], ['terminal', 'turret', 'turret', 'turret']] },
   quarantine:  { cover: [10, 10, 10], feat: [['terminal'], ['terminal'], ['terminal']] },
+  podbay:      { cover: [12, 16, 20], feat: [['pods'], ['pods', 'terminal'], ['pods', 'pods', 'terminal']] },
+  infiltration:{ cover: [20, 25, 30], feat: [['vent'], ['vent', 'terminal'], ['vent', 'vent', 'terminal']] },
 };
 
 // Plain BFS over room doors (mapgen's graphDist isn't exported, and the stale-cache rule says
@@ -74,7 +79,8 @@ export function buildMothershipMap(g) {
   const doors = [];
   for (const s of built) if (s.door) {
     const [x, y] = s.door; tiles[idx(x, y)] = T_DOOR;
-    doors.push({ id: doors.length, x, y, a: s.key === 'hangar' ? s.roomIndex : spine, b: s.key === 'hangar' ? spine : s.roomIndex, locked: false, open: false });
+    const via = s.via ? slots.find(o => o.key === s.via).roomIndex : spine;   // `via` slots are always built (fixed)
+    doors.push({ id: doors.length, x, y, a: s.key === 'hangar' ? s.roomIndex : via, b: s.key === 'hangar' ? spine : s.roomIndex, locked: false, open: false });
   }
   const features = [];
   for (const r of rooms) {

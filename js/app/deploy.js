@@ -38,6 +38,14 @@ export function renderDeploy(panel) {
   const msEntry = mothershipInput(S)?.entry;
   const maxOf = (e) => entryMaxSquad(e, msEntry);   // Hangar L3 adds a seat
   const suicide = isSuicideSquad(p.retreat);
+  // What the Mothership rooms do for each entry (Teleporter Array, Pod Bay, Infiltration Suite).
+  const entryPerks = (e) => {
+    const m = msEntry || {}, t = [];
+    if (e.id === 'teleport' && m.teleportFailPct) t.push(m.teleportFailPct <= -100 ? 'no misfires' : `${-m.teleportFailPct}% fewer misfires`);
+    if (e.id === 'breach_pod') { if (m.podClose) t.push('can land next to the Bridge'); if (m.podShock) t.push('impact stuns the next rooms'); }
+    if (e.id === 'vent_crawl') { if (m.ventClose) t.push('comes out closer to the Bridge'); if (m.ventAmbush) t.push('shots from hiding always crit'); }
+    return t.length ? `<div class="small good" style="margin-top:4px">Mothership: ${t.join(' · ')}</div>` : '';
+  };
   const shipTier = SHIP_BY_ID[contractMode ? contractMode.ship : p.ship]?.tier ?? 1;
   const tooEasy = shipTier < SUICIDE_SQUAD.minTier;
   const eligible = (s) => !suicide || s.level >= SUICIDE_SQUAD.minLevel;
@@ -56,7 +64,7 @@ export function renderDeploy(panel) {
     ${contractMode ? `<div class="section banner info"><h3 style="margin:0">1 · 72-Hour Contract: ${esc(contractMode.shipName)}</h3><div class="small">Same ship and map for every commander for 72 hours. Your best score goes on the Ladder. <a href="#" id="nocontract">Cancel contract</a></div></div>` : `<div class="section"><h3>1 · Target ship</h3>${optCards(SHIPS, 'ship', s => `
       <div class="small">${'★'.repeat(s.tier)}${'☆'.repeat(3 - s.tier)} · ${FACTION_BY_ID[s.faction].name}</div>
       <div class="small dim">${esc(s.desc)}</div><div class="small" style="margin-top:4px">Reward <b style="color:var(--accent)">${s.reward}</b> BUCs</div>`)}</div>`}
-    <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${maxOf(e)}${maxOf(e) > e.maxSquad ? ' <span class="small good" title="Hangar upgrade">(+Hangar)</span>' : ''}</b></div><div class="small dim">${esc(e.desc)}</div>`)}</div>
+    <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${maxOf(e)}${maxOf(e) > e.maxSquad ? ' <span class="small good" title="Mothership upgrade">(+Mothership)</span>' : ''}</b></div><div class="small dim">${esc(e.desc)}</div>${entryPerks(e)}`)}</div>
     <div class="section"><h3>3 · Squad <span class="dim small" id="count"></span></h3><div class="grid" id="squad"></div></div>
     <div class="section"><h3>4 · Tactic</h3>${optCards(TACTICS, 'tactic', t => `<div class="small dim">${esc(t.desc)}</div><div class="small" style="margin-top:4px">${suicide ? 'Suicide Squad: never retreats' : `Retreats at ${t.retreatAt}% casualties`}</div>`)}</div>
     <div class="section"><h3>5 · Retreat plan</h3>${optCards(retreats, 'retreat', retreatBody)}

@@ -241,7 +241,11 @@ Spend CREDs on rooms in the **Mothership** tab. Building a room costs **600 CRED
 | Memorial Chapel | +4 Grit for the squad on missions | +8 | +12 |
 | Security Post | 1 turret defends the Mothership (no mission bonus) | 2 turrets | 3 turrets, and blast doors seal the Bridge |
 | Quarantine Bay | 25% fewer parasite outbreaks; outbreaks start sealed in the bay (no mission bonus) | 50% fewer | 75% fewer |
+| Pod Bay | Breaching Pod can land right next to the Bridge (no mission bonus otherwise) | Also: the impact stuns enemies in the rooms next to the breach (~8 s) | Also: +1 Breaching Pod squad size |
+| Infiltration Suite | Vent Crawl can come out one room closer to the Bridge | Also: every shot fired from hiding is a critical hit | Also: +1 Vent Crawl squad size |
 | Intel Room | Scouts each target's crew before you board; +4 Aim for defenders when boarded | Also the optional objectives; +8 Aim | Also the full map and turrets; +12 Aim |
+
+**Entry rooms.** Every entry has a room that upgrades it: Teleporter Array (Teleport), Hangar (shuttle retreats, +1 squad size on every entry at L3), Pod Bay (Breaching Pod) and Infiltration Suite (Vent Crawl). Measured (squad of 4 Level 5 Soldiers, 100 runs, 1 more Soldier at L3): Breaching Pod on a Raider 74% → 81% / 84% / 99% wins; Vent Crawl on a Corvette 44% → 51% / 53% / 66%. Both rooms open into the Hangar on the Mothership map.
 
 **Scouting.** With an Intel Room, the Deploy screen shows what's waiting on the selected ship. It's exact: the crew and objectives you see are the ones you'll meet (only where each of them stands is decided when you board), and with level 3 the map is the one you'll board. Reinforcement waves and the fight itself are not known in advance. Scouting refreshes after every mission. It doesn't cover contracts (everyone shares one map) or a contact that turns out to be something else.
 

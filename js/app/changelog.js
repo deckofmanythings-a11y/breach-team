@@ -3,6 +3,12 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.17.0', date: '2026-11-26', items: [
+    "Every entry method now has a Mothership room that upgrades it. Two new rooms sit fore and aft of the Hangar:",
+    "Pod Bay (Breaching Pod): level 1 lets the pod land right next to the Bridge, level 2 adds an impact that stuns the crew in the neighbouring rooms, and level 3 fits one more Soldier in the pods.",
+    "Infiltration Suite (Vent Crawl): level 1 lets the vents come out one room closer to the Bridge, level 2 makes every shot fired from hiding a critical hit, and level 3 fits one more Soldier in the vents.",
+    "Entry cards on the Deploy screen now list what your Mothership adds to each entry.",
+  ] },
   { v: '0.16.0', date: '2026-11-26', items: [
     "The Intel Room can be built, completing the Mothership. It scouts every target on the Deploy screen before you board: the crew (level 1), the optional objectives (level 2) and the ship's full map with its turrets (level 3).",
     "Scouting is real: the crew and objectives you see are the ones you'll find. Where everyone stands, their reinforcements and the fight itself are still unknown, and scouting refreshes after every mission. Contracts can't be scouted.",

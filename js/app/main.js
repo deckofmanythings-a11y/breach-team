@@ -6,7 +6,7 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=18';
+import { renderDeploy } from './deploy.js?v=19';
 import { renderStore } from './store.js?v=4';
 import { renderLadder } from './ladder.js?v=10';
 import './../render/portrait.js';
@@ -18,7 +18,7 @@ import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=18';
+import { setContract } from './deploy.js?v=19';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
@@ -31,7 +31,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.16.0';
+export const APP_VERSION = '0.17.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');

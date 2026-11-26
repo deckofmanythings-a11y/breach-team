@@ -83,6 +83,13 @@ export function simulate(input) {
   const msEntry = mothership.entry || {}, msRetreat = mothership.retreat || {};   // Mothership rooms (absent = no change)
   if (!input.squad?.length || input.squad.length > (defend ? DEFENSE.maxDefenders : entryMaxSquad(entry, msEntry))) throw new Error('bad squad size');
 
+  const ENTRY_V7 = ['podShock', 'podClose', 'podSquadAdd', 'ventClose', 'ventAmbush', 'ventSquadAdd'];
+  if ((input.engineVersion ?? 1) < 7 && ENTRY_V7.some(k => msEntry[k])) throw new Error('bad mission input');
+  // Pod Bay / Infiltration Suite (v7+; the keys can't appear before): only their own entry uses them.
+  const isPod = entry.id === 'breach_pod', isVent = entry.id === 'vent_crawl';
+  const setupTicks = entry.setupTicks;
+  const ventAmbush = isVent && !!msEntry.ventAmbush;   // Infiltration Suite L2: shots from hiding always crit
+
   const seed = input.seed >>> 0;
   const map = defend ? buildMothershipMap({ mothership: { rooms: input.rooms || {} } })
     : generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id, input.engineVersion ?? 1);
@@ -242,11 +249,13 @@ export function simulate(input) {
   else if (entry.spawn === 'any_room') {
     let c = []; for (const d of [3, 2, 1]) { if (!c.length) c = nonBridge.filter(r => map.distFromBridge[r.id] === d); } spawnRoom = c[rng.int(c.length)].id;
   } else if (entry.spawn === 'hull') {
-    const c = nonBridge.filter(r => r.outer && map.distFromBridge[r.id] >= 2).sort((a, b) => map.distFromBridge[a.id] - map.distFromBridge[b.id] || a.id - b.id);
+    const c = nonBridge.filter(r => r.outer && map.distFromBridge[r.id] >= (isPod && msEntry.podClose ? 1 : 2))   // Pod Bay L2: may land next to the Bridge
+      .sort((a, b) => map.distFromBridge[a.id] - map.distFromBridge[b.id] || a.id - b.id);
     const best = c.filter(r => map.distFromBridge[r.id] === map.distFromBridge[c[0].id]);
     spawnRoom = best[rng.int(best.length)].id;
   } else {
-    let c = nonBridge.filter(r => map.distFromBridge[r.id] >= 2 && map.distFromBridge[r.id] <= 4 && r.features.some(f => f.kind === 'vent'));
+    const near = isVent && msEntry.ventClose ? 1 : 0;   // Infiltration Suite: one room closer
+    let c = nonBridge.filter(r => map.distFromBridge[r.id] >= 2 - near && map.distFromBridge[r.id] <= 4 - near && r.features.some(f => f.kind === 'vent'));
     if (!c.length) c = nonBridge.filter(r => map.distFromBridge[r.id] >= 1 && map.distFromBridge[r.id] <= 4);
     spawnRoom = c[rng.int(c.length)].id;
   }
@@ -270,7 +279,7 @@ export function simulate(input) {
       room = nonBridge[rng.int(nonBridge.length)].id; late = 40;
     }
     const pos = freeTileIn(room) || freeTileIn(spawnRoom);
-    u.x = pos[0]; u.y = pos[1]; u.busy = entry.setupTicks + late; u.scrambled = late > 0;
+    u.x = pos[0]; u.y = pos[1]; u.busy = setupTicks + late; u.scrambled = late > 0;
     squad.push(addUnit(u));
     ev(0, 'spawn', u.id, 'S', u.kind, u.x, u.y);
     if (late) ev(0, 'scramble', u.id, room);
@@ -343,7 +352,11 @@ export function simulate(input) {
     for (const e of enemies) ev(0, 'spawn', e.id, 'E', e.kind, e.x, e.y);
   }
   for (const s of squad) if (s.flags.drone) droneUnit(s);
-  if (entry.stunTicks) for (const e of enemies) if (map.roomAt[idx(e.x, e.y)] === spawnRoom) e.stunUntil = entry.setupTicks + entry.stunTicks;
+  if (entry.stunTicks) for (const e of enemies) if (map.roomAt[idx(e.x, e.y)] === spawnRoom) e.stunUntil = setupTicks + entry.stunTicks;
+  if (isPod && msEntry.podShock) {   // Pod Bay: the impact shakes the rooms that share a door with the breach
+    const next = new Set(map.doors.filter(d => d.a === spawnRoom || d.b === spawnRoom).map(d => (d.a === spawnRoom ? d.b : d.a)));
+    for (const e of enemies) if (next.has(map.roomAt[idx(e.x, e.y)]) && e.kind !== 'sys_turret') { e.stunUntil = setupTicks + msEntry.podShock; ev(0, 'stun', e.id, setupTicks + msEntry.podShock); }
+  }
 
   // ---------- Objectives ----------
   const objectives = [defend ? { id: 'defend_bridge', def: DEFEND_OBJECTIVE, room: map.bridge, x: map.console[0], y: map.console[1], progress: 0, done: false }
@@ -371,7 +384,7 @@ export function simulate(input) {
   // ---------- Hazards ----------
   const hazards = [];
   for (const r of map.rooms) if (r.hazard) hazards.push({ room: r.id, def: HAZARDS[r.hazard], until: 1e9 });
-  if (entry.hazard) hazards.push({ room: spawnRoom, def: HAZARDS[entry.hazard], until: entry.setupTicks + HAZARDS[entry.hazard].ticks });
+  if (entry.hazard) hazards.push({ room: spawnRoom, def: HAZARDS[entry.hazard], until: setupTicks + HAZARDS[entry.hazard].ticks });
 
   // ---------- Alarm ----------
   // Suicide Squad: the crew knows the boarders can't leave and throws everything at them.
@@ -550,7 +563,7 @@ export function simulate(input) {
     if (u.flags.doorwayBonus && nearDoorGrid[idx(tg.x, tg.y)]) dmgPct += 10;
     if (armoryRoom && u.side === 'S' && map.roomAt[idx(u.x, u.y)] === armoryRoom.id) dmgPct += DEFENSE.armoryDmgPct * armoryRoom.level;
     const bladeThroughShield = w.melee && tg.flags.slowBladeWeak;   // the slow blade penetrates the shield
-    const crit = rng.roll(critChance(u.st.aim, w.crit, u.m.critPct || 0)) || (u.flags.stealthCrit && wasHidden);
+    const crit = rng.roll(critChance(u.st.aim, w.crit, u.m.critPct || 0)) || ((u.flags.stealthCrit || (ventAmbush && u.side === 'S')) && wasHidden);
     let d = applyDamage({ raw, dmgPct, vsPct: vs, crit, critDmgPct: u.m.critDmgPct || 0, targetArm: bladeThroughShield ? 0 : tg.st.arm, pierce: (w.pierce || 0) + (u.m.pierce || 0),
       dmgTakenPct: (tg.m.dmgTakenPct || 0) + fortressAura(tg) + prismAura(tg) + (tg.side === 'S' && retreat.on ? (retreatDef.cover || 0) : 0) + (tg.spearUntil > t ? SPEARHEAD.dmgTakenPct : 0) });
     d = Math.max(1, Math.floor((d * dmgScale) / 100));
