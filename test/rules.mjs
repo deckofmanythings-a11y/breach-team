@@ -263,5 +263,16 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(g.soldiers[0].gear.implant, 'built-in enhancements stay put');
 }
 
+// ---- XP for recruits hired above Level 1 ----
+{
+  const { createRng } = await import('../js/engine/rng.js');
+  const v = R.makeRecruit(createRng(7), 'assault', 5);
+  ok(v.xp === 800, `a Level 5 recruit starts with 800 XP (got ${v.xp})`);
+  const g = R.newGame(0); g.soldiers[0].level = 5; g.soldiers[0].xp = 0; R.migrate(g);
+  ok(g.soldiers[0].xp === 800, 'migrate lifts a Level 5 Soldier stuck at 0 XP to 800');
+  g.soldiers[1].level = 5; g.soldiers[1].xp = 1000; R.migrate(g);
+  ok(g.soldiers[1].xp === 1000, 'migrate leaves earned XP alone');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

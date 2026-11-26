@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.5', date: '2026-11-25', items: [
+    "Fixed XP bars for Soldiers hired above Level 1 (Seasoned, Veteran and Elite recruits): they started with no XP, so their bar sat empty until they had earned back the levels they were hired at. They now start with the XP for their level, and existing Soldiers have been corrected.",
+  ] },
   { v: '0.7.4', date: '2026-11-25', items: [
     'Strip all Equipment: a new button on the Armory screen takes every piece of gear off every Soldier at once (after you confirm). Built-in enhancements stay put.',
     "Commendations on a Soldier's page are folded away by default. Earned ribbons still show; click the heading to see the full list.",

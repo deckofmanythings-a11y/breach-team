@@ -18,7 +18,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import { weeklyContract, contractScore, recordStats, backfillStats, emptyStats } from './ladder.js';   // new file: avoids the stale-cache trap for new names
 import { EASTER_EGGS, EGG_BY_ID } from '../data/easter-eggs.js';
 import { ENGINE_VERSION } from '../data/version.js';
-import { PERK_LEVELS } from '../data/stats.js';
+import { PERK_LEVELS, xpToReach } from '../data/stats.js';
 import { COMMENDATIONS } from '../data/commendations.js';
 import { LOOK_COUNT } from '../data/looks.js';   // new file for new names
 import { CYBORG_PCT, CYBORG_EGG, CYBORG_CHASSIS, recoverable, rebuild } from './cyborg.js';   // hidden egg; new file for new names
@@ -64,7 +64,7 @@ export function makeRecruit(rng, specialty, level = 1, now = Date.now()) {
     uid: uid('s'), name: FIRST_NAMES[sex][rng.int(FIRST_NAMES[sex].length)] + ' ' + LAST_NAMES[rng.int(LAST_NAMES.length)],
     callsign: rng.roll(50) ? CALLSIGNS[rng.int(CALLSIGNS.length)] : '', sex,
     colors: COLOR_PRESETS[rng.int(COLOR_PRESETS.length)].slice(),
-    specialty, level, xp: 0, stats: g.stats, perks: g.perks, pendingPerks: [],
+    specialty, level, xp: xpToReach(level), stats: g.stats, perks: g.perks, pendingPerks: [],
     gear: {}, injuries: [], status: 'ready', miaUntil: 0, missions: 0, kills: 0, hired: now,
     record: SERVICE_RECORD(), medals: [], look: rng.int(LOOK_COUNT),
   };
@@ -304,7 +304,7 @@ export function buyStore(g, slot, now = Date.now()) {
   g.store.bought.push(slot);
   if (it) return { item: addItem(g, it).uid };
   const s = { ...makeRecruit(createRng(randomSeed()), so.specialty, 1, now), name: so.name, callsign: so.callsign, sex: so.sex, colors: so.colors.slice(),
-    level: so.level, stats: { ...so.stats }, perks: so.perks.slice(), grade: so.grade };
+    level: so.level, xp: xpToReach(so.level), stats: { ...so.stats }, perks: so.perks.slice(), grade: so.grade };
   g.soldiers.push(s);
   return { soldier: s.uid };
 }
@@ -420,7 +420,9 @@ export function migrate(g) {
   if (!g.achievements) g.achievements = [];
   if (!g.discovered) g.discovered = [];
   if (!g.stats) g.stats = backfillStats(g);
-  for (const s of [...g.soldiers, ...g.memorial]) { if (!s.record) s.record = SERVICE_RECORD(); if (!s.medals) s.medals = []; }
+  for (const s of [...g.soldiers, ...g.memorial]) { if (!s.record) s.record = SERVICE_RECORD(); if (!s.medals) s.medals = [];
+    // Recruits hired above Level 1 used to start at 0 XP, leaving their XP bar stuck at empty.
+    if ((s.xp || 0) < xpToReach(s.level)) s.xp = xpToReach(s.level); }
   g.v = SAVE_VERSION;
   return g;
 }
