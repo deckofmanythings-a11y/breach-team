@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.7', date: '2026-11-25', items: [
+    "XP numbers now match the XP bar: they count progress through the current level (e.g. 130/400 toward Level 6) instead of total XP against the next level's total, which made bars look far emptier than the numbers. Total XP is still on the Soldier's page and in the tooltip.",
+  ] },
   { v: '0.7.6', date: '2026-11-25', items: [
     "Accent colours now match the class: every Assault wears the same accent, every Medic another, and so on (level badge, card trim and map token), so you can tell classes apart at a glance.",
     "Pick each class's accent with the new Class colours button in the Barracks, or from the Accent picker on any Soldier's page (it changes the whole class). Armour colour is still yours to set per Soldier.",

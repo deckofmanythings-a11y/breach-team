@@ -28,7 +28,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.7.6';
+export const APP_VERSION = '0.7.7';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -162,6 +162,11 @@ async function start() {
 }
 api.sb.auth.onAuthStateChange((evt) => { if (evt === 'PASSWORD_RECOVERY') { authMode = 'recover'; G.clear(); render(); } });
 
+// XP shown as progress through the current level, matching the bar (which fills from this
+// level's threshold to the next, not from 0).
+function xpLevelText(s) { const lo = xpToReach(s.level), hi = xpToReach(s.level + 1); return `${Math.max(0, s.xp - lo)}/${hi - lo}`; }
+function xpTip(s) { return s.level >= MAX_LEVEL ? `${s.xp} XP (max level)` : `${s.xp} total XP. Level ${s.level + 1} at ${xpToReach(s.level + 1)} (${Math.max(0, xpToReach(s.level + 1) - s.xp)} to go).`; }
+
 // ---------- Barracks ----------
 function soldierCard(s) {
   const c = G.condition(s);
@@ -184,7 +189,7 @@ function soldierCard(s) {
     </div>
     <div class="scard-body">
       ${statGrid(st, s.specialty)}
-      <div class="scard-xp"><span>XP</span><div class="bar xpbar" title="XP to next level"><i style="width:${xpPct(s)}%"></i></div><span>${next ? `${s.xp}/${next}` : 'MAX'}</span></div>
+      <div class="scard-xp"><span>XP</span><div class="bar xpbar" title="${xpTip(s)}"><i style="width:${xpPct(s)}%"></i></div><span title="${xpTip(s)}">${next ? xpLevelText(s) : 'MAX'}</span></div>
       <div class="scard-foot"><span>${s.missions} missions</span><span>${s.kills} kills</span></div>
       ${ribbons(s.medals)}
     </div>
@@ -251,7 +256,7 @@ export function openSoldier(s) {
       <button id="x">Close</button></div>
     ${s.bio ? `<div class="banner info" style="margin:8px 0">${s.cyborg ? 'Classified.' : 'Rare recruit.'} <i>${esc(s.bio)}</i></div>` : ''}
     <div class="small dim" style="margin:8px 0">${esc(sp.desc)}</div>
-    <div class="small">XP ${s.xp}${next ? ` / ${next}` : ' (max level)'}</div>
+    <div class="small" title="${xpTip(s)}">XP ${next ? `${xpLevelText(s)} toward Level ${s.level + 1} <span class="dim">(${s.xp} total)</span>` : `${s.xp} (max level)`}</div>
     ${next ? `<div class="bar"><i style="width:${xpPct(s)}%"></i></div>` : ''}
     ${statGrid(st, s.specialty)}
     <div class="small dim" style="margin-top:4px">Stats include gear and injuries. Colours compare each stat with a new ${esc(sp.name)}'s starting value: <span class="s-down2">below</span> · about the same · <span class="s-up">higher</span> · <span class="s-up2">much higher</span> · <span class="s-up3">exceptional</span>. Hover or long-press a stat for the numbers.</div>
