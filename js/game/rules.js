@@ -17,6 +17,7 @@ import { credsForMission, backfillCreds } from '../data/creds.js';
 import { mothershipInput, entryMaxSquad, storePrice, MS_ROOMS, roomLevel } from '../data/mothership-rooms.js';
 import { DEFENSE_EVENTS, defenseChance, defenders, pickThreat, damageableRooms } from '../data/defense-events.js';   // new file for new names
 import { THREAT_BY_ID, DEFENSE } from '../data/threats.js';
+import { intelLevel, scoutSeed } from '../engine/scout.js';   // new file for new names
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { SHIP_BY_ID } from '../data/ships.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
@@ -335,7 +336,11 @@ export function runMission(g, plan, now = Date.now()) {
   if (!contract && (g.missions || 0) >= MIN_MISSIONS_FOR_SECRET && createRng(randomSeed()).roll(SECRET_CHANCE)) {
     planned = ship.id; target = SECRET_SHIPS[randomSeed() % SECRET_SHIPS.length];
   }
-  const input = { engineVersion: ENGINE_VERSION, seed: randomSeed(), ...(contract ? { mapSeed: contract.mapSeed, contractWeek: contract.week } : {}), ship: target.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)), ...(ms ? { mothership: ms } : {}) };
+  // Intel Room: a scouted target's map, crew and objectives come from its public scout seed (not for
+  // contracts, which share one map, or a contact that turned out to be something else).
+  const scouted = !contract && !planned && intelLevel(g) > 0;
+  const input = { engineVersion: ENGINE_VERSION, seed: randomSeed(), ...(contract ? { mapSeed: contract.mapSeed, contractWeek: contract.week } : {}),
+    ...(scouted ? { mapSeed: scoutSeed(g, ship.id), scouted: true } : {}), ship: target.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)), ...(ms ? { mothership: ms } : {}) };
   const battle = simulate(input);
   const after = rollAftermath(battle, input.squad, input.mothership);
   const report = applyMission(g, input, battle, after, target.name, now);

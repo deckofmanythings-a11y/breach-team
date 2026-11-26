@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.16.0', date: '2026-11-26', items: [
+    "The Intel Room can be built, completing the Mothership. It scouts every target on the Deploy screen before you board: the crew (level 1), the optional objectives (level 2) and the ship's full map with its turrets (level 3).",
+    "Scouting is real: the crew and objectives you see are the ones you'll find. Where everyone stands, their reinforcements and the fight itself are still unknown, and scouting refreshes after every mission. Contracts can't be scouted.",
+    "When the Mothership is boarded, the Intel Room's sensors track every attacker: defenders get +4 / 8 / 12 Aim.",
+  ] },
   { v: '0.15.0', date: '2026-11-26', items: [
     "Two new Mothership rooms. The Security Post adds 1 / 2 / 3 turrets that fight for you when you're boarded, and at level 3 blast doors seal the Bridge: your Soldiers open them freely, boarders take far longer to force them.",
     "The Quarantine Bay makes parasite outbreaks after alien ships 25 / 50 / 75% rarer, and the ones that still happen start sealed inside the bay.",

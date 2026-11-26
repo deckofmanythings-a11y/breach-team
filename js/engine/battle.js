@@ -27,6 +27,7 @@ import { INJURY_BY_ID } from '../data/injuries.js';
 import { ZERO_BONUSES } from '../data/mothership.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { buildMothershipMap } from './mothership-map.js';
+import { scoutPlan } from './scout.js';
 import { THREAT_BY_ID, DEFENSE, DEFEND_OBJECTIVE, waveBudget } from '../data/threats.js';
 import { stationRoom, defenseShip, HOME_ENTRY, HOME_RETREAT } from './defense-setup.js';
 
@@ -93,8 +94,13 @@ export function simulate(input) {
   const armoryRoom = msRoomOf('armory'), medBay = msRoomOf('medbay');
   const rng = createRng(hashString('sim:' + seed));
   const V = input.engineVersion ?? 1;      // engine version this mission was fought on (gates v2-only behaviour)
+  const intelAim = V >= 6 && msRoomOf('intel') ? DEFENSE.intelAim * msRoomOf('intel').level : 0;   // Intel Room sensors track every boarder
   const noRetreat = !!retreatDef.noRetreat;  // Suicide Squad: never falls back (v4+ only)
   if (noRetreat && V < 4) throw new Error('bad mission input');
+  // Intel Room (v6+): crew and objectives come from the public scout seed (input.mapSeed), not the battle seed.
+  const scouted = !!input.scouted;
+  if (scouted && (V < 6 || defend || input.mapSeed === undefined)) throw new Error('bad mission input');
+  const plan = scouted ? scoutPlan(ship, map, input.mapSeed, noRetreat) : null;
   const DARK_SIGHT = 6, ACID_DMG = 6, EGG_RANGE = 3, POSSESS_TICKS = 100, GRAVITY_EVERY = 120;
   const GRAVITY_CYCLE = ['normal', 'heavy', 'normal', 'zero'];
   const gravityNow = () => (ship.gravity ? GRAVITY_CYCLE[Math.floor(t / GRAVITY_EVERY) % 4] : 'normal');
@@ -311,6 +317,13 @@ export function simulate(input) {
     const cheapest = Math.min(...weights.map(([id]) => UNIT_BY_ID[id].cost));
     const crewRooms = map.rooms.filter(r => r.id !== map.airlock && r.id !== spawnRoom);
     let guard = 0;
+    const civId = Object.keys(ship.unitWeights).find(id => UNIT_BY_ID[id].ai === 'flee');
+    if (plan) {
+      // Scouted: who and which room were decided by the scout seed; nobody waits in the squad's entry room.
+      const away = (room) => (room === spawnRoom ? crewRooms[rng.int(crewRooms.length)].id : room);
+      for (const c of plan.crew) { const p = freeTileIn(away(c.room), true); if (p) enemies.push(enemyUnit(c.kind, p[0], p[1])); }
+      for (const room of plan.civilians) { const p = freeTileIn(away(room)); if (p) enemies.push(enemyUnit(civId, p[0], p[1])); }
+    } else {
     while (budget >= cheapest && guard++ < 100) {
       let total = 0; for (const [, w] of weights) total += w;
       let r = rng.int(total), pick = weights[0][0];
@@ -322,9 +335,9 @@ export function simulate(input) {
       const p = freeTileIn(room, true); if (p) enemies.push(enemyUnit(pick, p[0], p[1]));
     }
     const civ = ship.civilians[0] + rng.int(ship.civilians[1] - ship.civilians[0] + 1);
-    const civId = Object.keys(ship.unitWeights).find(id => UNIT_BY_ID[id].ai === 'flee');
     for (let i = 0; i < civ && civId; i++) {
       const p = freeTileIn(crewRooms[rng.int(crewRooms.length)].id); if (p) enemies.push(enemyUnit(civId, p[0], p[1]));
+    }
     }
     for (const f of map.features) if (f.kind === 'turret' && f.active && occ[idx(f.x, f.y)] < 0) enemies.push(enemyUnit('sys_turret', f.x, f.y));
     for (const e of enemies) ev(0, 'spawn', e.id, 'E', e.kind, e.x, e.y);
@@ -335,7 +348,12 @@ export function simulate(input) {
   // ---------- Objectives ----------
   const objectives = [defend ? { id: 'defend_bridge', def: DEFEND_OBJECTIVE, room: map.bridge, x: map.console[0], y: map.console[1], progress: 0, done: false }
     : { id: 'take_bridge', def: OBJECTIVES.take_bridge, room: map.bridge, x: map.console[0], y: map.console[1], progress: 0, done: false }];
-  if (!defend) {
+  if (plan) for (const o of plan.objectives) {
+    const def = OBJECTIVES[o.id], room = map.rooms[o.room];
+    const p = def.kind === 'leaderDown' ? [room.cx, room.cy] : (freeTileIn(room.id) || [room.cx, room.cy]);
+    objectives.push({ id: o.id, def, room: room.id, x: p[0], y: p[1], progress: 0, done: false, worker: -1 });
+  }
+  else if (!defend) {
     const avail = ship.optional.filter(o => map.rooms.some(r => r.type === OBJECTIVES[o].room));
     const n = Math.min(avail.length, rng.roll(50) ? 2 : 1);
     for (let i = 0; i < n; i++) {
@@ -504,7 +522,7 @@ export function simulate(input) {
     let coverVal = dist > 1 && grav !== 'zero' ? [0, 20, 40][map.cover[idx(tg.x, tg.y)]] : 0;   // nothing to hide behind in zero-G
     if (dist > 1 && inSmoke(tg)) coverVal = 40;
     const meleeDodge = w.melee && tg.flags.meleeMaster ? 20 : 0;
-    const hit = hitChance({ aim: u.st.aim - (grav === 'heavy' && !u.immuneGravity ? 20 : 0), weaponAcc: w.acc, targetEvasion: evasionOf(tg.st.spd, (tg.m.evasion || 0) + meleeDodge),
+    const hit = hitChance({ aim: u.st.aim - (grav === 'heavy' && !u.immuneGravity ? 20 : 0) + (u.side === 'S' ? intelAim : 0), weaponAcc: w.acc, targetEvasion: evasionOf(tg.st.spd, (tg.m.evasion || 0) + meleeDodge),
       cover: coverVal, coverPct: tg.m.coverPct || 0, distTiles: dist, range: w.range, falloff: w.falloff, suppressed: u.suppUntil > t });
     u.tally.shots++;
     const wasHidden = u.hidden;

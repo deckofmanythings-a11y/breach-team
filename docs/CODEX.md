@@ -241,8 +241,9 @@ Spend CREDs on rooms in the **Mothership** tab. Building a room costs **600 CRED
 | Memorial Chapel | +4 Grit for the squad on missions | +8 | +12 |
 | Security Post | 1 turret defends the Mothership (no mission bonus) | 2 turrets | 3 turrets, and blast doors seal the Bridge |
 | Quarantine Bay | 25% fewer parasite outbreaks; outbreaks start sealed in the bay (no mission bonus) | 50% fewer | 75% fewer |
+| Intel Room | Scouts each target's crew before you board; +4 Aim for defenders when boarded | Also the optional objectives; +8 Aim | Also the full map and turrets; +12 Aim |
 
-Coming later: Intel Room.
+**Scouting.** With an Intel Room, the Deploy screen shows what's waiting on the selected ship. It's exact: the crew and objectives you see are the ones you'll meet (only where each of them stands is decided when you board), and with level 3 the map is the one you'll board. Reinforcement waves and the fight itself are not known in advance. Scouting refreshes after every mission. It doesn't cover contracts (everyone shares one map) or a contact that turns out to be something else.
 
 The tab shows the Mothership as a map: Hangar at the stern, a spine corridor down the middle, the Bridge at the bow, and five room slots on each side. Tap a room (or an empty slot marked with a +) to build or upgrade it. Upgraded rooms get more furniture and cover, which will matter when the Mothership itself is boarded.
 

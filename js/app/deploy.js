@@ -13,6 +13,7 @@ import { playMission } from './mission.js?v=7';
 import { holdCreds } from './creds-view.js';
 import { mothershipInput, entryMaxSquad } from '../data/mothership-rooms.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
+import { intelPanel } from './intel-view.js?v=4';
 
 const LAST = 'bt_last_deploy';
 let pick = null;
@@ -63,6 +64,8 @@ export function renderDeploy(panel) {
     <div class="launchbar"><span class="small" id="warn"></span><span class="dim small">Permadeath is on: any Soldier who goes Down can die, on any ship.</span><button class="primary" id="go">Launch boarding action</button></div>
   </div>`);
 
+  const ip = contractMode ? null : intelPanel(S, p.ship, suicide);   // Intel Room scouting
+  if (ip) wrap.querySelector('.section').append(ip);
   for (const c of wrap.querySelectorAll('.card[data-k]')) c.onclick = () => { p[c.dataset.k] = c.dataset.v; persist(); renderDeploy(panel.replaceChildren() || panel); };
 
   const sq = wrap.querySelector('#squad');

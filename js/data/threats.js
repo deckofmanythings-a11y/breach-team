@@ -34,7 +34,8 @@ export const DEFENSE = {
   guardEvery: 4,              // every 4th Soldier (by roster order) holds the Bridge instead of hunting
   armoryDmgPct: 5,            // per Armory level: damage bonus for Soldiers fighting inside it
   medBayRevivePct: 5,         // per Med Bay level: Medic revive chance aboard the Mothership
-  blastDoorMult: 4,           // Security Post L3: the Bridge door is a sealed blast door, this many times slower to force
+  blastDoorMult: 4,
+  intelAim: 4,                // per Intel Room level (engine v6+): Aim for defending Soldiers (sensors track every boarder)           // Security Post L3: the Bridge door is a sealed blast door, this many times slower to force
   quarantineLockMult: 1,      // per Quarantine Bay level: extra multiples of the door-forcing time on the nest
 };
 export const DEFEND_OBJECTIVE = { name: 'Hold the Bridge', primary: true, room: 'bridge', ticks: DEFENSE.holdTicks, kind: 'defend',

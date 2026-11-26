@@ -12,6 +12,7 @@
 //   turrets, blastDoors               defense only (shown, not summed into missions): the map places the
 //                                     turrets; blast doors seal the Bridge in a defense (engine, Security L3)
 //   outbreakPct                       change to the chance of a parasite outbreak after an alien ship
+//   intel                             scouting depth shown before boarding (engine/scout.js); defense: faster reactions
 import { MAX_DEPLOY } from './economy.js';
 
 export const ROOM_PRICES = [600, 1800, 4000];   // CREDs to reach level 1 / 2 / 3
@@ -41,9 +42,9 @@ export const MS_ROOMS = [
   { id: 'quarantine', name: 'Quarantine Bay', icon: '☣',
     desc: 'Keeps whatever you brought back from alien ships locked away. Fewer outbreaks, and the ones that happen start sealed in here.',
     levels: [{ outbreakPct: -25 }, { outbreakPct: -50 }, { outbreakPct: -75 }] },
-  // Later phases (shown as "coming later", can't be built yet).
-  { id: 'intel', name: 'Intel Room', icon: '📡', soon: 'in the next update',
-    desc: 'Scouts the target before you board: crew size, objectives, and eventually the map.', levels: [] },
+  { id: 'intel', name: 'Intel Room', icon: '📡',
+    desc: 'Scouts every target before you board. When you are boarded, early warning gets your Soldiers moving sooner.',
+    levels: [{ intel: 1 }, { intel: 2 }, { intel: 3 }] },
 ];
 export const MS_ROOM_BY_ID = Object.fromEntries(MS_ROOMS.map(r => [r.id, r]));
 export const MAX_ROOM_LEVEL = ROOM_PRICES.length;
@@ -97,6 +98,7 @@ export function describeEffect(eff) {
   if (eff.squadAdd) parts.push(`+${eff.squadAdd} squad size on every entry (max ${MAX_DEPLOY})`);
   if (eff.turrets) parts.push(`${eff.turrets} turret${eff.turrets > 1 ? 's' : ''} defend${eff.turrets > 1 ? '' : 's'} the Mothership`);
   if (eff.blastDoors) parts.push('Blast doors seal the Bridge when boarded');
+  if (eff.intel) parts.push(['', 'Scouts each target\'s crew before you board', 'Scouts crew and optional objectives', 'Scouts crew, objectives and the full map'][Math.min(3, eff.intel)] + `; +${4 * eff.intel} Aim for defenders when boarded`);
   if (eff.outbreakPct) parts.push(`${-eff.outbreakPct}% fewer parasite outbreaks; outbreaks start sealed in the bay`);
   return parts.join(' · ') || 'Basic facilities';
 }

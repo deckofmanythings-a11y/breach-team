@@ -182,5 +182,45 @@ for (const t of THREATS) for (const rooms of [{}, MAXED]) for (let i = 0; i < 4;
   ok(rep.achievements.includes('ach_off_my_ship') && rep.achievements.includes('ach_hold_door') && !rep.achievements.includes('ach_mostly_night'), 'defense achievements: Get Off My Ship + Hold the Door');
 }
 
+// M6 part 2: Intel Room scouting (engine v6).
+{
+  const S = await import('../js/engine/scout.js');
+  const R = await import('../js/game/rules.js');
+  const { buildRoom } = await import('../js/game/mothership.js');
+  const sq = makeSquad(4, SPECS.slice(0, 4), 3, 'standard');
+  const base = { engineVersion: 6, ship: 'raider', entry: 'shuttle', tactic: 'balanced', retreat: 'teleport_recall', squad: sq };
+  throws(() => simulate({ ...base, seed: 1, scouted: true }), 'scouted needs a map seed');
+  throws(() => simulate({ ...base, engineVersion: 5, seed: 1, mapSeed: 9, scouted: true }), 'scouted needs engine v6');
+  const kinds = (b) => b.events.filter(e => e[0] === 0 && e[1] === 'spawn' && e[3] === 'E' && e[4] !== 'sys_turret').map(e => e[4]).sort().join();
+  const objs = (b) => b.events.filter(e => e[1] === 'objective').map(e => e[2] + '@' + e[3]).join();
+  const g = R.newGame(); g.creds = 1e6; g.missions = 20;
+  ok(S.scoutReport(g, 'raider') === null, 'no Intel Room, no scouting');
+  buildRoom(g, 'intel');
+  const rep = S.scoutReport(g, 'raider');
+  ok(rep && rep.level === 1 && rep.plan.crew.length > 0, 'Intel Room L1 scouts the crew');
+  const a = simulate({ ...base, seed: 11, mapSeed: rep.mapSeed, scouted: true }), b = simulate({ ...base, seed: 222, mapSeed: rep.mapSeed, scouted: true });
+  ok(kinds(a) === kinds(b) && objs(a) === objs(b), 'scouted: crew and objectives are the same whatever the battle seed');
+  const want = ['raider'].map(() => rep.plan.objectives.map(o => o.id + '@' + o.room)).join();
+  ok(objs(a) === ['take_bridge@' + a.map.bridge, want].filter(Boolean).join(), `scouted objectives match the scout report (${objs(a)} vs ${want})`);
+  const planned = [...rep.plan.crew.map(c => c.kind), ...rep.plan.civilians.map(() => Object.keys(rep.ship.unitWeights).find(id => UNIT_BY_ID[id].ai === 'flee'))];
+  const spawned = a.events.filter(e => e[1] === 'spawn' && e[3] === 'E').map(e => e[4]);
+  ok(planned.every(k => spawned.includes(k)) && spawned.length >= planned.length, 'scouted crew spawns as reported');
+  ok(a.hash !== b.hash, 'the fight itself still depends on the battle seed');
+  ok(simulate({ ...base, seed: 5 }).hash === simulate({ ...base, engineVersion: 5, seed: 5 }).hash, 'unscouted missions on v6 play exactly as v5');
+  // runMission uses the scout seed it showed.
+  const seedShown = S.scoutSeed(g, 'hauler');
+  for (const s of g.soldiers) { s.injuries = []; s.status = 'ready'; }
+  const r = R.runMission(g, { ship: 'hauler', entry: 'shuttle', tactic: 'steady', retreat: 'shuttle', squad: g.soldiers.slice(0, 4).map(s => s.uid) });
+  ok(r.input.scouted ? r.input.mapSeed === seedShown : r.report.secret, 'runMission boards the scouted map (unless the contact was a secret ship)');
+  ok(S.scoutSeed(g, 'hauler') !== seedShown, 'scouting refreshes after a mission');
+  g.mothership.damaged = { intel: true };
+  ok(S.scoutReport(g, 'raider') === null, 'a damaged Intel Room scouts nothing');
+  // Defense: Intel Room sensors (+Aim for defenders, v6 only).
+  const acc = (bt) => { const sh = bt.events.filter(e => e[1] === 'shot' && bt.units.find(u => u.id === e[2])?.side === 'S'); return sh.filter(e => e[4] > 0).length / sh.length; };
+  let a5 = 0, a6 = 0;
+  for (let i = 0; i < 6; i++) { a5 += acc(simulate(def({ seed: 50 + i, engineVersion: 5, rooms: { intel: 3 } }))); a6 += acc(simulate(def({ seed: 50 + i, engineVersion: 6, rooms: { intel: 3 } }))); }
+  ok(a6 > a5, `Intel Room: defenders shoot straighter (${(a6 / 6).toFixed(3)} vs ${(a5 / 6).toFixed(3)})`);
+}
+
 console.log(`defense: ${fails ? fails + ' FAILED' : 'all passed'}. Results:`, results);
 if (fails) process.exit(1);
