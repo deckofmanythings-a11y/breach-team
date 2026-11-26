@@ -6,9 +6,9 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=19';
+import { renderDeploy } from './deploy.js?v=20';
 import { renderStore } from './store.js?v=4';
-import { renderLadder } from './ladder.js?v=10';
+import { renderLadder } from './ladder.js?v=11';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { memorialBadges } from './memorial-badge.js';
@@ -18,20 +18,20 @@ import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=19';
+import { setContract } from './deploy.js?v=20';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
-import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
+import { ITEM_BY_ID, SLOTS, RARITY_ORDER, RARITY_BY_ID } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
-import { replayMission, setExit, setOpenSoldier } from './mission.js?v=7';
+import { replayMission, setExit, setOpenSoldier } from './mission.js?v=8';
 import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.17.0';
+export const APP_VERSION = '0.18.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -210,6 +210,40 @@ function soldierCard(s) {
   </div>`);
 }
 
+
+// ---------- List filter toolbars (Barracks / Armory) ----------
+function loadPrefs(key, defaults) {
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem(key) || '{}') }; } catch { return { ...defaults }; }
+}
+function savePrefs(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* storage unavailable */ } }
+const optHtml = (opts, cur) => opts.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
+const dirText = (p) => p.dir === 'asc' ? '▲ Asc' : '▼ Desc';
+// fields: [{ k, label, opts:[[value,label]] } | { k, label, search:true }]; sorts: [[value,label]]. Calls onChange() after any edit.
+function listToolbar(key, prefs, defaults, fields, sorts, onChange) {
+  const bar = el(`<div class="filterbar row">${fields.map(f => f.search
+    ? `<input type="search" data-k="${f.k}" placeholder="${esc(f.label)}" value="${esc(prefs[f.k])}" aria-label="${esc(f.label)}">`
+    : `<select data-k="${f.k}" aria-label="${esc(f.label)}">${optHtml(f.opts, prefs[f.k])}</select>`).join('')}
+    <select data-k="sort" aria-label="Sort by">${optHtml(sorts, prefs.sort)}</select>
+    <button type="button" class="small" data-dir title="Toggle sort direction">${dirText(prefs)}</button>
+    <button type="button" class="small" data-reset title="Clear filters">Reset</button>
+    <span class="small dim fcount"></span></div>`);
+  const commit = () => { savePrefs(key, prefs); onChange(); };
+  for (const c of bar.querySelectorAll('[data-k]')) c.oninput = () => { prefs[c.dataset.k] = c.value; commit(); };
+  bar.querySelector('[data-dir]').onclick = (e) => { prefs.dir = prefs.dir === 'asc' ? 'desc' : 'asc'; e.target.textContent = dirText(prefs); commit(); };
+  bar.querySelector('[data-reset]').onclick = () => {
+    Object.assign(prefs, defaults);
+    for (const c of bar.querySelectorAll('[data-k]')) c.value = prefs[c.dataset.k];
+    bar.querySelector('[data-dir]').textContent = dirText(prefs);
+    commit();
+  };
+  return bar;
+}
+
+const BARRACKS_DEFAULTS = { spec: 'all', cond: 'all', q: '', sort: 'default', dir: 'desc' };
+const ARMORY_DEFAULTS = { slot: 'all', rarity: 'all', status: 'all', wtype: 'all', q: '', sort: 'default', dir: 'desc' };
+const cmpStr = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base' });
+const cap = (s) => s[0].toUpperCase() + s.slice(1);
+
 function renderBarracks() {
   const S = G.state();
   const wrap = el(`<div><div class="spread section"><div><h2>Barracks</h2><div class="dim">${S.soldiers.length}/${ROSTER_CAP} Soldiers · ${S.missions} missions flown</div></div>
@@ -219,9 +253,29 @@ function renderBarracks() {
   const perkers = S.soldiers.filter(s => s.pendingPerks.length);
   if (perkers.length) roster.before(el(`<div class="banner">★ ${perkers.map(s => esc(s.name)).join(', ')} ${perkers.length > 1 ? 'have' : 'has'} a perk to choose. Open their page.</div>`));
   const order = { healthy: 0, wounded: 1, benched: 2, mia: 3 };
-  for (const s of S.soldiers.slice().sort((a, b) => order[G.condition(a)] - order[G.condition(b)] || b.level - a.level)) {
-    const card = soldierCard(s); card.onclick = () => openSoldier(s); roster.append(card);
-  }
+  const prefs = loadPrefs('bt.barracksFilter', BARRACKS_DEFAULTS);
+  const SORTS = { level: s => s.level, name: s => s.name, class: s => SPECIALTY_BY_ID[s.specialty]?.name, missions: s => s.missions, kills: s => s.kills, xp: s => s.xp };
+  const apply = () => {
+    const q = prefs.q.trim().toLowerCase();
+    const rows = S.soldiers.filter(s =>
+      (prefs.spec === 'all' || s.specialty === prefs.spec) &&
+      (prefs.cond === 'all' || (prefs.cond === 'ready' ? G.canDeploy(s) : G.condition(s) === prefs.cond)) &&
+      (!q || (s.name || '').toLowerCase().includes(q) || (s.callsign || '').toLowerCase().includes(q)));
+    const dir = prefs.dir === 'asc' ? 1 : -1, key = SORTS[prefs.sort];
+    if (key) rows.sort((a, b) => { const x = key(a), y = key(b); return dir * (typeof x === 'string' ? cmpStr(x, y) : (x || 0) - (y || 0)) || cmpStr(a.name, b.name); });
+    else { rows.sort((a, b) => order[G.condition(a)] - order[G.condition(b)] || b.level - a.level); if (prefs.dir === 'asc') rows.reverse(); }
+    roster.replaceChildren();
+    for (const s of rows) { const card = soldierCard(s); card.onclick = () => openSoldier(s); roster.append(card); }
+    if (!rows.length) roster.append(el('<div class="dim empty">No Soldiers match these filters.</div>'));
+    bar.querySelector('.fcount').textContent = `Showing ${rows.length} of ${S.soldiers.length}`;
+  };
+  const bar = listToolbar('bt.barracksFilter', prefs, BARRACKS_DEFAULTS, [
+    { k: 'spec', label: 'Class', opts: [['all', 'All classes'], ...SPECIALTIES.map(s => [s.id, s.name])] },
+    { k: 'cond', label: 'Condition', opts: [['all', 'Any condition'], ['ready', 'Ready to deploy'], ['wounded', 'Wounded'], ['benched', 'Benched'], ['mia', 'MIA']] },
+    { k: 'q', label: 'Search name / callsign', search: true },
+  ], [['default', 'Sort: Default'], ['level', 'Sort: Level'], ['name', 'Sort: Name'], ['class', 'Sort: Class'], ['missions', 'Sort: Missions'], ['kills', 'Sort: Kills'], ['xp', 'Sort: XP']], apply);
+  roster.before(bar);
+  apply();
   const hire = wrap.querySelector('#hire');
   hire.disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= ROSTER_CAP;
   hire.onclick = async () => { const r = await run(() => G.act('hire', { specialty: wrap.querySelector('#hireSpec').value })); if (r) { toast(`${G.soldierById(r.soldier)?.name} joined the team.`); render(); } };
@@ -388,8 +442,13 @@ function renderArmory() {
     };
     modal(box);
   };
-  const items = S.items.slice().sort((a, b) => SLOTS.indexOf(ITEM_BY_ID[a.base].slot) - SLOTS.indexOf(ITEM_BY_ID[b.base].slot) || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity));
-  for (const it of items) {
+  const prefs = loadPrefs('bt.armoryFilter', ARMORY_DEFAULTS);
+  const iname = (it) => itemLabel(it, true).replace(/ \[[^\]]*\]$/, '');
+  const slotOrd = (it) => SLOTS.indexOf(ITEM_BY_ID[it.base].slot), rarOrd = (it) => RARITY_ORDER.indexOf(it.rarity);
+  const SORTS = { rarity: rarOrd, name: iname, price: it => G.sellPrice(it) };
+  const wtypes = [...new Set(S.items.map(it => ITEM_BY_ID[it.base]).filter(b => b.slot === 'weapon' && b.type).map(b => b.type))].sort();
+  if (!wtypes.includes(prefs.wtype)) prefs.wtype = 'all';   // a saved type you no longer own would hide everything
+  const buildRow = (it) => {
     const who = G.equippedBy(it.uid);
     const row = el(`<div class="item"><span>${itemLabel(it)} <span class="dim small">${ITEM_BY_ID[it.base].slot}</span>${ITEM_BY_ID[it.base].flavor ? `<div class="small dim"><i>${esc(ITEM_BY_ID[it.base].flavor)}</i></div>` : ''}</span>
       <span class="row">${who ? `<span class="dim small">on ${esc(who.name)}</span>` : `<button class="sell">Sell (${G.sellPrice(it)})</button>`}</span></div>`);
@@ -398,8 +457,33 @@ function renderArmory() {
       if (RARITY_ORDER.indexOf(it.rarity) >= RARITY_ORDER.indexOf('prototype') && !confirm(`Sell ${itemLabel(it, true)} for ${G.sellPrice(it)} BUCs?`)) return;
       if (await run(() => G.act('sell', { item: it.uid }))) render();
     };
-    list.append(row);
-  }
+    return row;
+  };
+  const apply = () => {
+    const q = prefs.q.trim().toLowerCase();
+    const rows = S.items.filter(it => {
+      const base = ITEM_BY_ID[it.base], who = G.equippedBy(it.uid);
+      return (prefs.slot === 'all' || base.slot === prefs.slot) && (prefs.rarity === 'all' || it.rarity === prefs.rarity) &&
+        (prefs.status === 'all' || (prefs.status === 'equipped' ? !!who : !who)) &&
+        (prefs.wtype === 'all' || (base.slot === 'weapon' && base.type === prefs.wtype)) &&
+        (!q || iname(it).toLowerCase().includes(q));
+    });
+    const dir = prefs.dir === 'asc' ? 1 : -1, key = SORTS[prefs.sort];
+    if (key) rows.sort((a, b) => { const x = key(a), y = key(b); return dir * (typeof x === 'string' ? cmpStr(x, y) : x - y) || cmpStr(iname(a), iname(b)); });
+    else { rows.sort((a, b) => slotOrd(a) - slotOrd(b) || rarOrd(b) - rarOrd(a)); if (prefs.dir === 'asc') rows.reverse(); }
+    list.replaceChildren(...rows.map(buildRow));
+    if (!rows.length) list.append(el('<div class="dim empty">No items match these filters.</div>'));
+    bar.querySelector('.fcount').textContent = `Showing ${rows.length} of ${S.items.length}`;
+  };
+  const bar = listToolbar('bt.armoryFilter', prefs, ARMORY_DEFAULTS, [
+    { k: 'slot', label: 'Slot', opts: [['all', 'All slots'], ...SLOTS.map(s => [s, cap(s)])] },
+    { k: 'rarity', label: 'Rarity', opts: [['all', 'All rarities'], ...RARITY_ORDER.map(r => [r, RARITY_BY_ID[r].name])] },
+    { k: 'status', label: 'Status', opts: [['all', 'Equipped or not'], ['equipped', 'Equipped'], ['free', 'Not equipped']] },
+    ...(wtypes.length ? [{ k: 'wtype', label: 'Weapon type', opts: [['all', 'All weapon types'], ...wtypes.map(w => [w, cap(w)])] }] : []),
+    { k: 'q', label: 'Search name', search: true },
+  ], [['default', 'Sort: Default'], ['rarity', 'Sort: Rarity'], ['name', 'Sort: Name'], ['price', 'Sort: Sell price']], apply);
+  list.before(bar);
+  apply();
   panel.append(wrap);
 }
 

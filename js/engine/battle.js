@@ -261,6 +261,7 @@ export function simulate(input) {
   }
 
   const squad = [];
+  const march = V >= 8 && !defend, marchSpawns = [];   // marching order (v8+)
   for (const s of input.squad) {
     const u = soldierUnit(s);
     if (defend) {
@@ -281,8 +282,18 @@ export function simulate(input) {
     const pos = freeTileIn(room) || freeTileIn(spawnRoom);
     u.x = pos[0]; u.y = pos[1]; u.busy = setupTicks + late; u.scrambled = late > 0;
     squad.push(addUnit(u));
+    if (march) { marchSpawns.push([u, room, late]); continue; }
     ev(0, 'spawn', u.id, 'S', u.kind, u.x, u.y);
     if (late) ev(0, 'scramble', u.id, room);
+  }
+  if (march) {
+    // Marching order (v8+): input.squad is the order. The same tiles are used, but the point man
+    // gets the one closest to the Bridge, the next one the next closest, and so on.
+    const f = consoleField(), inRoom = marchSpawns.filter(m => !m[2]).map(m => m[0]);
+    const spots = inRoom.map(u => idx(u.x, u.y)).sort((a, b) => f[a] - f[b] || a - b);
+    for (const u of inRoom) occ[idx(u.x, u.y)] = -1;
+    inRoom.forEach((u, i) => { u.x = spots[i] % W; u.y = (spots[i] - u.x) / W; occ[spots[i]] = u.id; });
+    for (const [u, room, late] of marchSpawns) { ev(0, 'spawn', u.id, 'S', u.kind, u.x, u.y); if (late) ev(0, 'scramble', u.id, room); }
   }
   function droneUnit(owner) {
     const p = freeTileNear(owner.x, owner.y); if (!p) return;
@@ -963,6 +974,13 @@ export function simulate(input) {
     for (const v of squad) if (v.state === 'active' && v !== u) rear = Math.max(rear, f[idx(v.x, v.y)]);
     const coh = COHESION + (tactic.id === 'blitz' ? 3 : 0);
     if (rear > 0 && d < rear - coh) { u.busy = t + 4; return; }
+    // Marching order (v8+): don't overtake the next Soldier ahead in the order (the nearest one who
+    // is up and not busy with a task). Level with them = wait; already ahead = carry on (no deadlocks).
+    if (march) for (let j = squad.indexOf(u) - 1; j >= 0; j--) {
+      const p = squad[j]; if (p.state !== 'active' || p.task) continue;
+      if (f[idx(p.x, p.y)] === d) { u.busy = t + 1; return; }
+      break;
+    }
     if (!stepAlong(u, f)) u.busy = t + 4;
   }
 

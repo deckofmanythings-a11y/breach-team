@@ -211,6 +211,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const gFog = new PIXI.Graphics(); world.addChild(gFog);
   const gFx = new PIXI.Graphics(); world.addChild(gFx);
   const bubbles = new PIXI.Container(); world.addChild(bubbles);
+  const floaters = new PIXI.Container(); world.addChild(floaters);   // floating damage / heal numbers
 
   // ---- Playback state ----
   const U = new Map();   // id -> unit view
@@ -271,10 +272,64 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
 
   if (battle.entry === 'breach_pod') { /* decompression shows via hazard events */ }
 
+  // Who starts a fight unseen, mirroring engine/battle.js: Soldiers (not drones/turrets) under a stealth tactic or a
+  // startsHidden entry (soldierUnit), except in a defense where everyone starts visible; enemies with the 'ambush'
+  // flag (enemyUnit), except defense waves, which the engine spawns with hidden:false. Possessed shells never hide.
+  // The engine emits 'reveal' when any of them is spotted or opens fire.
+  const squadStealth = !defend && !!(ENTRY_BY_ID[battle.entry]?.startsHidden || TACTIC_BY_ID[battle.tactic]?.hidden);
+  function startsHidden(t, side, kind, id) {
+    if (info[id]?.shellOf !== undefined) return false;
+    if (side === 'S') return squadStealth && !UNIT_BY_ID[kind];
+    return !!UNIT_BY_ID[kind]?.flags?.includes('ambush') && !(defend && t > 0);
+  }
+
+  // Floating combat numbers: pop off the token, drift up with a little jitter, fade over ~1 s of playback.
+  const FLOAT_LIFE = 11, FLOAT_MAX = 60;
+  const FLOAT_FONT = 'Rajdhani, Inter, sans-serif';
+  function floatText(id, text, { color, size = 13 }) {
+    const u = U.get(id); if (!u || u.state === 'gone' || u.state === 'out') return;
+    while (floaters.children.length >= FLOAT_MAX) floaters.children[0].destroy();
+    const txt = new PIXI.Text({ text, resolution: 2, style: {
+      fontFamily: FLOAT_FONT, fontSize: size, fontWeight: '700', fill: color,
+      stroke: { color: 0x05080c, width: 3, join: 'round' },
+      dropShadow: { color: 0x000000, alpha: 0.6, blur: 2, distance: 1, angle: Math.PI / 2 },
+    } });
+    txt.anchor.set(0.5, 1);
+    const [cx, cy] = center(u);
+    txt.born = tick; txt.x0 = cx + (Math.random() - 0.5) * 10; txt.y0 = cy - TOK / 2 - 4 - Math.random() * 4;
+    txt.vx = (Math.random() - 0.5) * 14; txt.pop = size > 13;
+    txt.position.set(txt.x0, txt.y0);
+    floaters.addChild(txt);
+  }
+  function damageFloat(id, dmg, crit) {
+    if (!(dmg > 0)) return;
+    const mine = (U.get(id)?.side ?? info[id]?.side) === 'S';
+    if (crit) floatText(id, `${dmg}!`, { color: mine ? 0xff3b3b : 0xffc93d, size: 17 });
+    else floatText(id, String(dmg), { color: mine ? 0xff7a7a : 0xfff3c4 });
+  }
+  function floatFx(e) {
+    switch (e[1]) {
+      case 'shot': if (e[4] === 0) floatText(e[3], 'miss', { color: 0x9aa4ad, size: 11 }); else damageFloat(e[3], e[4], e[5]); break;
+      case 'splash': case 'blast': case 'acid': case 'ricochet': damageFloat(e[3], e[4]); break;
+      case 'hazard': damageFloat(e[2], e[4]); break;
+      case 'heal': if (e[4] > 0) floatText(e[3], `+${e[4]}`, { color: 0x5ef08a }); break;
+    }
+  }
+  function updateFloaters() {
+    for (const f of [...floaters.children]) {
+      const age = tick - f.born;
+      if (age > FLOAT_LIFE || age < 0) { f.destroy(); continue; }
+      const p = age / FLOAT_LIFE;
+      f.position.set(f.x0 + f.vx * p, f.y0 - 22 * (1 - (1 - p) * (1 - p)));   // ease-out rise
+      f.alpha = p < 0.5 ? 1 : 1 - (p - 0.5) / 0.5;
+      f.scale.set(f.pop && age < 2 ? 1.35 - 0.175 * age : 1);   // crits punch in
+    }
+  }
+
   function apply(e) {
     const [t, k] = e;
     switch (k) {
-      case 'spawn': { if (info[e[2]]?.shellOf !== undefined) { const host = U.get(info[e[2]].shellOf); if (host) host.state = 'possessed'; } const [, , id, side, kind, x, y] = e; U.set(id, { id, side, kind, x, y, px: x, py: y, hp: info[id].maxHp, max: info[id].maxHp, state: 'active', hidden: false }); if (t > 0 && side === 'E') {} if (info[e[2]]?.shellOf !== undefined) { const v = U.get(e[2]); v.hp = Math.max(1, Math.floor(v.max / 2)); } break; }
+      case 'spawn': { if (info[e[2]]?.shellOf !== undefined) { const host = U.get(info[e[2]].shellOf); if (host) host.state = 'possessed'; } const [, , id, side, kind, x, y] = e; U.set(id, { id, side, kind, x, y, px: x, py: y, hp: info[id].maxHp, max: info[id].maxHp, state: 'active', hidden: startsHidden(t, side, kind, id) }); if (t > 0 && side === 'E') {} if (info[e[2]]?.shellOf !== undefined) { const v = U.get(e[2]); v.hp = Math.max(1, Math.floor(v.max / 2)); } break; }
       case 'move': { const u = U.get(e[2]); if (u) { u.x = e[3]; u.y = e[4]; } break; }
       case 'door': { const d = doors[e[2]]; d.open = true; if (e[3] === 'breach') { fx.push({ k: 'boom', x: d.x, y: d.y, t, life: 10 }); say(t, `💥 <b>${name(e[4])}</b> blows the door`); }
         else if (e[3] === 'chain') say(t, `💥 Chain breach!`); else if (e[3] === 'hack') say(t, `<b>${name(e[4])}</b> hacks a locked door`); else if (e[3] === 'force') say(t, `<b>${name(e[4])}</b> forces a locked door`); break; }
@@ -376,16 +431,27 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
       const kind = u.kind, def = UNIT_BY_ID[kind];
       if (u.state === 'dead') { gDyn.circle(cx, cy, 6).fill({ color: 0x3a1a1a, alpha: .8 }); continue; }
       const downed = u.state === 'down' || u.state === 'captured', off = u.state === 'off';
+      // Stealth: a shimmering, gently flickering ghost (slow pulse + a faster flicker, phase-offset per unit).
+      const stealth = u.hidden && !downed;
+      const ghost = 0.4 + 0.08 * Math.sin(tick * 0.7 + u.id * 1.3) + 0.03 * Math.sin(tick * 3.1 + u.id * 2.7);
       if (tk.ready) {
         tk.sprite.position.set(cx, cy);
         tk.sprite.texture = downed || off ? tk.grey : tk.tex;
-        tk.sprite.alpha = u.hidden ? 0.4 : downed ? 0.75 : 1;
+        tk.sprite.alpha = stealth ? ghost : downed ? 0.75 : 1;
         tk.sprite.width = tk.sprite.height = downed ? TOK * 0.85 : TOK;
       } else {
         // Placeholder shapes until the token art has loaded (or if it failed).
-        const alpha = u.hidden ? 0.35 : 1;
+        const alpha = stealth ? ghost * 0.9 : 1;
         if (u.side === 'S' && kind !== 'sys_drone' && def?.ai !== 'turret') { const [a, b] = colorsByUnit[u.id] || ['#3a5a8c', '#f2c14e']; gDyn.circle(cx, cy, 9).fill({ color: HEX(a), alpha }).stroke({ width: 3, color: HEX(b), alpha }); }
         else gDyn.rect(cx - 8, cy - 8, 16, 16).fill({ color: palette[0], alpha }).stroke({ width: 2, color: palette[2], alpha });
+      }
+      if (stealth) {
+        // Cyan cloak shimmer: a faint pulsing haze plus a slowly rotating dashed ring.
+        const r = TOK / 2 + 2, pulse = 0.5 + 0.5 * Math.sin(tick * 0.9 + u.id);
+        gTop.circle(cx, cy, r).fill({ color: 0x3dd6ff, alpha: 0.05 + 0.06 * pulse });
+        const DASH = 10, rot = tick * 0.12 + u.id, span = (Math.PI * 2) / DASH;
+        for (let i = 0; i < DASH; i++) { const a0 = rot + i * span, a1 = a0 + span * 0.55; gTop.moveTo(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r).arc(cx, cy, r, a0, a1); }
+        gTop.stroke({ width: 1.5, color: 0x3dd6ff, alpha: 0.45 + 0.35 * pulse });
       }
       if (confusedUntil[u.id] > tick && u.state === 'active') gTop.circle(cx + TOK / 2 - 3, cy - TOK / 2 + 3, 5).fill(0x9ee86a);
       if (downed) gTop.moveTo(cx - 7, cy - 7).lineTo(cx + 7, cy + 7).moveTo(cx + 7, cy - 7).lineTo(cx - 7, cy + 7).stroke({ width: 3.5, color: 0xff3b3b });
@@ -480,12 +546,12 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   function step(dt) {
     if (!done) {
       tick = Math.min(endTick, tick + (dt / 1000) * TICKS_PER_SEC * speed);
-      while (ei < events.length && events[ei][0] <= tick) { const e = events[ei++]; apply(e); if (tick - e[0] < 4) sound(e); }   // no sound for events skipped past
+      while (ei < events.length && events[ei][0] <= tick) { const e = events[ei++]; apply(e); if (tick - e[0] < 4) { sound(e); floatFx(e); } }   // no sound/floaters for events skipped past
       while (bi < barks.length && barks[bi].t <= tick) showBark(barks[bi++]);
       for (const c of [...bubbles.children]) if (c.until <= tick) c.destroy();
       if (tick >= endTick && ei >= events.length) { done = true; setTimeout(() => finish(), 900); }
     }
-    draw(); drawFog();
+    draw(); drawFog(); updateFloaters();
     clock.textContent = fmt(tick);
     { const left = Math.max(0, mcLimit - (mcPaused ? mcBase : mcBase + (tick - mcAt)));
       mclock.textContent = mcOff || done ? '⏱ —' : `⏱ ${fmt(left)}${mcPaused ? ' ⏸' : ''}`;
@@ -541,7 +607,7 @@ function showReport(panel, battle, report, isReplay) {
       ${report.soldiers.map(s => `<tr><td><b>${esc(s.name)}</b><div class="small dim">${SPECIALTY_BY_ID[s.specialty].name} · ${s.kills} kills</div></td>
         <td>${fateTxt(s)}</td>
         <td>${s.injuries.length && s.fate !== 'kia' ? s.injuries.map(i => `${INJURY_BY_ID[i].name}${INJURY_BY_ID[i].severity === 2 ? ' <span class="small warn">(benched)</span>' : ''}`).join('<br>') : '<span class="dim">—</span>'}</td>
-        <td>+${s.xp}${s.levelUps.map(l => `<div class="small good">Level ${l.level}! ${Object.entries(l.gains).map(([k, v]) => `+${v} ${STAT_INFO[k].short}`).join(', ')}${l.breakthrough ? ' <b>BREAKTHROUGH</b>' : ''}</div>`).join('')}
+        <td>+${s.xp}${s.levelUps.map(l => `<div class="small good">Level ${l.level}! ${Object.entries(l.gains).map(([k, v]) => `+${v} ${STAT_INFO[k].short}`).join(', ')}${l.breakthrough ? ' <b>BREAKTHROUGH</b>' : ''}</div>`).join('')}${s.callsign ? `<div class="small good">Earned a callsign: <b>"${esc(s.callsign)}"</b></div>` : ''}
           ${(s.perkPending || []).length && !isReplay ? `<div><button class="primary small" data-perk="${s.uid}" style="padding:3px 8px;margin-top:4px">Choose perk</button></div>` : ''}
           ${(s.medals || []).map(id => `<div class="small" style="margin-top:3px">${ribbon(id)} <b>${COMMENDATION_BY_ID[id].name}</b>${s.fate === 'kia' ? ' (posthumous)' : ''}</div>`).join('')}</td></tr>`).join('')}
     </table>

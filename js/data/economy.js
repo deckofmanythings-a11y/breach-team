@@ -76,7 +76,11 @@ export const FIRST_NAMES = {
 };
 export const LAST_NAMES = ['Vance', 'Okafor', 'Reyes', 'Tanaka', 'Kowalski', 'Haddad', 'Mbeki', 'Novak', 'Castillo', 'Lindqvist', 'Park', 'Duarte', 'Brennan', 'Sato', 'Volkov', 'Achebe', 'Moreau', 'Quinn',
   'Nguyen', 'Mensah', 'Patel', 'Kealoha', 'Begay', 'Al-Amin', 'Hernandez', 'Kim', 'Adeyemi', 'Singh', 'Tupou', 'Redcloud', 'Chen', 'Mahmoud', 'Ortiz', 'Nakamura', 'Diallo', 'Rangi', 'Iyer', 'Santos', 'Yazzie', 'Farouk'];
-export const CALLSIGNS = ['Ghost', 'Hammer', 'Doc', 'Sparks', 'Tank', 'Viper', 'Patch', 'Bishop', 'Rook', 'Static', 'Brick', 'Echo', 'Wraith', 'Lucky', 'Fuse', 'Sarge', 'Hex', 'Moth'];
+export const CALLSIGNS = ['Ghost', 'Hammer', 'Doc', 'Sparks', 'Tank', 'Viper', 'Patch', 'Bishop', 'Rook', 'Static', 'Brick', 'Echo', 'Wraith', 'Lucky', 'Fuse', 'Sarge', 'Hex', 'Moth',
+  'Anvil', 'Blink', 'Boomer', 'Bulldog', 'Cinder', 'Cobalt', 'Crow', 'Dutch', 'Flint', 'Gator', 'Grim', 'Halo', 'Jinx', 'Junkyard', 'Kettle', 'Knuckles', 'Lazarus', 'Mako',
+  'Mongoose', 'Nails', 'Nomad', 'Ox', 'Pepper', 'Preacher', 'Pyro', 'Razor', 'Rivet', 'Ruckus', 'Saint', 'Scrap', 'Shiv', 'Slick', 'Snowball', 'Spook', 'Stitch', 'Thumper',
+  'Tinker', 'Torch', 'Trouble', 'Vandal', 'Wasp', 'Whisper', 'Wrench', 'Yeti', 'Zero', 'Zip'];
+export const CALLSIGN_LEVEL = 3;   // Soldiers earn a callsign when they reach this level (rules.js grantCallsign)
 export const SEXES = ['m', 'f'];
 // Default armor/accent colour pairs for new recruits (player can change them freely).
 export const COLOR_PRESETS = [

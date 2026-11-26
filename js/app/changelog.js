@@ -3,6 +3,12 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.18.0', date: '2026-11-26', items: [
+    "Damage numbers pop off everyone who gets hit during a mission, with crits in bold and heals in green. Stealthed units now shimmer with a cyan cloak ring, including squads that start hidden on a Vent Crawl or under the Stealthy tactic.",
+    "Marching order (engine v8): on the Deploy screen, arrange your squad with the arrows or tap 'Toughest first'. #1 is the point man: lands closest to the Bridge and leads, so they usually draw first fire, and nobody overtakes the Soldier ahead of them. A tough Soldier up front and the Medic at the back keeps the Medic standing far more often.",
+    "The Barracks and the Armory can be filtered and sorted: by class, condition, slot, rarity, weapon type, equipped or not, plus a name search. Your choices are remembered.",
+    "New recruits start without a callsign and earn one when they reach Level 3. Veterans hired at Level 3 or higher arrive with one. You can still set or change a callsign yourself at any time.",
+  ] },
   { v: '0.17.0', date: '2026-11-26', items: [
     "Every entry method now has a Mothership room that upgrades it. Two new rooms sit fore and aft of the Hangar:",
     "Pod Bay (Breaching Pod): level 1 lets the pod land right next to the Bridge, level 2 adds an impact that stuns the crew in the neighbouring rooms, and level 3 fits one more Soldier in the pods.",

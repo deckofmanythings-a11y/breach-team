@@ -9,7 +9,7 @@ import { FACTION_BY_ID } from '../data/factions.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { simulate } from '../engine/battle.js';
 import * as api from './api.js';
-import { playMission } from './mission.js?v=7';
+import { playMission } from './mission.js?v=8';
 import { holdCreds } from './creds-view.js';
 import { mothershipInput, entryMaxSquad } from '../data/mothership-rooms.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
@@ -65,7 +65,8 @@ export function renderDeploy(panel) {
       <div class="small">${'★'.repeat(s.tier)}${'☆'.repeat(3 - s.tier)} · ${FACTION_BY_ID[s.faction].name}</div>
       <div class="small dim">${esc(s.desc)}</div><div class="small" style="margin-top:4px">Reward <b style="color:var(--accent)">${s.reward}</b> BUCs</div>`)}</div>`}
     <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${maxOf(e)}${maxOf(e) > e.maxSquad ? ' <span class="small good" title="Mothership upgrade">(+Mothership)</span>' : ''}</b></div><div class="small dim">${esc(e.desc)}</div>${entryPerks(e)}`)}</div>
-    <div class="section"><h3>3 · Squad <span class="dim small" id="count"></span></h3><div class="grid" id="squad"></div></div>
+    <div class="section"><h3>3 · Squad <span class="dim small" id="count"></span></h3><div class="grid" id="squad"></div>
+      <div class="card march" id="march" style="margin-top:8px"></div></div>
     <div class="section"><h3>4 · Tactic</h3>${optCards(TACTICS, 'tactic', t => `<div class="small dim">${esc(t.desc)}</div><div class="small" style="margin-top:4px">${suicide ? 'Suicide Squad: never retreats' : `Retreats at ${t.retreatAt}% casualties`}</div>`)}</div>
     <div class="section"><h3>5 · Retreat plan</h3>${optCards(retreats, 'retreat', retreatBody)}
       <div class="small dim" style="margin-top:6px">${suicide ? `<span class="bad"><b>No retreat.</b> The squad fights until it takes the bridge or nobody is left standing, with a 3-minute hard limit. If it fails, every Soldier deployed dies and their gear is lost.</span>` : `The retreat happens automatically if casualties pass your tactic's limit, or when the 90-second mission clock runs out. The clock pauses while anyone is on the bridge, and a squad that's winning when time runs out can dig in for more time: the higher its Grit, the better its chances.`}</div></div>
@@ -82,7 +83,7 @@ export function renderDeploy(panel) {
     const on = p.squad.includes(s.uid);
     if (!eligible(s)) { sq.append(el(`<div class="card off" title="Suicide Squads take Level ${SUICIDE_SQUAD.minLevel}+ only"><div class="soldier-head">${avatar(s, 36)}${levelBadge(s.level, (s.colors || [])[1], 'sm')}<div><div class="name">${esc(s.name)}</div>
       <div class="small dim">Level ${SUICIDE_SQUAD.minLevel}+ only</div></div></div></div>`)); continue; }
-    const c = el(`<div class="card click ${on ? 'sel' : ''}"><div class="soldier-head">${avatar(s, 36)}${levelBadge(s.level, (s.colors || [])[1], 'sm')}<div><div class="name">${esc(s.name)}</div>
+    const c = el(`<div class="card click ${on ? 'sel' : ''}">${on ? `<span class="tag march-no" title="Marching order">#${p.squad.indexOf(s.uid) + 1}</span>` : ''}<div class="soldier-head">${avatar(s, 36)}${levelBadge(s.level, (s.colors || [])[1], 'sm')}<div><div class="name">${esc(s.name)}</div>
       <div class="small dim">${SPECIALTY_BY_ID[s.specialty].name}${G.condition(s) === 'wounded' ? ' · <span class="warn">wounded</span>' : ''}</div></div></div></div>`);
     c.onclick = () => {
       if (on) p.squad = p.squad.filter(id => id !== s.uid);
@@ -92,6 +93,25 @@ export function renderDeploy(panel) {
     };
     sq.append(c);
   }
+  // Marching order: the order of p.squad is the order the squad moves in (engine v8). #1 is the point
+  // man: spawns closest to the Bridge and leads; nobody overtakes the Soldier ahead of them.
+  const march = wrap.querySelector('#march');
+  const redraw = () => { persist(); renderDeploy(panel.replaceChildren() || panel); };
+  if (p.squad.length > 1) {
+    march.innerHTML = `<div class="spread"><b>Marching order</b><button class="small" id="toughFirst" title="Highest HP + Armour up front, Medics at the back">Toughest first</button></div>
+      <div class="small dim" style="margin:2px 0 6px">#1 is the point man: lands closest to the Bridge and leads the way, so they usually draw first fire. Nobody overtakes the Soldier ahead of them.</div>`;
+    p.squad.forEach((id, i) => {
+      const s = G.soldierById(id); if (!s) return;
+      const row = el(`<div class="row march-row"><b style="width:24px">#${i + 1}</b>${avatar(s, 24)}<span style="flex:1">${esc(s.name)} <span class="small dim">${SPECIALTY_BY_ID[s.specialty].name}${i === 0 ? ' · point' : i === p.squad.length - 1 ? ' · rear' : ''}</span></span>
+        <button class="small" data-mv="-1" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button><button class="small" data-mv="1" ${i === p.squad.length - 1 ? 'disabled' : ''} title="Move down">▼</button></div>`);
+      for (const b of row.querySelectorAll('[data-mv]')) b.onclick = () => { const j = i + +b.dataset.mv; [p.squad[i], p.squad[j]] = [p.squad[j], p.squad[i]]; redraw(); };
+      march.append(row);
+    });
+    march.querySelector('#toughFirst').onclick = () => {
+      const score = (id) => { const s = G.soldierById(id), st = G.effectiveStats(s); return (s.specialty === 'medic' ? -1000 : 0) + st.hp + st.arm * 2; };
+      p.squad = p.squad.slice().sort((a, b) => score(b) - score(a)); redraw();
+    };
+  } else march.remove();
   const unavailable = S.soldiers.length - ready.length;
   wrap.querySelector('#count').textContent = `${p.squad.length}/${maxOf(entry)} selected${unavailable ? ` · ${unavailable} recovering or missing` : ''}`;
 

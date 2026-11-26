@@ -6,7 +6,7 @@ import { HIRE_KIT } from '../data/hire-kit.js';
 import { growSoldier, applyXp, sumMods, applyStatMods, itemMods, rollItem, rollRarity, rollAffixes } from '../engine/progression.js';
 import { simulate } from '../engine/battle.js';
 import { rollAftermath } from '../engine/aftermath.js';
-import { STARTING_BUCS, STARTER_SQUAD, ROSTER_CAP, FIRST_NAMES, LAST_NAMES, CALLSIGNS, COLOR_PRESETS, SEXES, GRADES, GRADE_BY_ID,
+import { STARTING_BUCS, STARTER_SQUAD, ROSTER_CAP, FIRST_NAMES, LAST_NAMES, CALLSIGNS, CALLSIGN_LEVEL, COLOR_PRESETS, SEXES, GRADES, GRADE_BY_ID,
   PACK_BY_ID, PITY_RELIC_AFTER, SPECIAL_ITEM_PCT, STORE, ITEM_PRICE, SELL_PCT } from '../data/economy.js';
 import { SPECIALTIES, SPECIALTY_BY_ID } from '../data/specialties.js';
 import { ITEMS, ITEM_BY_ID, ROLLABLE_ITEMS, SLOTS, RARITY_ORDER, RARITY_BY_ID } from '../data/gear.js';
@@ -66,14 +66,26 @@ export function newGame(now = Date.now()) {
 export function makeRecruit(rng, specialty, level = 1, now = Date.now()) {
   const sex = SEXES[rng.int(SEXES.length)];
   const g = growSoldier(rng, specialty, level);
+  const name = FIRST_NAMES[sex][rng.int(FIRST_NAMES[sex].length)] + ' ' + LAST_NAMES[rng.int(LAST_NAMES.length)];
+  const rolled = rng.roll(50) ? CALLSIGNS[rng.int(CALLSIGNS.length)] : '';   // same rng draws as before, so seeded Store stock doesn't change
   return {
-    uid: uid('s'), name: FIRST_NAMES[sex][rng.int(FIRST_NAMES[sex].length)] + ' ' + LAST_NAMES[rng.int(LAST_NAMES.length)],
-    callsign: rng.roll(50) ? CALLSIGNS[rng.int(CALLSIGNS.length)] : '', sex,
+    uid: uid('s'), name,
+    // Rookies earn their callsign at CALLSIGN_LEVEL; veterans arrive with one.
+    callsign: level >= CALLSIGN_LEVEL ? rolled || CALLSIGNS[(hashString('callsign:' + name) >>> 0) % CALLSIGNS.length] : '', sex,
     colors: COLOR_PRESETS[rng.int(COLOR_PRESETS.length)].slice(),
     specialty, level, xp: xpToReach(level), stats: g.stats, perks: g.perks, pendingPerks: [],
     gear: {}, injuries: [], status: 'ready', miaUntil: 0, missions: 0, kills: 0, hired: now,
     record: SERVICE_RECORD(), medals: [], look: rng.int(LOOK_COUNT),
   };
+}
+// A Soldier who reaches CALLSIGN_LEVEL without a callsign earns one: picked from the Soldier's uid,
+// skipping callsigns someone in the Barracks already has. Returns the callsign given, or null.
+function grantCallsign(g, s, oldLevel) {
+  if (s.callsign || oldLevel >= CALLSIGN_LEVEL || s.level < CALLSIGN_LEVEL) return null;
+  const taken = new Set(g.soldiers.map(x => (x.callsign || '').toLowerCase()));
+  const start = (hashString('callsign:' + s.uid) >>> 0) % CALLSIGNS.length;
+  for (let i = 0; i < CALLSIGNS.length; i++) { const c = CALLSIGNS[(start + i) % CALLSIGNS.length]; if (!taken.has(c.toLowerCase())) return (s.callsign = c); }
+  return (s.callsign = CALLSIGNS[start]);
 }
 export function addItem(g, inst) { const it = { uid: uid('i'), base: inst.base, rarity: inst.rarity, affixes: inst.affixes || [] }; g.items.push(it); return it; }
 
@@ -402,9 +414,10 @@ export function applyDefense(g, input, battle, after, now = Date.now()) {
       g.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: 'the Mothership', diedHow: `${how} (${a.kiaChance}% death roll)`, diedResult: battle.result, defense: true });
       g.soldiers = g.soldiers.filter(x => x !== s);
     } else {
-      const up = applyXp(rng, s, a.xp);
+      const up = applyXp(rng, s, a.xp), oldLevel = s.level;
       s.level = up.level; s.xp = up.xp; s.stats = up.stats; s.pendingPerks.push(...up.perkPending);
       line.levelUps = up.levelUps; line.perkPending = up.perkPending;
+      const cs = grantCallsign(g, s, oldLevel); if (cs) line.callsign = cs;
       R.breakthroughs += up.levelUps.filter(l => l.breakthrough).length;
       for (const id of a.injuries) if (s.injuries.length < MAX_INJURIES) { s.injuries.push({ id, until: now + healMs(id, a.healTimePct) }); R.injuries++; }
       line.medals = awardMedals(s);
@@ -464,9 +477,10 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
       g.soldiers = g.soldiers.filter(x => x !== s);
       line.gearLost = lost;
     } else {
-      const up = applyXp(rng, s, a.xp);
+      const up = applyXp(rng, s, a.xp), oldLevel = s.level;
       s.level = up.level; s.xp = up.xp; s.stats = up.stats; s.pendingPerks.push(...up.perkPending);
       line.levelUps = up.levelUps; line.perkPending = up.perkPending;
+      const cs = grantCallsign(g, s, oldLevel); if (cs) line.callsign = cs;
       R.breakthroughs += up.levelUps.filter(l => l.breakthrough).length;
       for (const id of a.injuries) if (s.injuries.length < MAX_INJURIES) { s.injuries.push({ id, until: now + healMs(id, a.healTimePct) }); R.injuries++; }
       if (a.fate === 'mia') { s.status = 'mia'; s.miaUntil = now + MIA_RETURN_MIN * 60e3; }

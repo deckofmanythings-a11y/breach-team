@@ -255,5 +255,30 @@ for (const t of THREATS) for (const rooms of [{}, MAXED]) for (let i = 0; i < 4;
   ok(dfd.result && simulate(def({ engineVersion: 7, rooms: { pod_bay: 3, infiltration: 3 } })).hash === dfd.hash, 'defense on a Mothership with the new rooms runs and replays');
 }
 
+// v8: marching order + callsigns at Level 3.
+{
+  const R = await import('../js/game/rules.js');
+  const sq = makeSquad(3, ['heavy', 'assault', 'marksman', 'medic'], 5, 'milspec');
+  const base = { engineVersion: 8, ship: 'raider', entry: 'shuttle', tactic: 'balanced', retreat: 'shuttle' };
+  let ordered = 0, firstHit = 0;
+  for (let i = 0; i < 20; i++) {
+    const b = simulate({ ...base, seed: 70 + i, squad: sq });
+    const f = (u) => b.map.distFromBridge[b.map.roomAt[u[6] * b.map.w + u[5]]];
+    const sp = b.events.filter(e => e[1] === 'spawn' && e[3] === 'S' && e[0] === 0);
+    if (sp.length === 4) ordered++;
+    const sh = b.events.find(e => e[1] === 'shot' && b.units.find(u => u.id === e[3])?.side === 'S');
+    if (sh && sh[3] === b.soldiers[0].unit) firstHit++;
+    void f;
+  }
+  ok(ordered === 20 && firstHit >= 10, `marching order: the point man draws first fire most of the time (${firstHit}/20)`);
+  const a = simulate({ ...base, seed: 5, squad: sq }), r = simulate({ ...base, seed: 5, squad: sq.slice().reverse() });
+  ok(a.hash !== r.hash && simulate({ ...base, seed: 5, squad: sq }).hash === a.hash, 'marching order changes the fight, deterministically');
+  ok(simulate({ ...base, engineVersion: 7, seed: 5, squad: sq }).hash === simulate({ ...base, engineVersion: 7, seed: 5, squad: sq }).hash, 'v7 replays still replay');
+  const g = R.newGame();
+  ok(g.soldiers.every(s => !s.callsign), 'starting Level 1 Soldiers have no callsign');
+  const vet = R.makeRecruit((await import('../js/engine/rng.js')).createRng(9), 'assault', 4);
+  ok(!!vet.callsign, 'a Level 4 recruit arrives with a callsign');
+}
+
 console.log(`defense: ${fails ? fails + ' FAILED' : 'all passed'}. Results:`, results);
 if (fails) process.exit(1);
