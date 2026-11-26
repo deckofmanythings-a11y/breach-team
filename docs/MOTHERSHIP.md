@@ -4,7 +4,16 @@ The squad's home ship: rooms and upgrades bought with **CREDs**, shown as a real
 Rarely, that map becomes a battlefield: the Mothership is boarded (or something you brought home
 gets loose) and every Soldier you have defends it.
 
-Status: **M1 (CREDs, Ver. 0.10.0), M2 (rooms, Ver. 0.11.0) and M3 (map, Ver. 0.12.0) are live.** M4 onward is not built yet.
+Status: **M1 (CREDs, Ver. 0.10.0), M2 (rooms, Ver. 0.11.0), M3 (map, Ver. 0.12.0) and M4 (defense engine, Ver. 0.13.0) are done.** M5 onward is not built yet.
+
+**M4 notes (engine v5):** `simulate({ engineVersion: 5, mode: 'defend', seed, threat, power?, rooms, tactic?, squad, mothership? })`. Everything is gated on `mode`, so boarding missions on v5 hash exactly like v4 and old replays are unchanged (the 480-case check still gives 428614502). Data in `js/data/threats.js` (`THREATS`, `DEFENSE`); setup in `js/engine/defense-setup.js` (`stationKey`, also used by the Mothership tab). Result is `success` / `lost` (Bridge held 20 s) / `wipe`; soldier states are only fine/revived/downed. New events: `breach` (room, wave), `nest` (room), `bridgelost`, `repelled`, `survived`. Tests in `test/defense.mjs`. Rules for M5 to decide: which threat and what `power` for a roster (the measured win rates are in CODEX.md: corp ≈ L1-2, pirates ≈ L3-4, marines/outbreak ≈ L5+), the aftermath (`rollAftermath` reads `SHIP_BY_ID[battle.ship]`, which is `'mothership'` here, so it needs a defense path using `threat.tier`), and playback (`mission.js` also expects a real ship).
+
+Changes from the plan while building it:
+- The outbreak's leader is a **Hive Brute**, not the Queen: a Queen that hatches more drones on her own made it unwinnable.
+- The outbreak nest is the **Hangar** (where the cargo came aboard) or the Quarantine Bay. Rolling a living room put the eggs on top of the sleeping squad.
+- One Soldier in four is on **Bridge watch** from the start. Otherwise a fast boarder took the Bridge before the squad had crossed the ship.
+- Defenders hunt **as a group** (the boarding AI's cohesion rule). Moving one at a time meant a well-built ship, with Soldiers spread across more rooms, did worse than a bare one.
+- Teleporter Array and Intel Room have no defense effect yet; Security Post L3 blast doors aren't built.
 
 **M3 notes:** layout in `js/engine/mothership-map.js` (`MS_LAYOUT`, `buildMothershipMap(g)`), drawn by `js/render/ship-view.js` (a static copy of mission playback's map drawing; folding mission.js onto it is a later cleanup). Room furniture is seeded from room + level, so a map is a pure function of the save. The Intel Room's map preview is still to do: it needs a public per-ship map seed in the save, used as `input.mapSeed`. The design decisions are in section 7.
 

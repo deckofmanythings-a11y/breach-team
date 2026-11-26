@@ -4,6 +4,8 @@ import { el, esc, toast, modal, closeModal } from './ui.js';
 import { MS_ROOMS, MS_ROOM_BY_ID, MAX_ROOM_LEVEL, roomLevel, nextRoomPrice, roomEffect, describeEffect, mothershipEffects } from '../data/mothership-rooms.js';
 import { buildMothershipMap } from '../engine/mothership-map.js';
 import { createShipView } from '../render/ship-view.js';
+import { stationKey } from '../engine/defense-setup.js';
+import { DEFENSE } from '../data/threats.js';
 
 let view = null;
 const dropView = () => { if (view) { view.destroy(); view = null; } };
@@ -11,15 +13,11 @@ window.addEventListener('hashchange', dropView);
 
 const pips = (lv) => `<span class="ms-pips">${Array.from({ length: MAX_ROOM_LEVEL }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</span>`;
 
-// Where an idle Soldier hangs out on the map (flavour only).
-function hangout(g, s) {
-  const built = (id) => roomLevel(g, id) > 0;
-  if (s.injuries?.length) return built('med_bay') ? 'med_bay' : 'quarters';
-  if (s.specialty === 'medic' && built('med_bay')) return 'med_bay';
-  if (s.specialty === 'tech') return 'engineering';
-  if (['assault', 'marksman', 'heavy'].includes(s.specialty) && built('training_deck')) return 'training_deck';
-  if (s.specialty === 'breacher' && built('armory')) return 'armory';
-  return 'quarters';
+// Where an idle Soldier is on the map: the same station they defend from if the ship is boarded
+// (every 4th Soldier is on Bridge watch). Fixed rooms count as built.
+function hangout(g, s, i) {
+  if (i % DEFENSE.guardEvery === DEFENSE.guardEvery - 1) return 'bridge';
+  return stationKey((id) => id === 'quarters' || id === 'engineering' || roomLevel(g, id) > 0, s);
 }
 
 export function renderMothership(panel, run) {
@@ -42,7 +40,7 @@ export function renderMothership(panel, run) {
   // The map.
   dropView();
   const stage = wrap.querySelector('#msstage');
-  const soldiers = S.soldiers.filter(s => s.status !== 'mia').map(s => ({ s, room: hangout(S, s) }));
+  const soldiers = S.soldiers.filter(s => s.status !== 'mia').map((s, i) => ({ s, room: hangout(S, s, i) }));
   createShipView(stage, buildMothershipMap(S), {
     faction: 'military', soldiers,
     onTap: (slot) => {

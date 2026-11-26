@@ -26,6 +26,9 @@ import { HAZARDS } from '../data/hazards.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ZERO_BONUSES } from '../data/mothership.js';
 import { ENGINE_VERSION } from '../data/version.js';
+import { buildMothershipMap } from './mothership-map.js';
+import { THREAT_BY_ID, DEFENSE, DEFEND_OBJECTIVE, waveBudget } from '../data/threats.js';
+import { stationRoom, defenseShip, HOME_ENTRY, HOME_RETREAT } from './defense-setup.js';
 
 // Special-effect flags (perks, gear, tactics) the engine actually implements. test/data-check.mjs
 // warns about any flag in the data that isn't listed here, so nothing silently does nothing.
@@ -64,18 +67,27 @@ const ENEMY_AI = {
 };
 
 export function simulate(input) {
-  const ship = shipAt(SHIP_BY_ID[input.ship], input.engineVersion ?? 1);
-  const tactic = TACTIC_BY_ID[input.tactic];
-  const entry = ENTRY_BY_ID[input.entry];
-  const retreatDef = RETREAT_BY_ID[input.retreat];
+  // Mothership defense (v5+): the squad defends its own ship (docs/MOTHERSHIP.md, M4).
+  // input = { engineVersion, mode: 'defend', seed, threat, power?, rooms: {roomId: level}, tactic?, squad, mothership? }
+  const defend = input.mode === 'defend';
+  const threat = defend ? THREAT_BY_ID[input.threat] : null;
+  if (defend && ((input.engineVersion ?? 1) < 5 || !threat)) throw new Error('bad mission input');
+  const ship = defend ? defenseShip(threat) : shipAt(SHIP_BY_ID[input.ship], input.engineVersion ?? 1);
+  const tactic = TACTIC_BY_ID[input.tactic || (defend ? 'balanced' : '')];
+  const entry = defend ? HOME_ENTRY : ENTRY_BY_ID[input.entry];
+  const retreatDef = defend ? HOME_RETREAT : RETREAT_BY_ID[input.retreat];
   const faction = FACTION_BY_ID[ship.faction];
   const mothership = input.mothership || ZERO_BONUSES;
   if (!ship || !tactic || !entry || !retreatDef) throw new Error('bad mission input');
   const msEntry = mothership.entry || {}, msRetreat = mothership.retreat || {};   // Mothership rooms (absent = no change)
-  if (!input.squad?.length || input.squad.length > entryMaxSquad(entry, msEntry)) throw new Error('bad squad size');
+  if (!input.squad?.length || input.squad.length > (defend ? DEFENSE.maxDefenders : entryMaxSquad(entry, msEntry))) throw new Error('bad squad size');
 
   const seed = input.seed >>> 0;
-  const map = generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id, input.engineVersion ?? 1);
+  const map = defend ? buildMothershipMap({ mothership: { rooms: input.rooms || {} } })
+    : generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id, input.engineVersion ?? 1);
+  const power = defend ? Math.max(25, Math.min(400, Math.floor(input.power ?? 100))) : 100;
+  const msRoomOf = (type) => (defend ? map.rooms.find(r => r.type === type) : null);
+  const armoryRoom = msRoomOf('armory'), medBay = msRoomOf('medbay');
   const rng = createRng(hashString('sim:' + seed));
   const V = input.engineVersion ?? 1;      // engine version this mission was fought on (gates v2-only behaviour)
   const noRetreat = !!retreatDef.noRetreat;  // Suicide Squad: never falls back (v4+ only)
@@ -216,7 +228,8 @@ export function simulate(input) {
   // ---------- Squad spawn ----------
   const nonBridge = map.rooms.filter(r => r.id !== map.bridge);
   let spawnRoom;
-  if (entry.spawn === 'airlock') spawnRoom = map.airlock;
+  if (defend) spawnRoom = -1;   // everyone starts at their own station
+  else if (entry.spawn === 'airlock') spawnRoom = map.airlock;
   else if (entry.spawn === 'any_room') {
     let c = []; for (const d of [3, 2, 1]) { if (!c.length) c = nonBridge.filter(r => map.distFromBridge[r.id] === d); } spawnRoom = c[rng.int(c.length)].id;
   } else if (entry.spawn === 'hull') {
@@ -232,6 +245,16 @@ export function simulate(input) {
   const squad = [];
   for (const s of input.squad) {
     const u = soldierUnit(s);
+    if (defend) {
+      // Every 4th Soldier is on Bridge watch; the rest are at their usual stations.
+      u.guard = squad.length % DEFENSE.guardEvery === DEFENSE.guardEvery - 1;
+      const room = u.guard ? map.bridge : stationRoom(map, s), r = map.rooms[room];
+      const pos = freeTileIn(room, true) || freeTileNear(r.cx, r.cy);
+      u.x = pos[0]; u.y = pos[1]; u.busy = DEFENSE.reactTicks; u.hidden = false;
+      squad.push(addUnit(u));
+      ev(0, 'spawn', u.id, 'S', u.kind, u.x, u.y);
+      continue;
+    }
     let room = spawnRoom, late = 0;
     const scramble = entry.id === 'teleport' ? scalePct(entry.scramblePct + ship.scrambleAdd, msEntry.teleportFailPct) : entry.scramblePct + ship.scrambleAdd;
     if ((entry.id === 'teleport' ? scramble : entry.scramblePct) > 0 && rng.roll(scramble)) {
@@ -251,7 +274,27 @@ export function simulate(input) {
 
   // ---------- Enemy spawn ----------
   const enemies = [];
-  {
+  let nest = -1;   // defend, outbreak: the room the parasites hatch from
+  if (defend) {
+    // The Mothership's own turrets fight for the squad.
+    for (const f of map.features) if (f.kind === 'turret' && f.active && occ[idx(f.x, f.y)] < 0) {
+      const tr = enemyUnit('sys_turret', f.x, f.y, { side: 'S' }); ev(0, 'spawn', tr.id, 'S', tr.kind, tr.x, tr.y);
+    }
+    if (threat.kind === 'outbreak') {
+      // It hatches where the cargo came aboard (the Hangar), or in the Quarantine Bay if there is one
+      // (sealed: its door takes far longer to force).
+      const q = map.rooms.find(r => r.key === 'quarantine');
+      nest = q ? q.id : map.airlock;
+      if (q) for (const d of map.doors) if (d.a === nest || d.b === nest) {
+        d.locked = true; d.forceTicks = FORCE_DOOR_TICKS * (1 + q.level * DEFENSE.quarantineLockMult);
+      }
+      for (let i = 0; i < (threat.eggs || 0); i++) {
+        const p = freeTileIn(nest); if (!p) break;
+        map.features.push({ kind: 'eggs', x: p[0], y: p[1], room: nest });
+      }
+      ev(0, 'nest', nest);
+    }
+  } else {
     const lp = freeTileNear(map.console[0], map.console[1]);
     enemies.push(enemyUnit(ship.leader, lp[0], lp[1]));
     let budget = noRetreat ? Math.floor((ship.crewBudget * SUICIDE_SQUAD.crewPct) / 100) : ship.crewBudget;
@@ -281,8 +324,9 @@ export function simulate(input) {
   if (entry.stunTicks) for (const e of enemies) if (map.roomAt[idx(e.x, e.y)] === spawnRoom) e.stunUntil = entry.setupTicks + entry.stunTicks;
 
   // ---------- Objectives ----------
-  const objectives = [{ id: 'take_bridge', def: OBJECTIVES.take_bridge, room: map.bridge, x: map.console[0], y: map.console[1], progress: 0, done: false }];
-  {
+  const objectives = [defend ? { id: 'defend_bridge', def: DEFEND_OBJECTIVE, room: map.bridge, x: map.console[0], y: map.console[1], progress: 0, done: false }
+    : { id: 'take_bridge', def: OBJECTIVES.take_bridge, room: map.bridge, x: map.console[0], y: map.console[1], progress: 0, done: false }];
+  if (!defend) {
     const avail = ship.optional.filter(o => map.rooms.some(r => r.type === OBJECTIVES[o].room));
     const n = Math.min(avail.length, rng.roll(50) ? 2 : 1);
     for (let i = 0; i < n; i++) {
@@ -293,8 +337,8 @@ export function simulate(input) {
       const p = def.kind === 'leaderDown' ? [room.cx, room.cy] : (freeTileIn(room.id) || [room.cx, room.cy]);
       objectives.push({ id, def, room: room.id, x: p[0], y: p[1], progress: 0, done: false, worker: -1 });
     }
-    for (const o of objectives) ev(0, 'objective', o.id, o.room, o.x, o.y);
   }
+  for (const o of objectives) ev(0, 'objective', o.id, o.room, o.x, o.y);
   const captureActive = objectives.some(o => o.id === 'capture_leader');
 
   // ---------- Hazards ----------
@@ -304,7 +348,8 @@ export function simulate(input) {
 
   // ---------- Alarm ----------
   // Suicide Squad: the crew knows the boarders can't leave and throws everything at them.
-  let alarm = [0, ALARM_1, ALARM_2][noRetreat ? Math.max(entry.alarmStart, SUICIDE_SQUAD.alarmStart) : entry.alarmStart];
+  // Defense: the ship's own alarm is already screaming and every attacker knows where it's going.
+  let alarm = defend ? ALARM_2 : [0, ALARM_1, ALARM_2][noRetreat ? Math.max(entry.alarmStart, SUICIDE_SQUAD.alarmStart) : entry.alarmStart];
   let alarmLevel = alarm >= ALARM_2 ? 2 : alarm >= ALARM_1 ? 1 : 0;
   let alarm2At = alarmLevel === 2 ? 0 : -1;
   if (noRetreat && alarmLevel === 2) for (const e of units) if (e.side === 'E') e.alerted = true;
@@ -476,6 +521,7 @@ export function simulate(input) {
     if (u.stimUntil > t) dmgPct += STIM.dmgPct;
     if (u.flags.meleeMaster && w.melee) dmgPct += 25;
     if (u.flags.doorwayBonus && nearDoorGrid[idx(tg.x, tg.y)]) dmgPct += 10;
+    if (armoryRoom && u.side === 'S' && map.roomAt[idx(u.x, u.y)] === armoryRoom.id) dmgPct += DEFENSE.armoryDmgPct * armoryRoom.level;
     const bladeThroughShield = w.melee && tg.flags.slowBladeWeak;   // the slow blade penetrates the shield
     const crit = rng.roll(critChance(u.st.aim, w.crit, u.m.critPct || 0)) || (u.flags.stealthCrit && wasHidden);
     let d = applyDamage({ raw, dmgPct, vsPct: vs, crit, critDmgPct: u.m.critDmgPct || 0, targetArm: bladeThroughShield ? 0 : tg.st.arm, pierce: (w.pierce || 0) + (u.m.pierce || 0),
@@ -564,7 +610,7 @@ export function simulate(input) {
     if (di >= 0) {
       const d = map.doors[di];
       if (!d.open) {
-        if (d.locked && u.side === 'S') return workDoor(u, d);
+        if (d.locked && (u.side === 'S' || defend)) return workDoor(u, d);
         d.open = true; d.locked = false; u.busy = t + OPEN_DOOR_TICKS; ev(t, 'door', d.id, 'open', u.id);
         return true;
       }
@@ -585,7 +631,7 @@ export function simulate(input) {
     } else if (u.ability === 'hack' && t >= u.cd) {
       ticks = Math.max(8, Math.floor((ABILITIES.hack.power.hackTicks * 100) / (100 + (u.m.hackSpeedPct || 0) + (u.st.tech >> 1)))); kind = 'hack';
       u.cd = cdFor(u, 'hack');
-    } else { ticks = FORCE_DOOR_TICKS; kind = 'force'; }
+    } else { ticks = d.forceTicks || FORCE_DOOR_TICKS; kind = 'force'; }
     d.workBy = u.id;
     u.task = { kind: 'door', door: d.id, how: kind, until: t + ticks };
     u.busy = t + ticks;
@@ -646,7 +692,7 @@ export function simulate(input) {
   const visited = new Set([spawnRoom]);
   let lootCrates = 0;
   function onEnter(u) {
-    if (u.side !== 'S') return;
+    if (u.side !== 'S' || defend) return;
     const r = map.roomAt[idx(u.x, u.y)];
     if (r >= 0 && !visited.has(r)) {
       visited.add(r);
@@ -827,7 +873,45 @@ export function simulate(input) {
         if (stepAlong(u, f)) return;
       }
     }
+    if (defend) return defendMove(u);
     advance(u);
+  }
+
+  // Defense: guards hold the Bridge; everyone else heads for the nearest known attacker.
+  let threatF = null, threatAt = -1;
+  function threatField() {
+    if (threatF && t < threatAt) return threatF;
+    threatAt = t + 8;
+    const f = threatF = new Int32Array(W * map.h).fill(-1), q = [];
+    for (const e of units) if (e.side === 'E' && isTargetable(e) && !e.hidden) { const k = idx(e.x, e.y); if (f[k] < 0) { f[k] = 0; q.push(k); } }
+    let qi = 0;
+    while (qi < q.length) {
+      const c = q[qi++], cx = c % W, cy = (c - cx) / W;
+      for (const [ddx, ddy] of DIRS) {
+        const nx = cx + ddx, ny = cy + ddy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= map.h) continue;
+        const n = idx(nx, ny);
+        if (f[n] >= 0 || !passable(nx, ny)) continue;
+        if (ddx && ddy && (!passable(cx + ddx, cy) || !passable(cx, cy + ddy))) continue;
+        f[n] = f[c] + 1; q.push(n);
+      }
+    }
+    return f;
+  }
+  function defendMove(u) {
+    if (u.guard) {
+      const f = consoleField();
+      if (map.roomAt[idx(u.x, u.y)] === map.bridge && f[idx(u.x, u.y)] <= 3) { u.busy = t + 4; return; }
+      if (!stepAlong(u, f)) u.busy = t + 4;
+      return;
+    }
+    const f = threatField(), d = f[idx(u.x, u.y)];
+    // Move up as a group: don't get more than COHESION steps ahead of the rearmost hunter.
+    let rear = 0;
+    for (const v of squad) if (v.state === 'active' && v !== u && !v.guard) rear = Math.max(rear, f[idx(v.x, v.y)]);
+    if (rear > 0 && d < rear - COHESION) { u.busy = t + 4; return; }
+    if (d > 0 && stepAlong(u, f)) return;
+    u.busy = t + 4;
   }
 
   function advance(u) {
@@ -844,7 +928,7 @@ export function simulate(input) {
 
   function revive(u, v) {
     u.cd = cdFor(u, 'patch_up');
-    const chance = Math.min(95, ABILITIES.patch_up.power.revive + (u.m.reviveChance || 0) + Math.floor(u.st.tech / 5));
+    const chance = Math.min(95, ABILITIES.patch_up.power.revive + (u.m.reviveChance || 0) + Math.floor(u.st.tech / 5) + (medBay ? DEFENSE.medBayRevivePct * medBay.level : 0));
     u.busy = t + 15;
     if (rng.roll(chance)) {
       v.tally.ticksDown += t - v.downAt; v.state = 'active'; v.revived = true;
@@ -919,10 +1003,11 @@ export function simulate(input) {
       if (rng.roll(prof.coverUse) && seekCover(e, tg, prof.stayInRoom)) return;
       const pref = Math.max(1, Math.floor((e.w.range * prof.rangePct) / 100));
       if (!prof.stayInRoom && dist > pref && rng.roll(prof.aggression) && stepAlong(e, field(tg.x, tg.y))) return;
-      if (dist > e.w.range + 6) { e.busy = t + 5; return; }
+      if (dist > e.w.range + 6) { if (defend && stepAlong(e, consoleField())) return; e.busy = t + 5; return; }
       return shoot(e, tg);
     }
     // Nothing visible.
+    if (defend) { if (!stepAlong(e, consoleField())) e.busy = t + 5; return; }   // boarders push for the Bridge
     if (e.ai === 'hunter') {
       // Always stalks the nearest Soldier (re-aims every 20 ticks).
       if (!e.huntTile || t >= e.huntT) {
@@ -1043,8 +1128,35 @@ export function simulate(input) {
 
   // Mission clock (v4): runs only while nobody is on the bridge; Grit can push it past 90 s.
   // Suicide Squad: no pause, no digging in, just the 3-minute hard limit.
-  let clock = 0, clockLimit = noRetreat ? SUICIDE_SQUAD.timeLimit : RETREAT_AT_TICK, clockPaused = false, pushes = 0;
-  if (noRetreat) ev(0, 'clock', 0, 0, clockLimit);
+  let clock = 0, clockLimit = defend ? DEFENSE.timeLimit : noRetreat ? SUICIDE_SQUAD.timeLimit : RETREAT_AT_TICK, clockPaused = false, pushes = 0;
+  if (noRetreat || defend) ev(0, 'clock', 0, 0, clockLimit);
+
+  // Defense waves: boarders breach the Hangar first, then the hull (any built side room);
+  // an outbreak hatches every wave from its nest. The leader comes with the last wave.
+  let waveIdx = 0;
+  const breachRooms = defend ? map.rooms.filter(r => r.outer && r.id !== map.airlock && r.id !== map.bridge) : [];
+  const waveAt = (w) => (threat.firstWaveAt ?? DEFENSE.firstWaveAt) + w * DEFENSE.waveEvery;
+  function spawnWave() {
+    const w = waveIdx++;
+    const room = threat.kind === 'outbreak' ? nest : w % 2 === 0 || !breachRooms.length ? map.airlock : breachRooms[rng.int(breachRooms.length)].id;
+    ev(t, 'breach', room, w + 1);
+    const weights = Object.entries(ship.unitWeights);
+    let total = 0; for (const [, x] of weights) total += x;
+    const cheapest = Math.min(...weights.map(([id]) => UNIT_BY_ID[id].cost));
+    const list = w === DEFENSE.waves - 1 && ship.leader ? [ship.leader] : [];
+    let budget = waveBudget(w, squad.length, Math.floor((power * (threat.powerPct ?? 100)) / 100));
+    for (let g = 0; g < 60 && budget >= cheapest; g++) {
+      let r = rng.int(total), pick = weights[0][0];
+      for (const [id, x] of weights) { if (r < x) { pick = id; break; } r -= x; }
+      if (UNIT_BY_ID[pick].cost > budget) continue;
+      budget -= UNIT_BY_ID[pick].cost; list.push(pick);
+    }
+    const rm = map.rooms[room];
+    for (const id of list) {
+      const p = freeTileIn(room) || freeTileNear(rm.cx, rm.cy); if (!p) break;
+      const e = enemyUnit(id, p[0], p[1], { alerted: true, hidden: false }); ev(t, 'spawn', e.id, 'E', e.kind, e.x, e.y);
+    }
+  }
   const hardEnd = () => (V < 4 ? HARD_END_TICK : retreat.on ? Math.max(HARD_END_TICK, retreat.at + CLOCK.extractTicks) : CLOCK.absEnd);
   const seenEnemies = () => units.filter(e => e.side === 'E' && isTargetable(e) && !e.hidden && squad.some(s => {
     if (s.state !== 'active') return false;
@@ -1078,6 +1190,7 @@ export function simulate(input) {
         if (shell) ev(t, 'possessed', s.id, shell.id);
       }
     }
+    if (defend && waveIdx < DEFENSE.waves && t === waveAt(waveIdx)) spawnWave();
     // Reinforcements.
     const rf = noRetreat ? ssReinforce : ship.reinforce;
     if (alarm2At >= 0 && wave < rf.waves && !reinforcementsCut) {
@@ -1122,7 +1235,7 @@ export function simulate(input) {
     }
 
     // Objective: hold the bridge.
-    if (!retreat.on && !result) {
+    if (!defend && !retreat.on && !result) {
       const inBridge = squad.some(s => s.state === 'active' && map.roomAt[idx(s.x, s.y)] === map.bridge);
       const defenders = units.some(e => e.side === 'E' && isTargetable(e) && map.roomAt[idx(e.x, e.y)] === map.bridge);
       if (inBridge && !defenders) {
@@ -1136,7 +1249,19 @@ export function simulate(input) {
     // Retreat trigger.
     const casualties = squad.filter(s => s.state === 'down').length;
     const activeCount = squad.filter(s => s.state === 'active').length;
-    if (noRetreat) {
+    if (defend) {
+      // Inverted: attackers holding the Bridge with no Soldier on it count down to losing the ship.
+      const inBridgeS = squad.some(s => s.state === 'active' && map.roomAt[idx(s.x, s.y)] === map.bridge);
+      const inBridgeE = units.some(e => e.side === 'E' && isTargetable(e) && map.roomAt[idx(e.x, e.y)] === map.bridge);
+      if (inBridgeE && !inBridgeS) {
+        bridgeObj.progress++;
+        if (bridgeObj.progress % 10 === 0) ev(t, 'hold', bridgeObj.progress, bridgeObj.def.ticks);
+        if (bridgeObj.progress >= bridgeObj.def.ticks) { result = 'lost'; ev(t, 'bridgelost'); break; }
+      }
+      if (activeCount === 0) { result = 'wipe'; ev(t, 'overrun', 'down'); break; }
+      if (waveIdx >= DEFENSE.waves && !units.some(e => e.side === 'E' && isTargetable(e))) { result = 'success'; bridgeObj.done = true; ev(t, 'repelled'); break; }
+      if (++clock >= clockLimit) { result = 'success'; bridgeObj.done = true; ev(t, 'survived'); break; }
+    } else if (noRetreat) {
       // Fight to the last: the mission ends when nobody is left standing or the hard limit hits.
       if (activeCount === 0) { ev(t, 'overrun', 'down'); break; }
       if (++clock >= clockLimit) { ev(t, 'overrun', 'time'); break; }
@@ -1179,7 +1304,7 @@ export function simulate(input) {
   // ---------- Outcome ----------
   const soldiers = squad.map(s => {
     let state;
-    if (result === 'success' && (s.state === 'active' || s.state === 'down')) {
+    if ((result === 'success' || defend) && (s.state === 'active' || s.state === 'down')) {   // a defense is fought at home: nobody is left behind
       if (s.state === 'down') s.tally.ticksDown += endT - s.downAt;
       state = s.state === 'down' ? 'downed' : (s.revived ? 'revived' : 'fine');
     } else if (s.state === 'out') {
@@ -1198,6 +1323,7 @@ export function simulate(input) {
   const out = {
     engineVersion: ENGINE_VERSION, seed, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: retreatDef.id,
     result, ticks: endT, clockLeft: V >= 4 ? Math.max(0, clockLimit - clock) : Math.max(0, RETREAT_AT_TICK - endT), retreatReason: retreat.reason, retreatAt: retreat.at,
+    ...(defend ? { mode: 'defend', threat: threat.id, power, rooms: { ...(input.rooms || {}) }, breaches: waveIdx } : {}),
     soldiers, objectives: objectives.map(o => ({ id: o.id, done: o.done })),
     progressPct, lootCrates, alarmLevel, reinforcementWaves: wave,
     enemies: { total: units.filter(u => u.side === 'E' || u.turret).length, killed: units.filter(u => u.state === 'dead').length },

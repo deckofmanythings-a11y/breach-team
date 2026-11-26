@@ -244,6 +244,14 @@ Coming later: Intel Room, Security Post, Quarantine Bay.
 
 The tab shows the Mothership as a map: Hangar at the stern, a spine corridor down the middle, the Bridge at the bow, and five room slots on each side. Tap a room (or an empty slot marked with a +) to build or upgrade it. Upgraded rooms get more furniture and cover, which will matter when the Mothership itself is boarded.
 
+**Defending the Mothership (engine v5; the battles exist but nothing triggers them yet).** Every Soldier on board fights. Every fourth Soldier (by roster order) starts on **Bridge watch** and holds the Bridge; the rest start at their station (the same room the map shows them in) and, after 2 s to grab their weapons, move as a group toward the nearest attacker. Mothership turrets (one on the Bridge, the Security Post's 1/2/3, the Armory's from level 2) fight for the squad.
+
+- **Attackers** come in 3 waves (0:03, 0:33 and 1:03). Boarders breach the Hangar first, then a random side room on the hull, then the Hangar again; their leader comes with the last wave. Each wave's size is 2/2/3 crew points per defending Soldier, scaled by the threat's power.
+- **Threats:** Corporate repo team (tier 1, 80% power), Pirate boarding party (tier 2, 130%), Fleet Marine strike team (tier 3, 85%) and Parasite outbreak (tier 3, 75%). The outbreak hatches in the Hangar, or in the Quarantine Bay if one is built (its door is sealed and takes far longer to force). It brings 3 egg pods, and a Soldier left Down for 12.5 s rises possessed.
+- **Win** by killing every wave, or by holding out for 3:00. **Lose** if attackers stand on the Bridge with no Soldier there for a total of 20 s, or if every Soldier is Down. Nobody is left behind at home: Downed Soldiers roll death rolls as normal.
+- **Rooms in the fight:** Armory +5% damage per level for Soldiers fighting inside it; Med Bay +5% Medic revive chance per level; Chapel Grit applies as usual; more cover and furniture with each level.
+- **Measured** (6 Soldiers, 40 runs each; win % on a bare ship / a fully built one): repo team at Level 1, 98% / 100%; pirates at Level 3, 95% / 100%; marines at Level 5, 70% / 88%; outbreak at Level 5, 83% / 100%. Four-Soldier rosters do noticeably worse.
+
 ### Booster packs
 
 | Pack | Price | Contents |

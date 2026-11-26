@@ -13,7 +13,7 @@ import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { memorialBadges } from './memorial-badge.js';
 import { shownCreds, backfillNotice } from './creds-view.js';
-import { renderMothership } from './mothership-view.js?v=2';
+import { renderMothership } from './mothership-view.js?v=3';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
@@ -31,7 +31,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.12.0';
+export const APP_VERSION = '0.13.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');

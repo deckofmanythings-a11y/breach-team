@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.13.0', date: '2026-11-26', items: [
+    "Engine v5: the groundwork for defending the Mothership if it's ever boarded. Boarding missions play exactly as before.",
+    "On the Mothership map, every fourth Soldier now stands Bridge watch, and everyone else waits at the station they'd fight from.",
+  ] },
   { v: '0.12.0', date: '2026-11-25', items: [
     "The Mothership tab now shows your ship as a map. Tap any room to build or upgrade it; empty slots are sealed hull sections marked with a +.",
     "Rooms fill in as you build them, and upgrades add furniture (more cover, consoles, an Armory turret at level 2). Your Soldiers hang around the ship: the injured in the Med Bay, Medics there too, fighters on the Training Deck.",
