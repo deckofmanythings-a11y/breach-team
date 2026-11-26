@@ -89,4 +89,4 @@ Starship boarding-party autobattler. Player manages a stable of Soldiers, picks 
 6. Art pass: Sprite Forge soldiers + faction sprites + tiles + FX.
 7. Content: alien ships/hazards, more classes, secret ships, easter eggs.
 8. Ladder: Weekly Contract + Career, replay viewer.
-9. Mothership.
+9. Mothership: see docs/MOTHERSHIP.md.
