@@ -12,6 +12,7 @@ import { SPECIALTIES, SPECIALTY_BY_ID } from '../data/specialties.js';
 import { ITEMS, ITEM_BY_ID, ROLLABLE_ITEMS, SLOTS, RARITY_ORDER, RARITY_BY_ID } from '../data/gear.js';
 import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '../data/injuries.js';
 import { MIA_RETURN_MIN, ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
+import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { SHIP_BY_ID } from '../data/ships.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
@@ -321,6 +322,8 @@ export function runMission(g, plan, now = Date.now()) {
   if (ids.length > entry.maxSquad) fail(`${entry.name} carries at most ${entry.maxSquad}.`);
   const squad = ids.map(id => getSoldier(g, id));
   for (const s of squad) if (!canDeploy(s)) fail(`${s.name} isn't fit to deploy.`);
+  if (isSuicideSquad(plan.retreat) && ship.tier < SUICIDE_SQUAD.minTier) fail(`The ${ship.name} isn't worth a Suicide Squad. Pick a ${'★'.repeat(SUICIDE_SQUAD.minTier)} ship or better.`);
+  if (isSuicideSquad(plan.retreat)) for (const s of squad) if (s.level < SUICIDE_SQUAD.minLevel) fail(`Only Level ${SUICIDE_SQUAD.minLevel}+ Soldiers can join a Suicide Squad (${s.name} is Level ${s.level}).`);
   // Once in a while the contact turns out to be something else entirely.
   let target = ship, planned = null;
   if (!contract && (g.missions || 0) >= MIN_MISSIONS_FOR_SECRET && createRng(randomSeed()).roll(SECRET_CHANCE)) {
@@ -359,7 +362,7 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
       if (lost) { const ids = Object.values(s.gear); g.items = g.items.filter(it => !ids.includes(it.uid)); }
       else dropBuiltins(g, s);
       line.medals = awardMedals(s);      // posthumous
-      const how = lost ? `Left aboard the ${shipName} during the retreat` : `Went Down on the ${shipName} and didn't make it (${a.kiaChance}% death roll)`;
+      const how = lost && isSuicideSquad(input.retreat) ? `Fell with the Suicide Squad aboard the ${shipName}` : lost ? `Left aboard the ${shipName} during the retreat` : `Went Down on the ${shipName} and didn't make it (${a.kiaChance}% death roll)`;
       g.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: shipName, diedHow: how, diedResult: battle.result, gearLost: lost });
       g.soldiers = g.soldiers.filter(x => x !== s);
       line.gearLost = lost;

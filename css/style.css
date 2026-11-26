@@ -32,6 +32,8 @@ h2 { font-size: 26px; } h3 { font-size: 18px; color: var(--accent2); }
 .card.click { cursor: pointer; } .card.click:hover { border-color: var(--accent2); }
 .card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .card.off { opacity: .5; }
+.card.suicide { border-color: #5a1f1f; background: #1a1012; } .card.suicide.sel { border-color: #e8483b; box-shadow: 0 0 0 1px #e8483b inset; }
+button.primary.danger { background: #b3261e; border-color: #e8483b; color: #fff; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .bar { height: 6px; background: #0d141c; border-radius: 3px; overflow: hidden; } .bar > i { display: block; height: 100%; background: var(--accent2); }

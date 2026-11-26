@@ -9,7 +9,7 @@ const N = +(process.argv[2] || 150);
 const TACTIC = process.argv[3] || 'balanced';
 console.log('tactic: ' + TACTIC);
 console.log('ship      retreat          fails  out/fail  left/fail  mia/fail  KIA/fail  avg retreat s');
-for (const ship of ['hauler', 'raider', 'corvette']) for (const r of RETREATS) {
+for (const ship of ['hauler', 'raider', 'corvette']) for (const r of RETREATS.filter(x => !x.noRetreat)) {
   let fails = 0, out = 0, left = 0, mia = 0, kia = 0, rt = 0;
   for (let i = 0; i < N; i++) {
     const level = { hauler: 1, raider: 5, corvette: 9 }[ship];

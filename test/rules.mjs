@@ -319,5 +319,47 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(blitzTimeBonus(ship, { ...base, engineVersion: 3 }).bucs === 0, 'not on old-engine missions');
 }
 
+// ---- Suicide Squad ----
+{
+  const { rollAftermath } = await import('../js/engine/aftermath.js');
+  const { makeSquad } = await import('./fixtures.mjs');
+  const { successReward } = await import('../js/data/economy.js');
+  const { OBJECTIVES } = await import('../js/data/ships.js');
+  const { SUICIDE_SQUAD } = await import('../js/data/suicide-squad.js');
+  const SQ = ['assault', 'breacher', 'marksman', 'medic'];
+  let wins = 0, losses = 0, retreats = 0, badPay = 0, survivedLoss = 0;
+  for (let i = 0; i < 40; i++) {
+    const squad = makeSquad(i * 5 + 3, SQ, 5, 'milspec');
+    const b = simulate({ engineVersion: ENGINE_VERSION, seed: 4242 + i * 7919, ship: 'corvette', entry: 'shuttle', tactic: 'balanced', retreat: 'suicide_squad', squad });
+    const a = rollAftermath(b, squad);
+    if (b.events.some(e => e[1] === 'retreat') || b.result === 'retreat') retreats++;
+    if (b.result === 'success') {
+      wins++;
+      const bonus = b.objectives.filter(o => o.done && OBJECTIVES[o.id].bonusPct).map(o => OBJECTIVES[o.id].bonusPct);
+      if (a.bucs !== Math.floor((successReward(SHIP_BY_ID.corvette, bonus, b.lootCrates) * SUICIDE_SQUAD.rewardPct) / 100)) badPay++;
+    } else {
+      losses++;
+      if (a.bucs !== 0 || a.soldiers.some(s => s.fate !== 'kia')) survivedLoss++;
+    }
+  }
+  ok(retreats === 0, 'a Suicide Squad never retreats');
+  ok(wins > 0 && losses > 0, `a Suicide Squad can win and lose on a Corvette (${wins} won, ${losses} lost)`);
+  ok(badPay === 0, `a win pays ${SUICIDE_SQUAD.rewardPct}% of the normal reward`);
+  ok(survivedLoss === 0, 'a lost Suicide Squad dies to the last Soldier and pays nothing');
+  const s = makeSquad(1, SQ, 6, 'milspec');
+  let threw = false;
+  try { simulate({ engineVersion: 3, seed: 1, ship: 'raider', entry: 'shuttle', tactic: 'steady', retreat: 'suicide_squad', squad: s }); } catch { threw = true; }
+  ok(threw, 'Suicide Squad needs engine v4');
+  // Server rules: level gate and tier gate.
+  const t = R.newGame();
+  throws(() => R.runMission(t, { ship: 'raider', entry: 'shuttle', tactic: 'balanced', retreat: 'suicide_squad', squad: t.soldiers.map(x => x.uid) }), 'Level 1 Soldiers cannot join a Suicide Squad');
+  for (const x of t.soldiers) { x.level = 5; x.xp = 2000; }
+  throws(() => R.runMission(t, { ship: 'hauler', entry: 'shuttle', tactic: 'balanced', retreat: 'suicide_squad', squad: t.soldiers.map(x => x.uid) }), 'no Suicide Squad on a tier-1 ship');
+  const before = t.items.length;
+  const out = R.runMission(t, { ship: 'raider', entry: 'shuttle', tactic: 'balanced', retreat: 'suicide_squad', squad: t.soldiers.map(x => x.uid) });
+  ok(out.battle.result !== 'retreat', 'a Level 5 Suicide Squad deploys');
+  if (out.battle.result === 'wipe') ok(out.report.soldiers.every(l => l.fate === 'kia' && l.gearLost) && t.items.length < before, 'a lost squad takes its gear with it');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

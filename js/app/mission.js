@@ -11,6 +11,7 @@ import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { OBJECTIVES, SHIP_BY_ID } from '../data/ships.js';
 import { ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
+import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { STAT_INFO } from '../data/stats.js';
 import { soldierToken, unitToken, FACTION_RING, loadImage, floorSrc } from '../render/tokens.js';
@@ -43,7 +44,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const faction = FACTION_BY_ID[ship.faction];
   const wrap = el(`<div class="mission">
     <div class="stage" id="stage"><div class="hudtop">
-      <div>${report.secret ? '<b class="bad">UNKNOWN CONTACT</b> · ' : ''}<b>${esc(ship.name)}</b> · ${ENTRY_BY_ID[battle.entry].name} · ${TACTIC_BY_ID[battle.tactic].name} · <span id="clock">0:00</span> · <span id="mclock" title="Mission clock. Pauses while a Soldier is on the bridge. When it runs out, a winning squad can dig in on Grit for more time.">⏱ 1:30</span> · Alarm <b id="alarm" class="alarm0">CALM</b><span id="hold"></span><span id="grav"></span></div>
+      <div>${report.secret ? '<b class="bad">UNKNOWN CONTACT</b> · ' : ''}<b>${esc(ship.name)}</b> · ${ENTRY_BY_ID[battle.entry].name} · ${TACTIC_BY_ID[battle.tactic].name}${isSuicideSquad(battle.retreat) ? ' · <b class="bad" title="Suicide Squad: no retreat. If the mission fails, the whole squad dies.">☠ NO RETREAT</b>' : ''} · <span id="clock">0:00</span> · <span id="mclock" title="Mission clock. Pauses while a Soldier is on the bridge. When it runs out, a winning squad can dig in on Grit for more time.">⏱ 1:30</span> · Alarm <b id="alarm" class="alarm0">CALM</b><span id="hold"></span><span id="grav"></span></div>
       <div class="row"><button data-sp="1">1×</button><button data-sp="2">2×</button><button data-sp="4">4×</button><button id="skip">Skip ▶▶</button></div>
     </div></div>
     <div class="side"><div class="card squadhud" id="squad"></div><div class="feed" id="feed"></div></div>
@@ -210,7 +211,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const hazards = [];    // {room, kind, until}
   for (const r of map.rooms) if (r.hazard) hazards.push({ room: r.id, kind: r.hazard, until: 1e9 });
   const fx = [];
-  let alarm = 0, hold = 0, holdNeed = OBJECTIVES.take_bridge.ticks, tick = 0, ei = 0, speed = 1, done = false;
+  let alarm = isSuicideSquad(battle.retreat) ? SUICIDE_SQUAD.alarmStart : ENTRY_BY_ID[battle.entry].alarmStart, hold = 0, holdNeed = OBJECTIVES.take_bridge.ticks, tick = 0, ei = 0, speed = 1, done = false;
   // Mission clock: counts down from 90 s, paused while a Soldier is on the bridge (engine v4 'clock' events).
   let mcBase = 0, mcAt = 0, mcPaused = false, mcLimit = RETREAT_AT_TICK, mcOff = false;
   const colorsByUnit = {}, sexByUnit = {};
@@ -303,6 +304,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
       case 'clock': mcPaused = !!e[2]; mcBase = e[3]; mcAt = t; mcLimit = e[4]; break;
       case 'pushon': mcLimit = e[4]; mcBase = e[5]; mcAt = t; say(t, `💪 <b>The squad digs in</b>: +15 s on the clock (Grit check ${e[3]}%)`, 'good'); break;
       case 'pushfail': mcOff = true; say(t, e[3] ? (e[2] ? `Time's up. The squad tries to dig in, but fails the Grit check (${e[2]}%)` : "Time's up, and the squad has already dug in as long as it can") : "Time's up, and the squad isn't winning this fight: no chance to dig in", 'warn'); break;
+      case 'overrun': mcOff = true; say(t, e[2] === 'time' ? '☠ <b>Out of time.</b> The Suicide Squad is overrun.' : '☠ <b>Nobody is left standing.</b> There is no retreat for a Suicide Squad.', 'bad'); break;
       case 'retreat': mcOff = true; say(t, `<b>RETREAT</b> (${e[2] === 'time' ? 'out of time' : 'too many casualties'}): ${RETREAT_BY_ID[e[3]].name}`, 'warn'); break;
       case 'misfire': say(t, e[3] === 'lost' ? `Teleport lock lost on <b>${name(e[2])}</b>!` : `Teleport misfire: ${name(e[2])} is delayed`, 'bad'); break;
       case 'rearguard': say(t, `<b>${name(e[2])}</b> stays behind as rear guard`, 'warn'); break;
@@ -493,7 +495,7 @@ function showReport(panel, battle, report, isReplay) {
   if (report.soldiers?.some(s => s.levelUps?.length)) setTimeout(() => sfx.levelUp(), 1300);
   const title = { success: 'SHIP TAKEN', retreat: 'RETREAT', wipe: 'SQUAD LOST' }[battle.result];
   const fateTxt = (s) => {
-    if (s.fate === 'kia') return `<span class="bad"><b>KILLED IN ACTION</b></span>${s.state === 'left' ? ' (left aboard, gear lost)' : ''}${s.kiaChance ? ` <span class="dim small">${s.kiaChance}% chance</span>` : ''}`;
+    if (s.fate === 'kia') return `<span class="bad"><b>KILLED IN ACTION</b></span>${s.state === 'left' ? (isSuicideSquad(battle.retreat) ? ' (fell with the squad, gear lost)' : ' (left aboard, gear lost)') : ''}${s.kiaChance ? ` <span class="dim small">${s.kiaChance}% chance</span>` : ''}`;
     if (s.fate === 'mia') return '<span class="warn"><b>MISSING</b></span> <span class="small dim">back in 30 min</span>';
     const state = { fine: 'Made it out', revived: 'Went down, revived in the field', downed: 'Carried out Downed', left: 'Left aboard, escaped', mia: 'Missing' }[s.state];
     return `${state}${s.state === 'downed' && s.kiaChance ? ` <span class="dim small">(survived a ${s.kiaChance}% death roll)</span>` : ''}`;
@@ -503,6 +505,7 @@ function showReport(panel, battle, report, isReplay) {
     <div class="dim">${esc(report.shipName)} · ${(battle.ticks / TICKS_PER_SEC).toFixed(0)} s · ${battle.enemies.killed} enemies killed${battle.objectives.filter(o => o.done && o.id !== 'take_bridge').map(o => ' · ✔ ' + OBJECTIVES[o.id].name).join('')}</div>
     <div style="font:700 26px Rajdhani;margin:10px 0">+${report.bucs} BUCs</div>
     ${report.timeBonus?.bucs ? `<div class="small good" style="margin:-6px 0 8px">Includes a Blitz time bonus: +${report.timeBonus.bucs} BUCs for ${Math.floor(report.timeBonus.secs / 60)}:${String(report.timeBonus.secs % 60).padStart(2, '0')} left on the clock</div>` : ''}
+    ${isSuicideSquad(battle.retreat) && battle.result === 'success' ? `<div class="small good" style="margin:-6px 0 8px">☠ Suicide Squad pay: ${SUICIDE_SQUAD.rewardPct}% of the normal reward</div>` : ''}
     ${report.gameOver ? '<div class="banner bad"><b>No Soldiers left.</b> This was your commander&rsquo;s last mission.</div>' : ''}
     ${report.contract ? `<div class="banner info">Contract score: <b>${report.contract.score}</b>. Check the Ladder to see where it ranks.</div>` : ''}
     <table class="rep"><tr><th>Soldier</th><th>Outcome</th><th>Injuries</th><th>XP</th></tr>

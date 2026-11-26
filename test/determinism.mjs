@@ -11,12 +11,15 @@ const SPECS = ['assault', 'breacher', 'marksman', 'medic', 'tech', 'heavy', 'inf
 const cases = [];
 let n = 0;
 for (const ship of SHIPS) for (const entry of ENTRIES) for (const tactic of TACTICS) {
-  const retreat = RETREATS[n % RETREATS.length];
+  const PLANS = RETREATS.filter(r => !r.noRetreat);   // Suicide Squad needs engine v4: tested below
+  const retreat = PLANS[n % PLANS.length];
   const specs = []; for (let i = 0; i < entry.maxSquad; i++) specs.push(SPECS[(n + i) % SPECS.length]);
   const level = 1 + (n % 10);
   cases.push({ seed: 1000 + n * 7919, ship: ship.id, entry: entry.id, tactic: tactic.id, retreat: retreat.id, squad: makeSquad(n, specs, level, 'milspec') });
   n++;
 }
+// Suicide Squad (v4 only), one per ship.
+for (const ship of SHIPS) { cases.push({ engineVersion: 4, seed: 777 + n * 7919, ship: ship.id, entry: 'shuttle', tactic: 'balanced', retreat: 'suicide_squad', squad: makeSquad(n, ['assault', 'breacher', 'medic', 'heavy'], 6, 'milspec') }); n++; }
 
 const run = (c) => { const b = simulate(c); const a = rollAftermath(b, c.squad); return b.hash + '|' + JSON.stringify(a); };
 const first = cases.map(run);

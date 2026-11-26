@@ -57,6 +57,10 @@ export const RETREATS = [
   { id: 'rear_guard', name: 'Rear Guard',
     desc: 'One volunteer holds the line so the rest get out clean. Brave, and very dangerous for them.',
     exit: 'entry', extractTicks: 5, failPct: 0, carriesDowned: true, rearGuard: true, rearGuardHoldTicks: 120 },
+  // No retreat at all (engine v4+). See suicide-squad.js for the level gate and the reward.
+  { id: 'suicide_squad', name: 'Suicide Squad',
+    desc: 'No retreat. The squad fights until the bridge falls or every last one of them is Down. Lose, and you lose them all, gear included.',
+    exit: 'none', extractTicks: 0, failPct: 0, carriesDowned: false, noRetreat: true },
 ];
 
 export const MIA_RETURN_MIN = 30;  // MIA Soldiers turn up again after this many real minutes

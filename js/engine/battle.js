@@ -18,6 +18,7 @@ import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js'
 import { ITEM_BY_ID, SLOTS } from '../data/gear.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
+import { SUICIDE_SQUAD } from '../data/suicide-squad.js';
 import { FACTION_BY_ID, UNIT_BY_ID } from '../data/factions.js';
 import { SHIP_BY_ID, OBJECTIVES } from '../data/ships.js';
 import { HAZARDS } from '../data/hazards.js';
@@ -75,6 +76,8 @@ export function simulate(input) {
   const map = generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id, input.engineVersion ?? 1);
   const rng = createRng(hashString('sim:' + seed));
   const V = input.engineVersion ?? 1;      // engine version this mission was fought on (gates v2-only behaviour)
+  const noRetreat = !!retreatDef.noRetreat;  // Suicide Squad: never falls back (v4+ only)
+  if (noRetreat && V < 4) throw new Error('bad mission input');
   const DARK_SIGHT = 6, ACID_DMG = 6, EGG_RANGE = 3, POSSESS_TICKS = 100, GRAVITY_EVERY = 120;
   const GRAVITY_CYCLE = ['normal', 'heavy', 'normal', 'zero'];
   const gravityNow = () => (ship.gravity ? GRAVITY_CYCLE[Math.floor(t / GRAVITY_EVERY) % 4] : 'normal');
@@ -248,7 +251,7 @@ export function simulate(input) {
   {
     const lp = freeTileNear(map.console[0], map.console[1]);
     enemies.push(enemyUnit(ship.leader, lp[0], lp[1]));
-    let budget = ship.crewBudget;
+    let budget = noRetreat ? Math.floor((ship.crewBudget * SUICIDE_SQUAD.crewPct) / 100) : ship.crewBudget;
     const weights = Object.entries(ship.unitWeights).filter(([id]) => UNIT_BY_ID[id].cost > 0);
     const cheapest = Math.min(...weights.map(([id]) => UNIT_BY_ID[id].cost));
     const crewRooms = map.rooms.filter(r => r.id !== map.airlock && r.id !== spawnRoom);
@@ -297,9 +300,11 @@ export function simulate(input) {
   if (entry.hazard) hazards.push({ room: spawnRoom, def: HAZARDS[entry.hazard], until: entry.setupTicks + HAZARDS[entry.hazard].ticks });
 
   // ---------- Alarm ----------
-  let alarm = [0, ALARM_1, ALARM_2][entry.alarmStart];
+  // Suicide Squad: the crew knows the boarders can't leave and throws everything at them.
+  let alarm = [0, ALARM_1, ALARM_2][noRetreat ? Math.max(entry.alarmStart, SUICIDE_SQUAD.alarmStart) : entry.alarmStart];
   let alarmLevel = alarm >= ALARM_2 ? 2 : alarm >= ALARM_1 ? 1 : 0;
   let alarm2At = alarmLevel === 2 ? 0 : -1;
+  if (noRetreat && alarmLevel === 2) for (const e of units) if (e.side === 'E') e.alerted = true;
   let huntTile = null, huntRefresh = 0;
   function addAlarm(n, x, y) {
     alarm += n;
@@ -1025,6 +1030,8 @@ export function simulate(input) {
   if (ship.log) ev(0, 'log', ship.log);
 
   // ---------- Main loop ----------
+  const ssReinforce = noRetreat && { ...ship.reinforce, waves: ship.reinforce.waves + SUICIDE_SQUAD.extraWaves,
+    every: ship.reinforce.every || SUICIDE_SQUAD.waveEvery, budget: Math.ceil((ship.reinforce.budget * SUICIDE_SQUAD.reinforcePct) / 100) };
   let result = null;
   const deployed = squad.length;
   const retreatAtCount = Math.max(1, Math.ceil((deployed * tactic.retreatAt) / 100));
@@ -1032,7 +1039,9 @@ export function simulate(input) {
   let wave = 0;
 
   // Mission clock (v4): runs only while nobody is on the bridge; Grit can push it past 90 s.
-  let clock = 0, clockLimit = RETREAT_AT_TICK, clockPaused = false, pushes = 0;
+  // Suicide Squad: no pause, no digging in, just the 3-minute hard limit.
+  let clock = 0, clockLimit = noRetreat ? SUICIDE_SQUAD.timeLimit : RETREAT_AT_TICK, clockPaused = false, pushes = 0;
+  if (noRetreat) ev(0, 'clock', 0, 0, clockLimit);
   const hardEnd = () => (V < 4 ? HARD_END_TICK : retreat.on ? Math.max(HARD_END_TICK, retreat.at + CLOCK.extractTicks) : CLOCK.absEnd);
   const seenEnemies = () => units.filter(e => e.side === 'E' && isTargetable(e) && !e.hidden && squad.some(s => {
     if (s.state !== 'active') return false;
@@ -1067,7 +1076,7 @@ export function simulate(input) {
       }
     }
     // Reinforcements.
-    const rf = ship.reinforce;
+    const rf = noRetreat ? ssReinforce : ship.reinforce;
     if (alarm2At >= 0 && wave < rf.waves && !reinforcementsCut) {
       const due = Math.max(alarm2At, rf.firstAt) + wave * rf.every;
       if (t === due || (t > due && rf.every === 0 && wave === 0)) {
@@ -1124,7 +1133,11 @@ export function simulate(input) {
     // Retreat trigger.
     const casualties = squad.filter(s => s.state === 'down').length;
     const activeCount = squad.filter(s => s.state === 'active').length;
-    if (!retreat.on) {
+    if (noRetreat) {
+      // Fight to the last: the mission ends when nobody is left standing or the hard limit hits.
+      if (activeCount === 0) { ev(t, 'overrun', 'down'); break; }
+      if (++clock >= clockLimit) { ev(t, 'overrun', 'time'); break; }
+    } else if (!retreat.on) {
       if (casualties >= retreatAtCount && deployed > 1) startRetreat('casualties');
       else if (activeCount === 0) startRetreat('casualties');
       else if (V < 4) { if (t >= RETREAT_AT_TICK) startRetreat('time'); }

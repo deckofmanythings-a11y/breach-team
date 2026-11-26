@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.9.0', date: '2026-11-25', items: [
+    "New retreat plan: Suicide Squad. No retreat at all: the squad fights until it takes the bridge or nobody is left standing (3-minute hard limit). If it fails, every Soldier deployed dies and their gear is lost.",
+    "A Suicide Squad win pays 250% of the normal reward, the most of any plan. Only Level 5+ Soldiers can be committed, and only against two-star ships or tougher.",
+    "The crew knows a Suicide Squad can't leave: full alarm from the first second, a bigger crew, and extra, larger reinforcement waves.",
+  ] },
   { v: '0.8.1', date: '2026-11-25', items: [
     "Blitz time bonus: a successful Blitz pays extra BUCs for time left on the mission clock: +1% of the ship's reward for every 2 seconds, up to +30%. The mission report shows how much of your pay it was.",
   ] },

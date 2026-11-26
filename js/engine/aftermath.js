@@ -6,6 +6,7 @@ import { SHIP_BY_ID, OBJECTIVES } from '../data/ships.js';
 import { MINOR, MAJOR, kiaChance, LEFT_BEHIND_KIA, REAR_GUARD_KIA_MULT, KIA_MIN_PCT, INJURY_DIV, REVIVED_MAJOR_PCT, DOWNED_EXTRA_MINOR_PCT } from '../data/injuries.js';
 import { successReward, failReward } from '../data/economy.js';
 import { blitzTimeBonus } from '../data/blitz-bonus.js';
+import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 import { SPECIALTIES } from '../data/specialties.js';
 import { sumMods, itemMods } from './progression.js';
 import { SLOTS } from '../data/gear.js';
@@ -18,6 +19,7 @@ export function rollAftermath(battle, squad, mothership = null) {
   const rng = createRng(hashString('after:' + battle.seed + ':' + battle.hash));
   const ship = SHIP_BY_ID[battle.ship];
   const success = battle.result === 'success';
+  const suicide = isSuicideSquad(battle.retreat);
   // Squad-wide perks (Medic: Guardian Angel / Bedside Manner) count if that Medic deployed.
   let squadSurvival = 0, squadHealTime = 0;
   for (const s of squad) for (const id of s.perks || []) {
@@ -51,6 +53,7 @@ export function rollAftermath(battle, squad, mothership = null) {
         else { major(); if (rng.roll(DOWNED_EXTRA_MINOR_PCT)) minor(); }
         break;
       case 'left': {
+        if (suicide) { kia = 100; fate = 'kia'; break; }   // no retreat, no rescue
         let base = LEFT_BEHIND_KIA;
         if (rec.rearGuard) base = Math.floor((base * REAR_GUARD_KIA_MULT) / 100);
         kia = Math.max(KIA_MIN_PCT, Math.floor((base * (100 - Math.min(80, survivalPct))) / 100));
@@ -71,8 +74,10 @@ export function rollAftermath(battle, squad, mothership = null) {
   });
 
   const bonus = battle.objectives.filter(o => o.done && OBJECTIVES[o.id].bonusPct).map(o => OBJECTIVES[o.id].bonusPct);
-  const timeBonus = blitzTimeBonus(ship, battle);
-  const bucs = (success ? successReward(ship, bonus, battle.lootCrates) : failReward(ship, battle.progressPct)) + timeBonus.bucs;
+  const timeBonus = suicide ? { bucs: 0, secs: 0 } : blitzTimeBonus(ship, battle);
+  const bucs = suicide
+    ? (success ? Math.floor((successReward(ship, bonus, battle.lootCrates) * SUICIDE_SQUAD.rewardPct) / 100) : 0)
+    : (success ? successReward(ship, bonus, battle.lootCrates) : failReward(ship, battle.progressPct)) + timeBonus.bucs;
   const gearDrop = success && battle.objectives.some(o => o.done && OBJECTIVES[o.id].gearDrop);
   const prisoner = success && battle.objectives.some(o => o.done && o.id === 'free_prisoner');
   return { soldiers: results, bucs, timeBonus, gearDrop, prisoner };
