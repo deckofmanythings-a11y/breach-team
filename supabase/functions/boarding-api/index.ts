@@ -11,6 +11,7 @@ import { restartAccount, newCommander } from '../_shared/breach/game/commander.j
 import { stripAll } from '../_shared/breach/game/armory.js';
 import { applyClassAccents, setClassAccents } from '../_shared/breach/game/class-colors.js';
 import { classAccent } from '../_shared/breach/data/class-colors.js';
+import { buildRoom } from '../_shared/breach/game/mothership.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -148,6 +149,7 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
   dismiss: (uid, b) => withSave(uid, (g) => R.dismiss(g, b.soldier)),
   sell: (uid, b) => withSave(uid, (g) => R.sellItem(g, b.item)),
   pack: (uid, b) => withSave(uid, (g, now) => R.openPack(g, b.pack, now)),
+  buildRoom: (uid, b) => withSave(uid, (g) => buildRoom(g, String(b.room || ''))),
   buy: (uid, b) => withSave(uid, (g, now) => ({ ...R.buyStore(g, b.slot, now), store: storeView(g, now) })),
   async deploy(uid, b) {
     let mission: any = null;

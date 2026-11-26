@@ -6,6 +6,7 @@ import { el, esc, avatar, itemLabel, modal, closeModal, statGrid, toast } from '
 import { PACKS, PITY_RELIC_AFTER, GRADE_BY_ID, ROSTER_CAP } from '../data/economy.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { ITEM_BY_ID } from '../data/gear.js';
+import { storePrice, mothershipEffects } from '../data/mothership-rooms.js';
 
 // Time until midnight Pacific (store restock).
 function untilRestock() {
@@ -20,13 +21,16 @@ export function renderStore(panel, run) {
   const S = G.state();
   const stock = G.store();
   const full = S.soldiers.length >= ROSTER_CAP;
+  const P = (n) => storePrice(S, n);   // Armory discount
+  const disc = mothershipEffects(S).storePct;
   const wrap = el(`<div>
     <h2>Store</h2>
+    ${disc ? `<div class="banner info small" style="margin-bottom:10px">🛠 Your Armory takes ${-disc}% off everything here.</div>` : ''}
     <div class="section"><h3>Booster Packs</h3>
       <div class="dim small" style="margin-bottom:8px">Every pack's best item is guaranteed at least its listed rarity. Go ${PITY_RELIC_AFTER} item packs in a row without a Relic and the next one has one. <span id="pity"></span></div>
       <div class="opt">${PACKS.map(p => `<div class="card"><h4>${p.name}</h4><div class="small dim">${esc(p.desc)}</div>
-        <div class="spread" style="margin-top:8px"><b style="color:var(--accent)">${p.price} BUCs</b>
-        <button class="primary" data-pack="${p.id}" ${S.bucs < p.price || (p.soldiers && full) ? 'disabled' : ''}>Open</button></div></div>`).join('')}</div>
+        <div class="spread" style="margin-top:8px"><b style="color:var(--accent)">${P(p.price)} BUCs</b>${disc ? ` <s class="dim small">${p.price}</s>` : ''}
+        <button class="primary" data-pack="${p.id}" ${S.bucs < P(p.price) || (p.soldiers && full) ? 'disabled' : ''}>Open</button></div></div>`).join('')}</div>
     </div>
     <div class="section"><div class="spread"><h3>Today's stock</h3><span class="dim small">Restocks in ${untilRestock()} (midnight Pacific). Same stock for everyone.</span></div>
       <div id="stock" style="display:grid;gap:6px;max-width:900px"></div>
@@ -40,7 +44,7 @@ export function renderStore(panel, run) {
   for (const it of stock?.items || []) {
     const base = ITEM_BY_ID[it.base];
     const row = el(`<div class="item"><span>${itemLabel(it)} <span class="dim small">${base.slot}${base.type ? ' · ' + base.type : ''}</span></span>
-      <span>${bought.has(it.slot) ? '<span class="dim">Bought</span>' : `<button data-buy="${it.slot}" ${S.bucs < it.price ? 'disabled' : ''}>Buy (${it.price})</button>`}</span></div>`);
+      <span>${bought.has(it.slot) ? '<span class="dim">Bought</span>' : `<button data-buy="${it.slot}" ${S.bucs < P(it.price) ? 'disabled' : ''}>Buy (${P(it.price)})</button>`}</span></div>`);
     list.append(row);
   }
   const rec = wrap.querySelector('#recruits');
@@ -50,8 +54,8 @@ export function renderStore(panel, run) {
       <div class="name">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
       <div class="small dim">${levelBadge(s.level, (s.colors || [])[1], 'sm')} ${g.name} ${SPECIALTY_BY_ID[s.specialty].name}</div></div></div>
       ${statGrid(s.stats, s.specialty)}
-      <div class="spread" style="margin-top:8px"><b style="color:var(--accent)">${s.price} BUCs</b>
-      ${bought.has(s.slot) ? '<span class="dim">Hired</span>' : `<button data-buy="${s.slot}" ${S.bucs < s.price || full ? 'disabled' : ''}>Hire</button>`}</div></div>`));
+      <div class="spread" style="margin-top:8px"><b style="color:var(--accent)">${P(s.price)} BUCs</b>${disc ? ` <s class="dim small">${s.price}</s>` : ''}
+      ${bought.has(s.slot) ? '<span class="dim">Hired</span>' : `<button data-buy="${s.slot}" ${S.bucs < P(s.price) || full ? 'disabled' : ''}>Hire</button>`}</div></div>`));
   }
 
   wrap.onclick = async (e) => {

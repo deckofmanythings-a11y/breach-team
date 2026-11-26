@@ -227,6 +227,21 @@ Your roster, BUCs, packs and Store purchases live on the server (sign in to play
 
 **CREDs** (Capital Resource Exchange Denominations) are a second currency, separate from BUCs, for building the **Mothership** (coming later). Every XP point your Soldiers earn on a mission adds **1 CRED**, bonus XP included, and so does the XP of a Soldier who doesn't make it home. A 4-Soldier squad earns about 200 per mission at any level. CREDs carry over a Game Over.
 
+### The Mothership
+
+Spend CREDs on rooms in the **Mothership** tab. Building a room costs **600 CREDs**; level 2 costs **1,800** and level 3 **4,000**. Each level replaces the one before (the numbers below are totals, not steps). Rooms carry over a Game Over.
+
+| Room | Level 1 | Level 2 | Level 3 |
+|---|---|---|---|
+| Hangar (comes built) | Basic facilities | Retreat shuttle arrives 50% faster | Also +1 squad size on every entry (max 6) |
+| Med Bay | Injuries heal 10% faster | 20% faster | 30% faster, +5% death-roll survival |
+| Training Deck | +5% mission XP | +10% | +15% |
+| Armory | Store −5% (packs and daily stock) | −10% | −15% |
+| Teleporter Array | 33% fewer teleport misfires (Teleport entry and Teleport Recall) | 66% fewer | None |
+| Memorial Chapel | +4 Grit for the squad on missions | +8 | +12 |
+
+Coming later: Intel Room, Security Post, Quarantine Bay.
+
 ### Booster packs
 
 | Pack | Price | Contents |

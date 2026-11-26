@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.11.0', date: '2026-11-25', items: [
+    "The Mothership is open: a new tab where you spend CREDs on rooms for the squad's home ship. Building a room costs 600 CREDs, then 1,800 and 4,000 for levels 2 and 3.",
+    "Six rooms to start: Hangar (faster retreat shuttle, then +1 squad size on every entry), Med Bay (faster healing, then better death-roll odds), Training Deck (more mission XP), Armory (Store discounts), Teleporter Array (fewer teleport misfires) and Memorial Chapel (more Grit on missions).",
+    "Intel Room, Security Post and Quarantine Bay are listed but arrive in later updates. Rooms carry over a Game Over.",
+  ] },
   { v: '0.10.0', date: '2026-11-25', items: [
     "New currency: CREDs (Capital Resource Exchange Denominations). Every XP point your Soldiers earn on a mission adds 1 CRED, bonus XP included. They show in the top bar next to BUCs, and on each mission report.",
     "Commanders who were already playing get CREDs for the XP their squad has earned so far, Memorial Wall included.",

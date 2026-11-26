@@ -13,4 +13,5 @@ export const FACILITIES = [
   { id: 'intel_room',     name: 'Intel Room',       idea: 'Reveals part of the ship layout and crew before boarding.', mods: {} },
 ];
 
-export const ZERO_BONUSES = Object.freeze({ mods: Object.freeze({}), entry: Object.freeze({}), retreat: Object.freeze({}) });
+export const ZERO_BONUSES = Object.freeze({ mods: Object.freeze({}), entry: Object.freeze({}), retreat: Object.freeze({}), after: Object.freeze({}) });
+// Phase M2: the real rooms live in js/data/mothership-rooms.js (FACILITIES above is the old placeholder list).

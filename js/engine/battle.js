@@ -19,6 +19,7 @@ import { ITEM_BY_ID, SLOTS } from '../data/gear.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { SUICIDE_SQUAD } from '../data/suicide-squad.js';
+import { entryMaxSquad, scalePct } from '../data/mothership-rooms.js';
 import { FACTION_BY_ID, UNIT_BY_ID } from '../data/factions.js';
 import { SHIP_BY_ID, OBJECTIVES } from '../data/ships.js';
 import { HAZARDS } from '../data/hazards.js';
@@ -70,7 +71,8 @@ export function simulate(input) {
   const faction = FACTION_BY_ID[ship.faction];
   const mothership = input.mothership || ZERO_BONUSES;
   if (!ship || !tactic || !entry || !retreatDef) throw new Error('bad mission input');
-  if (!input.squad?.length || input.squad.length > entry.maxSquad) throw new Error('bad squad size');
+  const msEntry = mothership.entry || {}, msRetreat = mothership.retreat || {};   // Mothership rooms (absent = no change)
+  if (!input.squad?.length || input.squad.length > entryMaxSquad(entry, msEntry)) throw new Error('bad squad size');
 
   const seed = input.seed >>> 0;
   const map = generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id, input.engineVersion ?? 1);
@@ -231,7 +233,8 @@ export function simulate(input) {
   for (const s of input.squad) {
     const u = soldierUnit(s);
     let room = spawnRoom, late = 0;
-    if (entry.scramblePct + (entry.id === 'teleport' ? ship.scrambleAdd : 0) > 0 && rng.roll(entry.scramblePct + ship.scrambleAdd)) {
+    const scramble = entry.id === 'teleport' ? scalePct(entry.scramblePct + ship.scrambleAdd, msEntry.teleportFailPct) : entry.scramblePct + ship.scrambleAdd;
+    if ((entry.id === 'teleport' ? scramble : entry.scramblePct) > 0 && rng.roll(scramble)) {
       room = nonBridge[rng.int(nonBridge.length)].id; late = 40;
     }
     const pos = freeTileIn(room) || freeTileIn(spawnRoom);
@@ -954,7 +957,7 @@ export function simulate(input) {
   function startRetreat(reason) {
     retreat.on = true; retreat.at = t; retreat.reason = reason;
     ev(t, 'retreat', reason, retreatDef.id);
-    const fail = retreatDef.failPct + (retreatDef.id === 'teleport_recall' ? ship.scrambleAdd : 0);
+    const fail = retreatDef.id === 'teleport_recall' ? scalePct(retreatDef.failPct + ship.scrambleAdd, msRetreat.teleportFailPct) : retreatDef.failPct;
     if (retreatDef.exit === 'anywhere') {
       for (const s of squad) if (s.state === 'active' || s.state === 'down') {
         // Downed Soldiers are harder to lock onto: double the misfire chance, and a miss leaves them behind.
@@ -989,7 +992,7 @@ export function simulate(input) {
       retreat.exitRoom = exitRoom.id;
       const pf = exitRoom.features.find(f => f.kind === 'pods');
       retreat.exitTile = pf ? [pf.x, pf.y] : [exitRoom.cx, exitRoom.cy];
-      retreat.shuttleAt = retreatDef.needsDock && !entry.shuttleDocked ? t + retreatDef.arriveTicks : t;
+      retreat.shuttleAt = retreatDef.needsDock && !entry.shuttleDocked ? t + scalePct(retreatDef.arriveTicks, msRetreat.shuttleArrivePct) : t;
       // v2 easter egg: once in a while the ship's AI won't open the pod bay doors (4 s delay).
       if (V >= 2 && retreatDef.exit === 'pod_bay' && rng.roll(2)) { retreat.shuttleAt = t + 30; ev(t, 'log', 'log_open_pod'); }
     }

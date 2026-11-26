@@ -71,7 +71,7 @@ async function watch(panel, missionId) {
   const input = replay.input;
   const battle = simulate(input);
   if (battle.hash !== replay.hash) toast('Note: this replay doesn\'t exactly match the recorded run.');
-  const after = rollAftermath(battle, input.squad);
+  const after = rollAftermath(battle, input.squad, input.mothership);
   const ship = SHIP_BY_ID[input.ship];
   const report = {
     shipName: `${ship.name} (${replay.name}'s contract run, ${replay.score} pts)`, bucs: after.bucs, ...(after.timeBonus?.bucs ? { timeBonus: after.timeBonus } : {}), input, extras: [],

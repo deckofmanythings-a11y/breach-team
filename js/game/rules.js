@@ -14,6 +14,7 @@ import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '.
 import { MIA_RETURN_MIN, ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 import { credsForMission, backfillCreds } from '../data/creds.js';
+import { mothershipInput, entryMaxSquad, storePrice } from '../data/mothership-rooms.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { SHIP_BY_ID } from '../data/ships.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
@@ -228,7 +229,7 @@ function rollGrade(rng, floorId) {
 export function openPack(g, packId, now = Date.now()) {
   const pack = PACK_BY_ID[packId] || fail('Unknown pack.');
   if (pack.soldiers && g.soldiers.length + pack.soldiers > ROSTER_CAP) fail('The Barracks are full: make room first.');
-  spend(g, pack.price);
+  spend(g, storePrice(g, pack.price));
   const rng = createRng(randomSeed());
   const boost = pack.rarityBoost || 100;
   const items = [];
@@ -302,7 +303,7 @@ export function buyStore(g, slot, now = Date.now()) {
   const so = stock.soldiers.find(x => x.slot === slot);
   if (!it && !so) fail('Not in stock.');
   if (so && g.soldiers.length >= ROSTER_CAP) fail('The Barracks are full.');
-  spend(g, (it || so).price);
+  spend(g, storePrice(g, (it || so).price));
   g.store.bought.push(slot);
   if (it) return { item: addItem(g, it).uid };
   const s = { ...makeRecruit(createRng(randomSeed()), so.specialty, 1, now), name: so.name, callsign: so.callsign, sex: so.sex, colors: so.colors.slice(),
@@ -320,7 +321,9 @@ export function runMission(g, plan, now = Date.now()) {
   if (!ship || ship.secret || !entry || !TACTIC_BY_ID[plan.tactic] || !RETREAT_BY_ID[plan.retreat]) fail('Bad mission plan.');   // secret ships can't be picked
   const ids = Array.isArray(plan.squad) ? [...new Set(plan.squad)] : [];
   if (!ids.length) fail('Pick a squad.');
-  if (ids.length > entry.maxSquad) fail(`${entry.name} carries at most ${entry.maxSquad}.`);
+  const ms = mothershipInput(g);
+  const maxSquad = entryMaxSquad(entry, ms?.entry);
+  if (ids.length > maxSquad) fail(`${entry.name} carries at most ${maxSquad}.`);
   const squad = ids.map(id => getSoldier(g, id));
   for (const s of squad) if (!canDeploy(s)) fail(`${s.name} isn't fit to deploy.`);
   if (isSuicideSquad(plan.retreat) && ship.tier < SUICIDE_SQUAD.minTier) fail(`The ${ship.name} isn't worth a Suicide Squad. Pick a ${'★'.repeat(SUICIDE_SQUAD.minTier)} ship or better.`);
@@ -330,9 +333,9 @@ export function runMission(g, plan, now = Date.now()) {
   if (!contract && (g.missions || 0) >= MIN_MISSIONS_FOR_SECRET && createRng(randomSeed()).roll(SECRET_CHANCE)) {
     planned = ship.id; target = SECRET_SHIPS[randomSeed() % SECRET_SHIPS.length];
   }
-  const input = { engineVersion: ENGINE_VERSION, seed: randomSeed(), ...(contract ? { mapSeed: contract.mapSeed, contractWeek: contract.week } : {}), ship: target.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)) };
+  const input = { engineVersion: ENGINE_VERSION, seed: randomSeed(), ...(contract ? { mapSeed: contract.mapSeed, contractWeek: contract.week } : {}), ship: target.id, entry: entry.id, tactic: plan.tactic, retreat: plan.retreat, squad: squad.map(s => engineSoldier(g, s)), ...(ms ? { mothership: ms } : {}) };
   const battle = simulate(input);
-  const after = rollAftermath(battle, input.squad);
+  const after = rollAftermath(battle, input.squad, input.mothership);
   const report = applyMission(g, input, battle, after, target.name, now);
   if (contract) { report.contract = { week: contract.week, score: contractScore(battle, after) }; }
   if (planned) { report.secret = true; report.plannedShip = planned; if (!(g.discovered ||= []).includes(target.id)) { g.discovered.push(target.id); report.firstContact = true; } }

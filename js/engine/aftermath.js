@@ -27,7 +27,7 @@ export function rollAftermath(battle, squad, mothership = null) {
     if (p?.flag === 'squadSurvival') squadSurvival = Math.max(squadSurvival, p.mods.survivalPct || 0);
     if (p?.flag === 'squadHealTime') squadHealTime = Math.min(squadHealTime, p.mods.healTimePct || 0);
   }
-  const msMods = mothership?.mods || {};
+  const msMods = mothership?.after || {};   // Mothership rooms: xpPct, healTimePct, survivalPct
 
   const results = battle.soldiers.map((rec, i) => {
     const s = squad[i];

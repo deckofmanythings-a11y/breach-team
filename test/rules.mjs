@@ -402,5 +402,58 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   old.creds = 5; R.migrate(old); ok(old.creds === 5, 'and never again');
 }
 
+// ---- Mothership rooms (M2) ----
+{
+  const { buildRoom } = await import('../js/game/mothership.js');
+  const MR = await import('../js/data/mothership-rooms.js');
+  const { rollAftermath } = await import('../js/engine/aftermath.js');
+  const { makeSquad } = await import('./fixtures.mjs');
+  const { ENTRY_BY_ID } = await import('../js/data/entries.js');
+  const m = R.newGame();
+  ok(MR.mothershipInput(m) === null, 'a bare Mothership adds nothing to the mission input');
+  ok(MR.roomLevel(m, 'hangar') === 1 && MR.roomLevel(m, 'med_bay') === 0, 'Hangar comes built, Med Bay does not');
+  throws(() => buildRoom(m, 'med_bay'), 'cannot build without CREDs');
+  throws(() => buildRoom(m, 'security'), 'coming-later rooms cannot be built');
+  throws(() => buildRoom(m, 'nope'), 'unknown room');
+  m.creds = 100000;
+  ok(buildRoom(m, 'med_bay').level === 1 && m.creds === 100000 - 600, 'build costs 600 CREDs');
+  buildRoom(m, 'med_bay'); buildRoom(m, 'med_bay');
+  ok(MR.roomLevel(m, 'med_bay') === 3 && m.creds === 100000 - 600 - 1800 - 4000, 'upgrades cost 1,800 then 4,000');
+  throws(() => buildRoom(m, 'med_bay'), 'no level past 3');
+  ok(buildRoom(m, 'hangar').level === 2 && m.creds === 100000 - 6400 - 1800, 'the free Hangar upgrades straight to level 2');
+  buildRoom(m, 'hangar');
+  for (const id of ['training_deck', 'armory', 'teleporter', 'chapel']) for (let i = 0; i < 3; i++) buildRoom(m, id);
+  const ms = MR.mothershipInput(m);
+  ok(ms.mods.grit === 12 && ms.after.xpPct === 15 && ms.after.healTimePct === -30 && ms.after.survivalPct === 5, 'maxed rooms feed mods and aftermath');
+  ok(ms.entry.squadAdd === 1 && ms.entry.teleportFailPct === -100 && ms.retreat.shuttleArrivePct === -50, 'maxed rooms feed entry and retreat');
+  ok(MR.storePrice(m, 1000) === 850, 'Armory L3 takes 15% off');
+  ok(MR.entryMaxSquad(ENTRY_BY_ID.teleport, ms.entry) === 5 && MR.entryMaxSquad(ENTRY_BY_ID.shuttle, ms.entry) === 6, 'Hangar L3 adds a seat, capped at 6');
+  // In a real mission: the input carries the rooms and a 5-Soldier teleport is allowed.
+  while (m.soldiers.length < 5) m.soldiers.push(R.makeRecruit(createRngForTest(m.soldiers.length), 'assault', 1));
+  const bucs0 = m.bucs = 5000;
+  R.openPack(m, 'recruit'); ok(m.bucs === bucs0 - MR.storePrice(m, 250), 'packs get the Armory discount');
+  const out = R.runMission(m, { ship: 'raider', entry: 'teleport', tactic: 'balanced', retreat: 'teleport_recall', squad: m.soldiers.slice(0, 5).map(s => s.uid) });
+  ok(out.input.mothership && out.input.squad.length === 5, 'Mothership bonuses ride in the mission input');
+  ok(!out.battle.events.some(e => e[1] === 'scramble' || e[1] === 'misfire'), 'Teleporter Array L3: no teleport misfires');
+  // XP bonus: the same battle scored with and without the rooms.
+  const plain = rollAftermath(out.battle, out.input.squad), boosted = rollAftermath(out.battle, out.input.squad, out.input.mothership);
+  ok(boosted.soldiers.every((a, i) => a.xp >= plain.soldiers[i].xp), 'Training Deck raises XP');
+  ok(boosted.soldiers.every(a => a.healTimePct <= -30), 'Med Bay shortens heal times');
+  // Grit reaches the engine.
+  let gritDiff = 0;
+  for (let i = 0; i < 10; i++) {
+    const sq = makeSquad(i, ['assault', 'medic', 'marksman'], 3, 'standard');
+    const inp = { engineVersion: ENGINE_VERSION, seed: 5 + i * 31, ship: 'corvette', entry: 'shuttle', tactic: 'steady', retreat: 'shuttle', squad: sq };
+    if (simulate(inp).hash !== simulate({ ...inp, mothership: { mods: { grit: 12 }, entry: {}, retreat: {}, after: {} } }).hash) gritDiff++;
+  }
+  ok(gritDiff > 0, `Chapel Grit changes fights (${gritDiff}/10)`);
+  // Rooms survive a Game Over.
+  m.gameOver = { at: 1 };
+  const C2 = await import('../js/game/commander.js');
+  C2.newCommander(m);
+  ok(MR.roomLevel(m, 'med_bay') === 3, 'rooms carry over a Game Over');
+}
+function createRngForTest(n) { let x = 12345 + n; return { int: (k) => (x = (x * 1103515245 + 12345) >>> 0) % k, roll: (p) => ((x = (x * 1103515245 + 12345) >>> 0) % 100) < p, range: (a, b) => a + ((x = (x * 1103515245 + 12345) >>> 0) % (b - a + 1)) }; }
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

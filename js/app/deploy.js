@@ -11,6 +11,7 @@ import { simulate } from '../engine/battle.js';
 import * as api from './api.js';
 import { playMission } from './mission.js?v=5';
 import { holdCreds } from './creds-view.js';
+import { mothershipInput, entryMaxSquad } from '../data/mothership-rooms.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 
 const LAST = 'bt_last_deploy';
@@ -33,6 +34,8 @@ export function renderDeploy(panel) {
   const ssUnlocked = G.state().soldiers.some(s => s.level >= SUICIDE_SQUAD.unlockLevel);
   if (!ssUnlocked && isSuicideSquad(p.retreat)) p.retreat = 'teleport_recall';
   const retreats = RETREATS.filter(r => ssUnlocked || !r.noRetreat);
+  const msEntry = mothershipInput(S)?.entry;
+  const maxOf = (e) => entryMaxSquad(e, msEntry);   // Hangar L3 adds a seat
   const suicide = isSuicideSquad(p.retreat);
   const shipTier = SHIP_BY_ID[contractMode ? contractMode.ship : p.ship]?.tier ?? 1;
   const tooEasy = shipTier < SUICIDE_SQUAD.minTier;
@@ -40,8 +43,8 @@ export function renderDeploy(panel) {
   const ready = S.soldiers.filter(G.canDeploy);
   p.squad = p.squad.filter(id => ready.some(s => s.uid === id && eligible(s)));
   const entry = ENTRY_BY_ID[p.entry];
-  if (p.squad.length > entry.maxSquad) p.squad = p.squad.slice(0, entry.maxSquad);
-  if (!p.squad.length) p.squad = ready.filter(eligible).sort((a, b) => b.level - a.level).slice(0, entry.maxSquad).map(s => s.uid);
+  if (p.squad.length > maxOf(entry)) p.squad = p.squad.slice(0, maxOf(entry));
+  if (!p.squad.length) p.squad = ready.filter(eligible).sort((a, b) => b.level - a.level).slice(0, maxOf(entry)).map(s => s.uid);
 
   const optCards = (list, key, body) => `<div class="opt">${list.map(o => `<div class="card click ${p[key] === o.id ? 'sel' : ''}${o.noRetreat ? ' suicide' : ''}" data-k="${key}" data-v="${o.id}"><h4>${o.noRetreat ? '☠ ' : ''}${o.name}</h4>${body(o)}</div>`).join('')}</div>`;
   const retreatBody = (r) => `<div class="small dim">${esc(r.desc)}</div>` + (r.noRetreat ? `
@@ -52,7 +55,7 @@ export function renderDeploy(panel) {
     ${contractMode ? `<div class="section banner info"><h3 style="margin:0">1 · 72-Hour Contract: ${esc(contractMode.shipName)}</h3><div class="small">Same ship and map for every commander for 72 hours. Your best score goes on the Ladder. <a href="#" id="nocontract">Cancel contract</a></div></div>` : `<div class="section"><h3>1 · Target ship</h3>${optCards(SHIPS, 'ship', s => `
       <div class="small">${'★'.repeat(s.tier)}${'☆'.repeat(3 - s.tier)} · ${FACTION_BY_ID[s.faction].name}</div>
       <div class="small dim">${esc(s.desc)}</div><div class="small" style="margin-top:4px">Reward <b style="color:var(--accent)">${s.reward}</b> BUCs</div>`)}</div>`}
-    <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${e.maxSquad}</b></div><div class="small dim">${esc(e.desc)}</div>`)}</div>
+    <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${maxOf(e)}${maxOf(e) > e.maxSquad ? ' <span class="small good" title="Hangar upgrade">(+Hangar)</span>' : ''}</b></div><div class="small dim">${esc(e.desc)}</div>`)}</div>
     <div class="section"><h3>3 · Squad <span class="dim small" id="count"></span></h3><div class="grid" id="squad"></div></div>
     <div class="section"><h3>4 · Tactic</h3>${optCards(TACTICS, 'tactic', t => `<div class="small dim">${esc(t.desc)}</div><div class="small" style="margin-top:4px">${suicide ? 'Suicide Squad: never retreats' : `Retreats at ${t.retreatAt}% casualties`}</div>`)}</div>
     <div class="section"><h3>5 · Retreat plan</h3>${optCards(retreats, 'retreat', retreatBody)}
@@ -72,16 +75,16 @@ export function renderDeploy(panel) {
       <div class="small dim">${SPECIALTY_BY_ID[s.specialty].name}${G.condition(s) === 'wounded' ? ' · <span class="warn">wounded</span>' : ''}</div></div></div></div>`);
     c.onclick = () => {
       if (on) p.squad = p.squad.filter(id => id !== s.uid);
-      else if (p.squad.length < entry.maxSquad) p.squad.push(s.uid);
-      else { toast(`${entry.name} carries at most ${entry.maxSquad}.`); return; }
+      else if (p.squad.length < maxOf(entry)) p.squad.push(s.uid);
+      else { toast(`${entry.name} carries at most ${maxOf(entry)}.`); return; }
       persist(); renderDeploy(panel.replaceChildren() || panel);
     };
     sq.append(c);
   }
   const unavailable = S.soldiers.length - ready.length;
-  wrap.querySelector('#count').textContent = `${p.squad.length}/${entry.maxSquad} selected${unavailable ? ` · ${unavailable} recovering or missing` : ''}`;
+  wrap.querySelector('#count').textContent = `${p.squad.length}/${maxOf(entry)} selected${unavailable ? ` · ${unavailable} recovering or missing` : ''}`;
 
-  const small = Math.min(3, entry.maxSquad);
+  const small = Math.min(3, maxOf(entry));
   if (p.squad.length && p.squad.length < small) wrap.querySelector('#warn').innerHTML = `<span class="warn">⚠ Only ${p.squad.length} Soldier${p.squad.length > 1 ? 's' : ''}: a squad this small is in serious danger.</span>`;
   if (suicide && tooEasy) wrap.querySelector('#warn').innerHTML = `<span class="warn">⚠ A Suicide Squad needs a ${'★'.repeat(SUICIDE_SQUAD.minTier)} ship or better. Pick a tougher target or another retreat plan.</span>`;
   else if (suicide && p.squad.length) wrap.querySelector('#warn').innerHTML = `<span class="bad">☠ No retreat: if this fails, all ${p.squad.length} die and their gear is lost.</span>`;

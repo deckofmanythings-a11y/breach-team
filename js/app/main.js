@@ -6,18 +6,19 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=12';
-import { renderStore } from './store.js?v=3';
-import { renderLadder } from './ladder.js?v=7';
+import { renderDeploy } from './deploy.js?v=13';
+import { renderStore } from './store.js?v=4';
+import { renderLadder } from './ladder.js?v=8';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { memorialBadges } from './memorial-badge.js';
 import { shownCreds, backfillNotice } from './creds-view.js';
+import { renderMothership } from './mothership-view.js';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=12';
+import { setContract } from './deploy.js?v=13';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
@@ -30,7 +31,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.10.0';
+export const APP_VERSION = '0.11.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -99,6 +100,7 @@ export function render() {
   if (route === 'home') return renderHome(panel, { go, run, boardContract: (c) => { setContract(c); go('deploy'); } });
   if (route === 'deploy') return renderDeploy(panel);
   if (route === 'store') return renderStore(panel, run);
+  if (route === 'mothership') return renderMothership(panel, run);
   if (route === 'armory') return renderArmory();
   if (route === 'log') return renderLog();
   if (route === 'memorial') return renderMemorial();
