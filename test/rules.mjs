@@ -1,5 +1,6 @@
 // Tests for js/game/rules.js (the server-authoritative save rules). Run: node test/rules.mjs
 import * as R from '../js/game/rules.js';
+import { stripAll } from '../js/game/armory.js';
 import { simulate } from '../js/engine/battle.js';
 import { shipAt } from '../js/engine/ship-at.js';
 import { SHIP_BY_ID } from '../js/data/ships.js';
@@ -248,6 +249,18 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
     if (b.result === 'success') wins++;
   }
   ok(wins >= N * 0.75, `a fresh starter squad wins the Cargo Hauler most of the time (${wins}/${N})`);
+}
+
+// ---- Strip all Equipment ----
+{
+  const g = R.newGame(0);
+  const worn = g.soldiers.reduce((n, s) => n + Object.keys(s.gear).length, 0);
+  const r = stripAll(g);
+  ok(r.stripped === worn && worn > 0 && g.soldiers.every(s => !Object.keys(s.gear).length), `Strip all Equipment takes everything off (${worn} items)`);
+  ok(g.items.length >= worn, 'stripped gear stays in the Armory');
+  g.soldiers[0].gear.implant = R.addItem(g, { base: 'sarcophagus_chassis', rarity: 'relic', affixes: [] }).uid;
+  stripAll(g);
+  ok(g.soldiers[0].gear.implant, 'built-in enhancements stay put');
 }
 
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');

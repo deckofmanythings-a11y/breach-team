@@ -27,7 +27,7 @@ import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 
-export const APP_VERSION = '0.7.3';
+export const APP_VERSION = '0.7.4';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -218,7 +218,11 @@ export function openSoldier(s) {
   const ab = ABILITIES[sp.ability];
   const next = s.level >= MAX_LEVEL ? null : xpToReach(s.level + 1);
   const cost = G.healCost(s);
-  const reopen = () => { openSoldier(G.soldierById(s.uid)); render(); };
+  const reopen = () => {
+    const y = document.querySelector('#modal > .box')?.scrollTop || 0;
+    openSoldier(G.soldierById(s.uid)); render();
+    const b = document.querySelector('#modal > .box'); if (b) b.scrollTop = y;
+  };
   const box = el(`<div class="box">
     <div class="spread"><div class="soldier-head">${avatar(s, 56)}${levelBadge(s.level, (s.colors || [])[1], 'lg')}<div>
       <div class="name" style="font-size:18px">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
@@ -248,8 +252,8 @@ export function openSoldier(s) {
       <div><b>${s.record.revives}</b><span class="small dim">revives given</span></div>
       <div><b>${s.record.injuries}</b><span class="small dim">injuries</span></div>
     </div>
-    <h3 style="margin-top:14px">Commendations <span class="dim small">${s.medals.length}/${COMMENDATIONS.length}</span></h3>
-    <div>${COMMENDATIONS.map(c => `<div class="medal-row ${s.medals.includes(c.id) ? '' : 'dim'}">${ribbon(c.id, s.medals.includes(c.id))}<span><b>${c.name}</b> <span class="small">${c.desc}</span></span></div>`).join('')}</div>
+    <details class="commend"><summary><h3>Commendations <span class="dim small">${s.medals.length}/${COMMENDATIONS.length}</span></h3>${ribbons(s.medals)}</summary>
+    <div>${COMMENDATIONS.map(c => `<div class="medal-row ${s.medals.includes(c.id) ? '' : 'dim'}">${ribbon(c.id, s.medals.includes(c.id))}<span><b>${c.name}</b> <span class="small">${c.desc}</span></span></div>`).join('')}</div></details>
 
     <h3 style="margin-top:14px">Perks</h3><div id="perks"></div>
     <h3 style="margin-top:14px">Gear</h3><div id="gear" style="display:grid;gap:6px"></div>
@@ -326,8 +330,23 @@ export function openSoldier(s) {
 // ---------- Armory ----------
 function renderArmory() {
   const S = G.state();
-  const wrap = el(`<div><h2>Armory</h2><div class="dim section">${S.items.length} items. Equip gear from a Soldier's page in the Barracks. Unequipped gear can be sold for a quarter of its Store price.</div><div id="list" style="display:grid;gap:6px;max-width:900px"></div></div>`);
+  const worn = S.items.filter(it => G.equippedBy(it.uid) && !ITEM_BY_ID[it.base].builtin).length;
+  const wrap = el(`<div><div class="spread section" style="max-width:900px"><div><h2>Armory</h2><div class="dim">${S.items.length} items. Equip gear from a Soldier's page in the Barracks. Unequipped gear can be sold for a quarter of its Store price.</div></div>
+    <button class="danger" id="strip" ${worn ? '' : 'disabled'}>Strip all Equipment</button></div><div id="list" style="display:grid;gap:6px;max-width:900px"></div></div>`);
   const list = wrap.querySelector('#list');
+  wrap.querySelector('#strip').onclick = () => {
+    const box = el(`<div class="box" style="width:min(460px,94vw)"><h2>Strip all Equipment?</h2>
+      <p>Every Soldier hands in their gear: <b>${worn}</b> item${worn === 1 ? '' : 's'} go${worn === 1 ? 'es' : ''} back to the Armory. Nothing is sold or lost, but your Soldiers will be unarmed until you re-equip them.</p>
+      <p class="small dim">Built-in enhancements stay where they are.</p>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button id="no">Cancel</button><button class="danger" id="yes">Strip everything</button></div></div>`);
+    box.querySelector('#no').onclick = closeModal;
+    box.querySelector('#yes').onclick = async (e) => {
+      e.target.disabled = true;
+      const r = await run(() => G.act('stripAll'));
+      if (r) { closeModal(); toast(`${r.stripped} item${r.stripped === 1 ? '' : 's'} returned to the Armory.`); render(); } else e.target.disabled = false;
+    };
+    modal(box);
+  };
   const items = S.items.slice().sort((a, b) => SLOTS.indexOf(ITEM_BY_ID[a.base].slot) - SLOTS.indexOf(ITEM_BY_ID[b.base].slot) || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity));
   for (const it of items) {
     const who = G.equippedBy(it.uid);

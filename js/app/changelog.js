@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.4', date: '2026-11-25', items: [
+    'Strip all Equipment: a new button on the Armory screen takes every piece of gear off every Soldier at once (after you confirm). Built-in enhancements stay put.',
+    "Commendations on a Soldier's page are folded away by default. Earned ribbons still show; click the heading to see the full list.",
+    "Changing a Soldier's gear no longer jumps their page back to the top.",
+  ] },
   { v: '0.7.3', date: '2026-11-24', items: [
     "The Cargo Hauler is easier, as a one-star ship should be: no defence turret and a smaller security team. A fresh Level 1 squad now takes it about 85% of the time (it was closer to 65%), and losses are much rarer.",
     'Hired Rookies now report with a standard-issue weapon and armour for their specialty, instead of turning up with a sidearm and no armour.',

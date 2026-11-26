@@ -8,6 +8,7 @@ import * as R from '../_shared/breach/game/rules.js';
 import { ENGINE_VERSION } from '../_shared/breach/data/version.js';
 import { weeklyContract, backfillStats } from '../_shared/breach/game/ladder.js';
 import { restartAccount, newCommander } from '../_shared/breach/game/commander.js';
+import { stripAll } from '../_shared/breach/game/armory.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -135,6 +136,7 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
   newCommander: (uid) => withSave(uid, (g, now) => ({ ...newCommander(g, now), store: storeView(g, now) }), true),
   heal: (uid, b) => withSave(uid, (g, now) => R.heal(g, b.soldier, now)),
   equip: (uid, b) => withSave(uid, (g) => R.equip(g, b.soldier, b.slot, b.item || null)),
+  stripAll: (uid) => withSave(uid, (g) => stripAll(g)),
   perk: (uid, b) => withSave(uid, (g) => R.choosePerk(g, b.soldier, b.perk)),
   customize: (uid, b) => withSave(uid, (g) => R.customize(g, b.soldier, b.fields || {})),
   hire: (uid, b) => withSave(uid, (g, now) => R.hire(g, b.specialty, now)),

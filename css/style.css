@@ -226,3 +226,10 @@ button.big { padding: 10px 18px; font-size: 15px; font-weight: 700; }
 .scard-level { position: absolute; top: 8px; left: 8px; }
 .scard-tags { left: 74px; }
 .soldier-head .lvl-lg { margin-left: -18px; margin-top: 30px; align-self: flex-start; position: relative; z-index: 1; }
+details.commend { margin-top: 14px; }
+details.commend > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+details.commend > summary::-webkit-details-marker { display: none; }
+details.commend > summary h3 { margin: 0; }
+details.commend > summary h3::before { content: '▸ '; color: var(--dim, #8aa); }
+details.commend[open] > summary h3::before { content: '▾ '; }
+details.commend > div { margin-top: 6px; }
