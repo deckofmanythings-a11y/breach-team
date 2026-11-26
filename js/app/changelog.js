@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.9.1', date: '2026-11-25', items: [
+    "Suicide Squad survivors earn +100% XP on a win.",
+    "The Suicide Squad plan only appears once you have a Level 5 Soldier.",
+  ] },
   { v: '0.9.0', date: '2026-11-25', items: [
     "New retreat plan: Suicide Squad. No retreat at all: the squad fights until it takes the bridge or nobody is left standing (3-minute hard limit). If it fails, every Soldier deployed dies and their gear is lost.",
     "A Suicide Squad win pays 250% of the normal reward, the most of any plan. Only Level 5+ Soldiers can be committed, and only against two-star ships or tougher.",

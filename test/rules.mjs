@@ -345,6 +345,17 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(retreats === 0, 'a Suicide Squad never retreats');
   ok(wins > 0 && losses > 0, `a Suicide Squad can win and lose on a Corvette (${wins} won, ${losses} lost)`);
   ok(badPay === 0, `a win pays ${SUICIDE_SQUAD.rewardPct}% of the normal reward`);
+  { // Survivors of a win earn the XP bonus; compare against the same battle scored as a normal plan.
+    let checked = 0;
+    for (let i = 0; i < 20 && !checked; i++) {
+      const squad = makeSquad(i, SQ, 6, 'milspec');
+      const b = simulate({ engineVersion: ENGINE_VERSION, seed: 31 + i * 7919, ship: 'raider', entry: 'shuttle', tactic: 'steady', retreat: 'suicide_squad', squad });
+      if (b.result !== 'success') continue;
+      const ss = rollAftermath(b, squad), plain = rollAftermath({ ...b, retreat: 'teleport_recall' }, squad);
+      ss.soldiers.forEach((x, k) => { if (x.fate !== 'kia') { checked++; ok(x.xp >= plain.soldiers[k].xp * 2 - 1, `survivor XP doubled (${plain.soldiers[k].xp} -> ${x.xp})`); } });
+    }
+    ok(checked > 0, 'found a Suicide Squad win to check XP on');
+  }
   ok(survivedLoss === 0, 'a lost Suicide Squad dies to the last Soldier and pays nothing');
   const s = makeSquad(1, SQ, 6, 'milspec');
   let threw = false;

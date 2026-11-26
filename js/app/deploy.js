@@ -9,7 +9,7 @@ import { FACTION_BY_ID } from '../data/factions.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { simulate } from '../engine/battle.js';
 import * as api from './api.js';
-import { playMission } from './mission.js?v=2';
+import { playMission } from './mission.js?v=3';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 
 const LAST = 'bt_last_deploy';
@@ -28,6 +28,10 @@ function loadPick() {
 export function renderDeploy(panel) {
   const p = loadPick();
   const S = G.state();
+  // Suicide Squad stays hidden until the roster has a Soldier who could join one.
+  const ssUnlocked = G.state().soldiers.some(s => s.level >= SUICIDE_SQUAD.unlockLevel);
+  if (!ssUnlocked && isSuicideSquad(p.retreat)) p.retreat = 'teleport_recall';
+  const retreats = RETREATS.filter(r => ssUnlocked || !r.noRetreat);
   const suicide = isSuicideSquad(p.retreat);
   const shipTier = SHIP_BY_ID[contractMode ? contractMode.ship : p.ship]?.tier ?? 1;
   const tooEasy = shipTier < SUICIDE_SQUAD.minTier;
@@ -41,7 +45,7 @@ export function renderDeploy(panel) {
   const optCards = (list, key, body) => `<div class="opt">${list.map(o => `<div class="card click ${p[key] === o.id ? 'sel' : ''}${o.noRetreat ? ' suicide' : ''}" data-k="${key}" data-v="${o.id}"><h4>${o.noRetreat ? '☠ ' : ''}${o.name}</h4>${body(o)}</div>`).join('')}</div>`;
   const retreatBody = (r) => `<div class="small dim">${esc(r.desc)}</div>` + (r.noRetreat ? `
     <div class="small" style="margin-top:4px">Level <b>${SUICIDE_SQUAD.minLevel}+</b> Soldiers only · ${'★'.repeat(SUICIDE_SQUAD.minTier)} ships and up</div>
-    <div class="small" style="margin-top:2px">Pays <b style="color:var(--accent)">${SUICIDE_SQUAD.rewardPct}%</b> of the normal reward. The crew knows you can't leave: full alarm from the start, a bigger crew and more reinforcements.</div>` : '');
+    <div class="small" style="margin-top:2px">Pays <b style="color:var(--accent)">${SUICIDE_SQUAD.rewardPct}%</b> of the normal reward, and survivors earn <b>+${SUICIDE_SQUAD.xpBonusPct}%</b> XP. The crew knows you can't leave: full alarm from the start, a bigger crew and more reinforcements.</div>` : '');
   const wrap = el(`<div>
     <h2>Deploy</h2>
     ${contractMode ? `<div class="section banner info"><h3 style="margin:0">1 · 72-Hour Contract: ${esc(contractMode.shipName)}</h3><div class="small">Same ship and map for every commander for 72 hours. Your best score goes on the Ladder. <a href="#" id="nocontract">Cancel contract</a></div></div>` : `<div class="section"><h3>1 · Target ship</h3>${optCards(SHIPS, 'ship', s => `
@@ -50,7 +54,7 @@ export function renderDeploy(panel) {
     <div class="section"><h3>2 · Entry</h3>${optCards(ENTRIES, 'entry', e => `<div class="small">Squad of up to <b>${e.maxSquad}</b></div><div class="small dim">${esc(e.desc)}</div>`)}</div>
     <div class="section"><h3>3 · Squad <span class="dim small" id="count"></span></h3><div class="grid" id="squad"></div></div>
     <div class="section"><h3>4 · Tactic</h3>${optCards(TACTICS, 'tactic', t => `<div class="small dim">${esc(t.desc)}</div><div class="small" style="margin-top:4px">${suicide ? 'Suicide Squad: never retreats' : `Retreats at ${t.retreatAt}% casualties`}</div>`)}</div>
-    <div class="section"><h3>5 · Retreat plan</h3>${optCards(RETREATS, 'retreat', retreatBody)}
+    <div class="section"><h3>5 · Retreat plan</h3>${optCards(retreats, 'retreat', retreatBody)}
       <div class="small dim" style="margin-top:6px">${suicide ? `<span class="bad"><b>No retreat.</b> The squad fights until it takes the bridge or nobody is left standing, with a 3-minute hard limit. If it fails, every Soldier deployed dies and their gear is lost.</span>` : `The retreat happens automatically if casualties pass your tactic's limit, or when the 90-second mission clock runs out. The clock pauses while anyone is on the bridge, and a squad that's winning when time runs out can dig in for more time: the higher its Grit, the better its chances.`}</div></div>
     <div class="launchbar"><span class="small" id="warn"></span><span class="dim small">Permadeath is on: any Soldier who goes Down can die, on any ship.</span><button class="primary" id="go">Launch boarding action</button></div>
   </div>`);

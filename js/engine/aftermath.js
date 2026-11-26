@@ -69,7 +69,8 @@ export function rollAftermath(battle, squad, mothership = null) {
 
     let xp = XP.missionBase + (success ? XP.success : 0) + rec.kills * XP.kill + rec.assists * XP.objectiveAssist
       + rec.revives * XP.revive + rec.hacks * XP.hack + rec.breaches * XP.breach + (rec.rearGuard ? XP.rearGuard : 0);
-    xp = Math.floor((xp * (100 + (own.xpPct || 0) + (msMods.xpPct || 0))) / 100);
+    const ssXp = suicide && success && fate !== 'kia' ? SUICIDE_SQUAD.xpBonusPct : 0;   // Suicide Squad survivors
+    xp = Math.floor((xp * (100 + (own.xpPct || 0) + (msMods.xpPct || 0) + ssXp)) / 100);
     return { uid: rec.uid, state: rec.state, fate, kiaChance: kia, injuries, xp, healTimePct };
   });
 
