@@ -363,7 +363,7 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
       else dropBuiltins(g, s);
       line.medals = awardMedals(s);      // posthumous
       const how = lost && isSuicideSquad(input.retreat) ? `Fell with the Suicide Squad aboard the ${shipName}` : lost ? `Left aboard the ${shipName} during the retreat` : `Went Down on the ${shipName} and didn't make it (${a.kiaChance}% death roll)`;
-      g.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: shipName, diedHow: how, diedResult: battle.result, gearLost: lost });
+      g.memorial.unshift({ ...s, gear: {}, diedAt: now, diedOn: shipName, diedHow: how, diedResult: battle.result, gearLost: lost, ...(isSuicideSquad(input.retreat) ? { suicideSquad: true } : {}) });
       g.soldiers = g.soldiers.filter(x => x !== s);
       line.gearLost = lost;
     } else {
@@ -423,6 +423,8 @@ export function migrate(g) {
   if (!g.achievements) g.achievements = [];
   if (!g.discovered) g.discovered = [];
   if (!g.stats) g.stats = backfillStats(g);
+  // 0.9.0 Suicide Squad deaths predate the memorial badge flag.
+  for (const m of g.memorial) if (!m.suicideSquad && /^Fell with the Suicide Squad/.test(m.diedHow || '')) m.suicideSquad = true;
   for (const s of [...g.soldiers, ...g.memorial]) { if (!s.record) s.record = SERVICE_RECORD(); if (!s.medals) s.medals = [];
     // Recruits hired above Level 1 used to start at 0 XP, leaving their XP bar stuck at empty.
     if ((s.xp || 0) < xpToReach(s.level)) s.xp = xpToReach(s.level); }

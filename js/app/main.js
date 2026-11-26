@@ -6,29 +6,30 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=10';
+import { renderDeploy } from './deploy.js?v=11';
 import { renderStore } from './store.js?v=3';
-import { renderLadder } from './ladder.js?v=5';
+import { renderLadder } from './ladder.js?v=6';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
+import { memorialBadges } from './memorial-badge.js';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=10';
+import { setContract } from './deploy.js?v=11';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
-import { replayMission, setExit, setOpenSoldier } from './mission.js?v=3';
+import { replayMission, setExit, setOpenSoldier } from './mission.js?v=4';
 import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.9.1';
+export const APP_VERSION = '0.9.2';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -419,7 +420,7 @@ function renderMemorial() {
   const wrap = el(`<div><h2>Memorial Wall</h2><div class="dim section">They went in first so the rest could come home.</div><div class="grid" id="list"></div></div>`);
   const list = wrap.querySelector('#list');
   if (!S.memorial.length) list.append(el('<div class="dim">No one has fallen. Yet.</div>'));
-  for (const m of S.memorial) list.append(el(`<div class="card"><div class="soldier-head">${avatar(m)}${levelBadge(m.level, (m.colors || [])[1], 'sm')}<div><div class="name">${esc(m.name)} ${m.callsign ? `<span class="callsign">"${esc(m.callsign)}"</span>` : ''}</div>
+  for (const m of S.memorial) list.append(el(`<div class="card${m.suicideSquad ? ' mem-ss' : ''}">${memorialBadges(m)}<div class="soldier-head">${avatar(m)}${levelBadge(m.level, (m.colors || [])[1], 'sm')}<div><div class="name">${esc(m.name)} ${m.callsign ? `<span class="callsign">"${esc(m.callsign)}"</span>` : ''}</div>
     <div class="small dim">${SPECIALTY_BY_ID[m.specialty].name} · Lv ${m.level} · ${m.missions} missions · ${m.kills} kills</div>
     <div class="small">${esc(m.diedHow || 'Fell on the ' + m.diedOn)}, ${new Date(m.diedAt).toLocaleDateString()}${m.gearLost ? ' · <span class="bad">gear lost</span>' : ''}</div>
     ${m.recovered ? '<div class="small warn">Remains signed out of the morgue. The name on the form is blacked out.</div>' : ''}

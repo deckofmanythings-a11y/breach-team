@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.9.2', date: '2026-11-25', items: [
+    "Soldiers who die on a Suicide Squad mission get a special ☠ Suicide Squad badge on the Memorial Wall. Earlier Suicide Squad losses get it too.",
+  ] },
   { v: '0.9.1', date: '2026-11-25', items: [
     "Suicide Squad survivors earn +100% XP on a win.",
     "The Suicide Squad plan only appears once you have a Level 5 Soldier.",

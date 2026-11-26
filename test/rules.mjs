@@ -369,6 +369,11 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   const before = t.items.length;
   const out = R.runMission(t, { ship: 'raider', entry: 'shuttle', tactic: 'balanced', retreat: 'suicide_squad', squad: t.soldiers.map(x => x.uid) });
   ok(out.battle.result !== 'retreat', 'a Level 5 Suicide Squad deploys');
+  const fell = t.memorial.filter(m => m.diedAt === out.report.at);
+  ok(fell.every(m => m.suicideSquad), 'Suicide Squad dead get the memorial badge');
+  const old = R.newGame(); old.memorial.push({ ...old.soldiers[0], diedHow: 'Fell with the Suicide Squad aboard the Pirate Raider' }, { ...old.soldiers[1], diedHow: 'Left aboard the Pirate Raider during the retreat' });
+  R.migrate(old);
+  ok(old.memorial[0].suicideSquad === true && !old.memorial[1].suicideSquad, 'migrate badges earlier Suicide Squad deaths only');
   if (out.battle.result === 'wipe') ok(out.report.soldiers.every(l => l.fate === 'kia' && l.gearLost) && t.items.length < before, 'a lost squad takes its gear with it');
 }
 

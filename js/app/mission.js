@@ -495,7 +495,7 @@ function showReport(panel, battle, report, isReplay) {
   if (report.soldiers?.some(s => s.levelUps?.length)) setTimeout(() => sfx.levelUp(), 1300);
   const title = { success: 'SHIP TAKEN', retreat: 'RETREAT', wipe: 'SQUAD LOST' }[battle.result];
   const fateTxt = (s) => {
-    if (s.fate === 'kia') return `<span class="bad"><b>KILLED IN ACTION</b></span>${s.state === 'left' ? (isSuicideSquad(battle.retreat) ? ' (fell with the squad, gear lost)' : ' (left aboard, gear lost)') : ''}${s.kiaChance ? ` <span class="dim small">${s.kiaChance}% chance</span>` : ''}`;
+    if (s.fate === 'kia') return `<span class="bad"><b>KILLED IN ACTION</b></span>${s.state === 'left' ? (isSuicideSquad(battle.retreat) ? ' (fell with the squad, gear lost) <span class="small">☠ Suicide Squad memorial badge</span>' : ' (left aboard, gear lost)') : ''}${s.kiaChance ? ` <span class="dim small">${s.kiaChance}% chance</span>` : ''}`;
     if (s.fate === 'mia') return '<span class="warn"><b>MISSING</b></span> <span class="small dim">back in 30 min</span>';
     const state = { fine: 'Made it out', revived: 'Went down, revived in the field', downed: 'Carried out Downed', left: 'Left aboard, escaped', mia: 'Missing' }[s.state];
     return `${state}${s.state === 'downed' && s.kiaChance ? ` <span class="dim small">(survived a ${s.kiaChance}% death roll)</span>` : ''}`;

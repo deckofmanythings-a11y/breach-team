@@ -9,7 +9,7 @@ import { FACTION_BY_ID } from '../data/factions.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { simulate } from '../engine/battle.js';
 import * as api from './api.js';
-import { playMission } from './mission.js?v=3';
+import { playMission } from './mission.js?v=4';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 
 const LAST = 'bt_last_deploy';

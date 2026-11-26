@@ -9,7 +9,7 @@ import { SCORE, CAREER_COLUMNS } from '../game/ladder.js';
 import { simulate } from '../engine/battle.js';
 import { rollAftermath } from '../engine/aftermath.js';
 import { engineCompatible } from '../data/version.js';
-import { playMission } from './mission.js?v=3';
+import { playMission } from './mission.js?v=4';
 
 let sortBy = 'successes';
 

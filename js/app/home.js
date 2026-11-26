@@ -7,6 +7,7 @@ import { SPECIALTIES, SPECIALTY_BY_ID } from '../data/specialties.js';
 import { SHIP_BY_ID } from '../data/ships.js';
 import { COLOR_PRESETS } from '../data/economy.js';
 import { LOOK_COUNT } from '../data/looks.js';
+import { memorialBadges } from './memorial-badge.js';
 
 // A big square portrait tile (filled in by js/render/portrait.js).
 export function portraitTile(s, cls = '') {
@@ -110,7 +111,7 @@ export function renderGameOver(panel, { go, run }) {
   const wrap = el(`<div class="gameover">
     <div class="go-title">GAME OVER</div>
     <p class="go-sub">The last of your Soldiers fell aboard the <b>${esc(over.ship || 'enemy ship')}</b>. Commander ${esc(G.playerName())} has been relieved of command.</p>
-    ${fallen.length ? `<div class="go-fallen">${fallen.map(m => `<div class="go-soldier">${portraitTile(m, 'face')}<div class="name">${esc(m.name)}</div><div class="small dim">${esc(SPECIALTY_BY_ID[m.specialty]?.name || '')} · Lv ${m.level}</div></div>`).join('')}</div>` : ''}
+    ${fallen.length ? `<div class="go-fallen">${fallen.map(m => `<div class="go-soldier">${portraitTile(m, 'face')}<div class="name">${esc(m.name)}</div>${memorialBadges(m)}<div class="small dim">${esc(SPECIALTY_BY_ID[m.specialty]?.name || '')} · Lv ${m.level}</div></div>`).join('')}</div>` : ''}
     <div class="record go-record">
       <div><b>${S.missions}</b><span class="small dim">missions</span></div>
       <div><b>${st.successes || 0}</b><span class="small dim">ships taken</span></div>
