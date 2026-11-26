@@ -46,7 +46,7 @@ export function renderMothership(panel, run) {
   const msMap = buildMothershipMap(S);
   for (const sl of msMap.slots) if (sl.room && isDamaged(S, sl.room)) sl.name += ' ⚠ DAMAGED';
   createShipView(stage, msMap, {
-    faction: 'military', soldiers,
+    faction: 'mothership', soldiers,
     onTap: (slot) => {
       if (!slot) return;
       view?.select(slot.key);

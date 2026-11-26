@@ -3,6 +3,13 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.15.0', date: '2026-11-26', items: [
+    "Two new Mothership rooms. The Security Post adds 1 / 2 / 3 turrets that fight for you when you're boarded, and at level 3 blast doors seal the Bridge: your Soldiers open them freely, boarders take far longer to force them.",
+    "The Quarantine Bay makes parasite outbreaks after alien ships 25 / 50 / 75% rarer, and the ones that still happen start sealed inside the bay.",
+    "Your Mothership has its own look now: a clean command ship with dark slate decks and white hull plating, on the Mothership tab and in defense battles.",
+    "A damaged room is now switched off in defense battles too (no turrets, bonus or containment), not just on missions.",
+    "Three new achievements for defending the Mothership, plus new sounds for blast doors, outbreaks and a falling Bridge.",
+  ] },
   { v: '0.14.0', date: '2026-11-26', items: [
     "The Mothership can be boarded. Rarely (never before your 12th mission, and not again for a while after), something follows the squad home: a corporate repo team, pirates, Fleet Marines, or, after an alien ship, a parasite outbreak. It's fought straight after the mission report, with every Soldier aboard, wounded or not.",
     "Hold the Bridge until every wave is down or the attackers give up after 3 minutes. One Soldier in four stands Bridge watch; the rest fight from their stations, and the Mothership's turrets fight with you. Your rooms matter: more cover, Armory and Med Bay bonuses, Chapel Grit.",

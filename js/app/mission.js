@@ -45,7 +45,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const map = battle.map;
   const defend = battle.mode === 'defend';   // Mothership defense (M5): the squad's own ship
   const threat = defend ? THREAT_BY_ID[battle.threat] : null;
-  const ship = defend ? { id: 'mothership', name: 'Mothership', faction: 'military' } : SHIP_BY_ID[battle.ship];
+  const ship = defend ? { id: 'mothership', name: 'Mothership', faction: 'military', art: 'mothership' } : SHIP_BY_ID[battle.ship];
   const faction = FACTION_BY_ID[ship.faction];
   const head = defend
     ? `<b class="bad">🚨 MOTHERSHIP BOARDED</b> · ${esc(threat.name)} · <span id="clock">0:00</span> · <span id="mclock" title="Hold out until this runs out and the attackers give up.">⏱ 3:00</span> · Alarm <b id="alarm" class="alarm2">FULL</b><span id="hold"></span><span id="grav"></span>`
@@ -142,7 +142,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   // cropped to the ship's aspect, dimmed so units stay readable, masked to floor tiles.
   const floorMask = new PIXI.Graphics(); world.addChild(floorMask);
   for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) if (map.tiles[y * map.w + x] !== T_VOID && map.tiles[y * map.w + x] !== T_WALL) floorMask.rect(x * TS, y * TS, TS, TS).fill(0xffffff);
-  loadImage(floorSrc(ship.faction)).then(img => {
+  loadImage(floorSrc(ship.art || ship.faction)).then(img => {
     if (!app.renderer || world.destroyed) return;
     const bw = (maxX - minX + 1) * TS, bh = (maxY - minY + 1) * TS;
     const src = PIXI.Texture.from(img);
@@ -159,7 +159,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const isFloor = (x, y) => x >= 0 && y >= 0 && x < map.w && y < map.h && map.tiles[y * map.w + x] !== T_WALL && map.tiles[y * map.w + x] !== T_VOID;
   const wallMask = new PIXI.Graphics(); world.addChild(wallMask);
   for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) if (isWall(x, y)) wallMask.rect(x * TS, y * TS, TS, TS).fill(0xffffff);
-  loadImage(new URL(`../../assets/walls/wall-${ship.faction}.jpg?v=1`, import.meta.url).href).then(img => {
+  loadImage(new URL(`../../assets/walls/wall-${ship.art || ship.faction}.jpg?v=1`, import.meta.url).href).then(img => {
     if (!app.renderer || world.destroyed) return;
     const bw = (maxX - minX + 1) * TS, bh = (maxY - minY + 1) * TS;
     const src = PIXI.Texture.from(img), k = Math.min(img.width / bw, img.height / bh), fw = bw * k, fh = bh * k;
@@ -334,7 +334,10 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
       case 'freed': { const sh = U.get(e[2]); if (sh) sh.state = 'dead'; const s = U.get(e[3]); if (s) { s.state = 'down'; s.x = sh?.x ?? s.x; s.y = sh?.y ?? s.y; s.px = s.x; s.py = s.y; } say(t, `<b>${name(e[3])}</b> is freed from the parasite`, 'good'); break; }
       case 'breach': { const r = map.rooms[e[2]]; fx.push({ k: 'boom', x: r.cx, y: r.cy, t, life: 14, big: true, color: threat?.kind === 'outbreak' ? 0x9b5cff : undefined });
         say(t, threat?.kind === 'outbreak' ? `☣ ${e[3] > 1 ? 'More of them' : 'They'} pour out of the <b>${esc(r.name)}</b> (wave ${e[3]})` : `💥 <b>Hull breach</b> in the ${esc(r.name)}: wave ${e[3]} is aboard`, 'bad'); break; }
-      case 'nest': say(t, `☣ Something has nested in the <b>${esc(map.rooms[e[2]].name)}</b>`, 'bad'); break;
+      case 'nest': { const sealed = map.rooms[e[2]].key === 'quarantine';
+        if (sealed) for (const d of doors) if (d.a === e[2] || d.b === e[2]) d.wasLocked = true;
+        say(t, sealed ? `☣ Something has hatched in the <b>Quarantine Bay</b>. The bay is sealed... for now` : `☣ Something has nested in the <b>${esc(map.rooms[e[2]].name)}</b>`, 'bad'); break; }
+      case 'blastdoors': { doors[e[2]].wasLocked = true; say(t, '🛡 <b>Blast doors</b> seal the Bridge', 'good'); break; }
       case 'bridgelost': mcOff = true; say(t, '☠ <b>The attackers hold the Bridge.</b>', 'bad'); break;
       case 'repelled': mcOff = true; say(t, '<b>BOARDERS REPELLED</b>: the Mothership is clear', 'good'); break;
       case 'survived': mcOff = true; say(t, '<b>THEY GIVE UP</b>: the attackers pull back off the Mothership', 'good'); break;
@@ -450,6 +453,9 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
       case 'door': if (e[3] === 'breach') sfx.boom(); break;
       case 'grenade': case 'breach': sfx.boom(true); break;
       case 'repelled': case 'survived': sfx.objective(true); break;
+      case 'nest': sfx.hatch(); break;
+      case 'bridgelost': sfx.alarm(2); break;
+      case 'blastdoors': sfx.boom(); break;
       case 'alarm': sfx.alarm(e[2]); break;
       case 'down': if (info[e[2]]?.side === 'S') sfx.down(); else sfx.enemyDown(); break;
       case 'dead': if (info[e[2]]?.side === 'E') sfx.enemyDown(); break;

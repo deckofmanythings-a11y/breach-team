@@ -70,6 +70,9 @@ export const EASTER_EGGS = [
   { id: 'ach_short_controlled', kind: 'achievement', source: 'Aliens',     data: { name: 'Short, Controlled Bursts', how: 'Win a mission without anyone using a full-auto weapon.' } },
   { id: 'ach_nuke_orbit',       kind: 'achievement', source: 'Aliens',     data: { name: 'Only Way To Be Sure', how: 'Retreat from an alien ship with nobody left behind.' } },
   { id: 'ach_kobayashi',        kind: 'achievement', source: 'Star Trek',  data: { name: 'No-Win Scenario', how: 'Succeed on a mission after the retreat threshold was almost reached.' } },
+  { id: 'ach_off_my_ship',      kind: 'achievement', source: 'Air Force One', data: { name: 'Get Off My Ship', how: 'Win a Mothership defense.' } },
+  { id: 'ach_hold_door',        kind: 'achievement', source: 'Game of Thrones', data: { name: 'Hold the Door', how: 'Win a Mothership defense after the attackers had the Bridge more than halfway taken.' } },
+  { id: 'ach_mostly_night',     kind: 'achievement', source: 'Aliens',     data: { name: 'Mostly at Night', how: 'Repel a parasite outbreak with nobody killed.' } },
   { id: 'ach_tears_rain',       kind: 'achievement', source: 'Blade Runner', data: { name: 'Lost in Time', how: 'Have a Soldier reach level 10 and then fall in battle.' } },
 
   // ---- Secret ships (Phase 7; never named in UI until met) ----

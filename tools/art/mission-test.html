@@ -21,6 +21,7 @@ const shipId = q.get('ship') || 'raider';
 const input = { engineVersion: ENGINE_VERSION, seed: +(q.get('seed') || 12345), ship: shipId, entry: q.get('entry') || 'shuttle', tactic: q.get('tactic') || 'balanced', retreat: q.get('retreat') || 'teleport_recall', squad: g.soldiers.map(s => R.engineSoldier(g, s)) };
 const battle = simulate(input);
 const report = R.applyMission(g, input, battle, rollAftermath(battle, input.squad), SHIP_BY_ID[shipId].name);
+if (q.get('rooms')) g.mothership = { rooms: Object.fromEntries(q.get('rooms').split(',').map(kv => [kv.split(':')[0], +kv.split(':')[1]])) };   // ?rooms=security:3,quarantine:2
 if (q.get('defend')) { const d = R.runDefense(g, { threat: q.get('defend'), power: +(q.get('power') || 100) }, input.seed + 1); if (d) report.defense = d.report; }   // ?defend=pirate_raid&power=100
 if (SHIP_BY_ID[shipId].secret) { report.secret = true; report.plannedShip = 'hauler'; report.firstContact = true; }
 playMission(document.getElementById('panel'), battle, report, report.colors, true);

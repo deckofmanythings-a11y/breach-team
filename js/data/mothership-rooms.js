@@ -9,6 +9,9 @@
 //   teleportFailPct                   change to teleport misfires: Teleport entry and Teleport Recall
 //   shuttleArrivePct                  change to how long the shuttle takes to come for a retreat
 //   squadAdd                          extra squad size on every entry (still capped at MAX_DEPLOY)
+//   turrets, blastDoors               defense only (shown, not summed into missions): the map places the
+//                                     turrets; blast doors seal the Bridge in a defense (engine, Security L3)
+//   outbreakPct                       change to the chance of a parasite outbreak after an alien ship
 import { MAX_DEPLOY } from './economy.js';
 
 export const ROOM_PRICES = [600, 1800, 4000];   // CREDs to reach level 1 / 2 / 3
@@ -32,13 +35,15 @@ export const MS_ROOMS = [
   { id: 'chapel', name: 'Memorial Chapel', icon: '🕯',
     desc: 'The names of the fallen, where everyone walks past them. The squad fights with more Grit.',
     levels: [{ grit: 4 }, { grit: 8 }, { grit: 12 }] },
+  { id: 'security', name: 'Security Post', icon: '🛡',
+    desc: 'Turrets and blast doors for when someone boards YOU. No help on missions.',
+    levels: [{ turrets: 1 }, { turrets: 2 }, { turrets: 3, blastDoors: 1 }] },
+  { id: 'quarantine', name: 'Quarantine Bay', icon: '☣',
+    desc: 'Keeps whatever you brought back from alien ships locked away. Fewer outbreaks, and the ones that happen start sealed in here.',
+    levels: [{ outbreakPct: -25 }, { outbreakPct: -50 }, { outbreakPct: -75 }] },
   // Later phases (shown as "coming later", can't be built yet).
-  { id: 'intel', name: 'Intel Room', icon: '📡', soon: 'with the Mothership map',
+  { id: 'intel', name: 'Intel Room', icon: '📡', soon: 'in the next update',
     desc: 'Scouts the target before you board: crew size, objectives, and eventually the map.', levels: [] },
-  { id: 'security', name: 'Security Post', icon: '🛡', soon: 'with Mothership defense',
-    desc: 'Turrets and blast doors for when someone boards YOU.', levels: [] },
-  { id: 'quarantine', name: 'Quarantine Bay', icon: '☣', soon: 'with Mothership defense',
-    desc: 'Keeps whatever you brought back from alien ships locked away.', levels: [] },
 ];
 export const MS_ROOM_BY_ID = Object.fromEntries(MS_ROOMS.map(r => [r.id, r]));
 export const MAX_ROOM_LEVEL = ROOM_PRICES.length;
@@ -90,5 +95,8 @@ export function describeEffect(eff) {
   if (eff.teleportFailPct) parts.push(eff.teleportFailPct <= -100 ? 'No teleport misfires' : `${-eff.teleportFailPct}% fewer teleport misfires`);
   if (eff.shuttleArrivePct) parts.push(`Retreat shuttle arrives ${-eff.shuttleArrivePct}% faster`);
   if (eff.squadAdd) parts.push(`+${eff.squadAdd} squad size on every entry (max ${MAX_DEPLOY})`);
+  if (eff.turrets) parts.push(`${eff.turrets} turret${eff.turrets > 1 ? 's' : ''} defend${eff.turrets > 1 ? '' : 's'} the Mothership`);
+  if (eff.blastDoors) parts.push('Blast doors seal the Bridge when boarded');
+  if (eff.outbreakPct) parts.push(`${-eff.outbreakPct}% fewer parasite outbreaks; outbreaks start sealed in the bay`);
   return parts.join(' · ') || 'Basic facilities';
 }

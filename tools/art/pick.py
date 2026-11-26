@@ -136,7 +136,8 @@ PICKS = {
 }
 
 FLOOR_PICKS = {'floor-pirates': 79270, 'floor-corpsec': 81342, 'floor-military': 71466,
-               'floor-hive': 108938, 'floor-mycelid': 109253, 'floor-lattice': 117171, 'floor-wraith': 109165, 'floor-drifters': 101458, 'floor-thrall': 109157}
+               'floor-hive': 108938, 'floor-mycelid': 109253, 'floor-lattice': 117171, 'floor-wraith': 109165, 'floor-drifters': 101458, 'floor-thrall': 109157,
+               'floor-mothership': 901682}
 FLOOR_OUT = os.path.join(HERE, '..', '..', 'assets', 'floors')
 
 os.makedirs(OUT, exist_ok=True)
@@ -160,7 +161,8 @@ for fid, seed in FLOOR_PICKS.items():   # floors: whole image, never cropped to 
 print(f'{len(FLOOR_PICKS)} floors written to assets/floors ({ftotal // 1024} KB total)')
 
 WALL_PICKS = {'wall-pirates': 139156, 'wall-corpsec': 151228, 'wall-military': 139271, 'wall-hive': 138824, 'wall-mycelid': 139139,
-              'wall-lattice': 139138, 'wall-wraith': 151132, 'wall-drifters': 177182, 'wall-thrall': 151124}
+              'wall-lattice': 139138, 'wall-wraith': 151132, 'wall-drifters': 177182, 'wall-thrall': 151124,
+              'wall-mothership': 977406}
 WALL_OUT = os.path.join(HERE, '..', '..', 'assets', 'walls')
 os.makedirs(WALL_OUT, exist_ok=True)
 wtotal = 0

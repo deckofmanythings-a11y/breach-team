@@ -6,32 +6,32 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=14';
+import { renderDeploy } from './deploy.js?v=15';
 import { renderStore } from './store.js?v=4';
-import { renderLadder } from './ladder.js?v=9';
+import { renderLadder } from './ladder.js?v=10';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { memorialBadges } from './memorial-badge.js';
 import { shownCreds, backfillNotice } from './creds-view.js';
-import { renderMothership } from './mothership-view.js?v=4';
+import { renderMothership } from './mothership-view.js?v=5';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=14';
+import { setContract } from './deploy.js?v=15';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
-import { replayMission, setExit, setOpenSoldier } from './mission.js?v=6';
+import { replayMission, setExit, setOpenSoldier } from './mission.js?v=7';
 import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.14.0';
+export const APP_VERSION = '0.15.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');

@@ -2,7 +2,7 @@
 // roster faces, and the stakes. The fight itself is the engine's defend mode (data/threats.js).
 // New file on purpose (stale-cache rule).
 import { THREAT_BY_ID } from './threats.js';
-import { MS_ROOMS, ROOM_PRICES, roomLevel, roomEffect } from './mothership-rooms.js';
+import { MS_ROOMS, ROOM_PRICES, roomLevel, roomEffect, mothershipEffects, scalePct } from './mothership-rooms.js';
 
 export const DEFENSE_EVENTS = {
   minMissions: 12,        // never before a commander's 12th mission
@@ -21,7 +21,7 @@ export function defenseChance(g, shipDef) {
   const E = DEFENSE_EVENTS;
   if ((g.missions || 0) < E.minMissions || g.gameOver) return 0;
   if (g.lastDefense !== undefined && g.missions - g.lastDefense < E.cooldown) return 0;
-  return shipDef?.alien ? E.alienPct : E.basePct;
+  return shipDef?.alien ? scalePct(E.alienPct, mothershipEffects(g).outbreakPct) : E.basePct;   // Quarantine Bay lowers outbreaks
 }
 
 // Who is aboard: everyone not Missing (wounded Soldiers fight too, with their injuries).

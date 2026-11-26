@@ -9,7 +9,7 @@ import { FACTION_BY_ID } from '../data/factions.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { simulate } from '../engine/battle.js';
 import * as api from './api.js';
-import { playMission } from './mission.js?v=6';
+import { playMission } from './mission.js?v=7';
 import { holdCreds } from './creds-view.js';
 import { mothershipInput, entryMaxSquad } from '../data/mothership-rooms.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';

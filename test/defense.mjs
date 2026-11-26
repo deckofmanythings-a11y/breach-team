@@ -151,5 +151,36 @@ for (const t of THREATS) for (const rooms of [{}, MAXED]) for (let i = 0; i < 4;
   ok(hit && g4.history[0].defense === hit.report.defense && simulate(hit.report.defense.input).hash === hit.report.defense.hash, 'runMission sometimes triggers a defense, saved with the mission and replayable');
 }
 
+// M6: Security Post, Quarantine Bay, damaged rooms in the engine, defense achievements.
+{
+  const DE = await import('../js/data/defense-events.js');
+  const MR = await import('../js/data/mothership-rooms.js');
+  const R = await import('../js/game/rules.js');
+  const { buildRoom } = await import('../js/game/mothership.js');
+  const g = R.newGame(); g.creds = 1e6; g.missions = 30;
+  for (const id of ['security', 'quarantine']) { buildRoom(g, id); buildRoom(g, id); buildRoom(g, id); }
+  ok(MR.roomLevel(g, 'security') === 3 && MR.roomLevel(g, 'quarantine') === 3, 'Security Post and Quarantine Bay can be built to L3');
+  ok(DE.defenseChance(g, { alien: true }) === 3 && DE.defenseChance(g, { tier: 1 }) === DE.DEFENSE_EVENTS.basePct, 'Quarantine Bay L3 cuts outbreaks to a quarter, not other defenses');
+  ok(MR.mothershipInput(g) === null, 'defense-only rooms add nothing to missions');
+  const b3 = simulate(def({ rooms: { security: 3 } })), b2 = simulate(def({ rooms: { security: 2 } }));
+  const bd = b3.events.find(e => e[1] === 'blastdoors');
+  ok(bd && b3.map.doors[bd[2]].blast && b3.map.doors[bd[2]].forceTicks >= 4 * 20 && !b2.events.some(e => e[1] === 'blastdoors'), 'Security Post L3 (only) seals the Bridge with blast doors');
+  const tur = (b) => b.events.filter(e => e[1] === 'spawn' && e[3] === 'S' && e[4] === 'sys_turret').length;
+  const dmg = simulate(def({ rooms: { security: 3 }, damaged: ['security'] }));
+  ok(tur(b3) === 4 && tur(dmg) === 1 && !dmg.events.some(e => e[1] === 'blastdoors'), `a damaged Security Post has no turrets or blast doors (got ${tur(b3)} / ${tur(dmg)})`);
+  const oq = simulate(def({ threat: 'hive_outbreak', power: 75, rooms: { quarantine: 3 }, damaged: ['quarantine'] }));
+  ok(oq.events.find(e => e[1] === 'nest')[2] === oq.map.airlock, 'a damaged Quarantine Bay contains nothing (outbreak starts in the Hangar)');
+  // runDefense passes damaged rooms on.
+  g.mothership.damaged = { security: true };
+  const rd = R.runDefense(g, { threat: 'corp_repo', power: 100 }, 7);
+  ok(rd && rd.input.damaged?.join() === 'security' && simulate(rd.input).hash === rd.battle.hash, 'runDefense sends damaged rooms to the engine (and replays match)');
+  // Achievements.
+  const g5 = R.newGame();
+  const inp = { engineVersion: 5, mode: 'defend', seed: 3, threat: 'corp_repo', power: 100, rooms: {}, tactic: 'balanced', squad: g5.soldiers.map(x => R.engineSoldier(g5, x)) };
+  const fake = { ...simulate(inp), result: 'success', events: [[50, 'hold', 90, 160]] };
+  const rep = R.applyDefense(g5, inp, fake, { soldiers: fake.soldiers.map(x => ({ uid: x.uid, state: 'fine', fate: 'ok', kiaChance: 0, injuries: [], xp: 10, healTimePct: 0 })), bucs: 0 });
+  ok(rep.achievements.includes('ach_off_my_ship') && rep.achievements.includes('ach_hold_door') && !rep.achievements.includes('ach_mostly_night'), 'defense achievements: Get Off My Ship + Hold the Door');
+}
+
 console.log(`defense: ${fails ? fails + ' FAILED' : 'all passed'}. Results:`, results);
 if (fails) process.exit(1);

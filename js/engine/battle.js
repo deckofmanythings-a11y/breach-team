@@ -86,7 +86,10 @@ export function simulate(input) {
   const map = defend ? buildMothershipMap({ mothership: { rooms: input.rooms || {} } })
     : generateShip(createRng(hashString('map:' + (input.mapSeed ?? seed) + ':' + ship.id)), ship.id, input.engineVersion ?? 1);
   const power = defend ? Math.max(25, Math.min(400, Math.floor(input.power ?? 100))) : 100;
-  const msRoomOf = (type) => (defend ? map.rooms.find(r => r.type === type) : null);
+  // input.damaged (M6): rooms damaged in an earlier lost defense. They're still on the map but give
+  // nothing: no bonus, no turrets, no containment. Old v5 inputs have no field, so nothing changes.
+  const damaged = new Set(defend ? input.damaged || [] : []);
+  const msRoomOf = (type) => (defend ? map.rooms.find(r => r.type === type && !damaged.has(r.key)) || null : null);
   const armoryRoom = msRoomOf('armory'), medBay = msRoomOf('medbay');
   const rng = createRng(hashString('sim:' + seed));
   const V = input.engineVersion ?? 1;      // engine version this mission was fought on (gates v2-only behaviour)
@@ -277,13 +280,19 @@ export function simulate(input) {
   let nest = -1;   // defend, outbreak: the room the parasites hatch from
   if (defend) {
     // The Mothership's own turrets fight for the squad.
-    for (const f of map.features) if (f.kind === 'turret' && f.active && occ[idx(f.x, f.y)] < 0) {
+    for (const f of map.features) if (f.kind === 'turret' && f.active && !damaged.has(map.rooms[f.room].key) && occ[idx(f.x, f.y)] < 0) {
       const tr = enemyUnit('sys_turret', f.x, f.y, { side: 'S' }); ev(0, 'spawn', tr.id, 'S', tr.kind, tr.x, tr.y);
+    }
+    // Security Post L3: the Bridge door is a sealed blast door. The squad has the codes; boarders
+    // have to force it, which takes far longer than a normal locked door.
+    const sec = msRoomOf('security');
+    if (sec && sec.level >= 3) for (const d of map.doors) if (d.a === map.bridge || d.b === map.bridge) {
+      d.locked = true; d.blast = true; d.forceTicks = FORCE_DOOR_TICKS * DEFENSE.blastDoorMult; ev(0, 'blastdoors', d.id);
     }
     if (threat.kind === 'outbreak') {
       // It hatches where the cargo came aboard (the Hangar), or in the Quarantine Bay if there is one
       // (sealed: its door takes far longer to force).
-      const q = map.rooms.find(r => r.key === 'quarantine');
+      const q = msRoomOf('quarantine');
       nest = q ? q.id : map.airlock;
       if (q) for (const d of map.doors) if (d.a === nest || d.b === nest) {
         d.locked = true; d.forceTicks = FORCE_DOOR_TICKS * (1 + q.level * DEFENSE.quarantineLockMult);
@@ -610,7 +619,7 @@ export function simulate(input) {
     if (di >= 0) {
       const d = map.doors[di];
       if (!d.open) {
-        if (d.locked && (u.side === 'S' || defend)) return workDoor(u, d);
+        if (d.locked && !(d.blast && u.side === 'S') && (u.side === 'S' || defend)) return workDoor(u, d);
         d.open = true; d.locked = false; u.busy = t + OPEN_DOOR_TICKS; ev(t, 'door', d.id, 'open', u.id);
         return true;
       }

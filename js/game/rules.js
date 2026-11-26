@@ -362,7 +362,8 @@ export function runDefense(g, pick, seed, now = Date.now()) {
   const ms = mothershipInput(g);
   const rooms = {};
   for (const r of MS_ROOMS) { const lv = roomLevel(g, r.id); if (lv > 0) rooms[r.id] = lv; }
-  const input = { engineVersion: ENGINE_VERSION, mode: 'defend', seed: seed >>> 0, threat: pick.threat, power: pick.power, rooms, tactic: 'balanced',
+  const damaged = Object.keys(g.mothership?.damaged || {}).filter(id => rooms[id]).sort();   // on the map, but give nothing
+  const input = { engineVersion: ENGINE_VERSION, mode: 'defend', seed: seed >>> 0, threat: pick.threat, power: pick.power, rooms, ...(damaged.length ? { damaged } : {}), tactic: 'balanced',
     squad: roster.map(s => engineSoldier(g, s)), ...(ms ? { mothership: ms } : {}) };
   const battle = simulate(input);
   const after = rollAftermath(battle, input.squad, input.mothership);
@@ -413,6 +414,17 @@ export function applyDefense(g, input, battle, after, now = Date.now()) {
     for (let n = DEFENSE_EVENTS.damagedRooms[battle.result]; n > 0 && pool.length; n--) report.damaged.push(pool.splice(rng.int(pool.length), 1)[0]);
     if (report.damaged.length) { g.mothership ||= {}; g.mothership.damaged ||= {}; for (const id of report.damaged) g.mothership.damaged[id] = true; }
   }
+  // Achievements (M6).
+  const have = new Set(g.achievements || []), earned = [];
+  const grant = (id) => { if (!have.has(id)) { have.add(id); earned.push(id); } };
+  if (battle.result === 'success') {
+    grant('ach_off_my_ship');
+    const held = Math.max(0, ...battle.events.filter(e => e[1] === 'hold').map(e => e[2]));
+    if (held * 2 > DEFENSE.holdTicks) grant('ach_hold_door');
+    if (T.kind === 'outbreak' && after.soldiers.every(a => a.fate !== 'kia')) grant('ach_mostly_night');
+  }
+  g.achievements = [...have];
+  report.achievements = earned;
   if (!g.soldiers.length) { g.gameOver = { at: now, ship: 'the Mothership', missions: g.missions }; report.gameOver = true; }
   return report;
 }

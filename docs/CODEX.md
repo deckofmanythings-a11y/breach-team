@@ -225,7 +225,7 @@ Your roster, BUCs, packs and Store purchases live on the server (sign in to play
 
 ### CREDs
 
-**CREDs** (Capital Resource Exchange Denominations) are a second currency, separate from BUCs, for building the **Mothership** (coming later). Every XP point your Soldiers earn on a mission adds **1 CRED**, bonus XP included, and so does the XP of a Soldier who doesn't make it home. A 4-Soldier squad earns about 200 per mission at any level. CREDs carry over a Game Over.
+**CREDs** (Capital Resource Exchange Denominations) are a second currency, separate from BUCs, for building the **Mothership**. Every XP point your Soldiers earn on a mission adds **1 CRED**, bonus XP included, and so does the XP of a Soldier who doesn't make it home. A 4-Soldier squad earns about 200 per mission at any level. CREDs carry over a Game Over.
 
 ### The Mothership
 
@@ -239,8 +239,10 @@ Spend CREDs on rooms in the **Mothership** tab. Building a room costs **600 CRED
 | Armory | Store −5% (packs and daily stock) | −10% | −15% |
 | Teleporter Array | 33% fewer teleport misfires (Teleport entry and Teleport Recall) | 66% fewer | None |
 | Memorial Chapel | +4 Grit for the squad on missions | +8 | +12 |
+| Security Post | 1 turret defends the Mothership (no mission bonus) | 2 turrets | 3 turrets, and blast doors seal the Bridge |
+| Quarantine Bay | 25% fewer parasite outbreaks; outbreaks start sealed in the bay (no mission bonus) | 50% fewer | 75% fewer |
 
-Coming later: Intel Room, Security Post, Quarantine Bay.
+Coming later: Intel Room.
 
 The tab shows the Mothership as a map: Hangar at the stern, a spine corridor down the middle, the Bridge at the bow, and five room slots on each side. Tap a room (or an empty slot marked with a +) to build or upgrade it. Upgraded rooms get more furniture and cover, which will matter when the Mothership itself is boarded.
 
@@ -251,7 +253,8 @@ The tab shows the Mothership as a map: Hangar at the stern, a spine corridor dow
 - **Attackers** come in 3 waves (0:03, 0:33 and 1:03). Boarders breach the Hangar first, then a random side room on the hull, then the Hangar again; their leader comes with the last wave. Each wave's size is 2/2/3 crew points per defending Soldier, scaled by the threat's power.
 - **Threats:** Corporate repo team (tier 1, 80% power), Pirate boarding party (tier 2, 130%), Fleet Marine strike team (tier 3, 85%) and Parasite outbreak (tier 3, 75%). The outbreak hatches in the Hangar, or in the Quarantine Bay if one is built (its door is sealed and takes far longer to force). It brings 3 egg pods, and a Soldier left Down for 12.5 s rises possessed.
 - **Win** by killing every wave, or by holding out for 3:00. **Lose** if attackers stand on the Bridge with no Soldier there for a total of 20 s, or if every Soldier is Down. Nobody is left behind at home: Downed Soldiers roll death rolls as normal.
-- **Rooms in the fight:** Armory +5% damage per level for Soldiers fighting inside it; Med Bay +5% Medic revive chance per level; Chapel Grit applies as usual; more cover and furniture with each level.
+- **Rooms in the fight:** Armory +5% damage per level for Soldiers fighting inside it; Med Bay +5% Medic revive chance per level; Chapel Grit applies as usual; more cover and furniture with each level. Security Post level 3 seals the Bridge door with **blast doors**: your Soldiers open it freely, boarders take 4 times as long as a normal locked door to force it. A sealed Quarantine Bay's door takes 2 / 3 / 4 times as long to force. A **damaged** room is still on the map but gives nothing in the fight either: no turrets, bonus, blast doors or containment.
+- **Security Post and Quarantine Bay, measured** (6 Soldiers, 40 runs each, threat picked for the roster): marines at Level 5 win 78% on a bare ship, 93% with a Security Post (95% at L3); at Level 8, 85% → 95%. Blast doors stop almost every "Bridge lost": a Level 5 outbreak lost the Bridge 3 times in 40 without them, never with them. A Quarantine Bay L3 takes a Level 8 outbreak from 75% to 100%.
 - **Measured** (6 Soldiers, 40 runs each; win % on a bare ship / a fully built one): repo team at Level 1, 98% / 100%; pirates at Level 3, 95% / 100%; marines at Level 5, 70% / 88%; outbreak at Level 5, 83% / 100%. Four-Soldier rosters do noticeably worse. With the threat and power picked for each roster level (40 runs per cell, rosters of 4 / 6 / 8), wins range from 78% to 100% on a bare ship and 85% to 100% fully built; outbreaks against small low-level rosters are the hardest (a 4-Soldier Level 1 roster wins 33%).
 
 ### Booster packs
