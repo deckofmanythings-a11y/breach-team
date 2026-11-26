@@ -242,6 +242,8 @@ Spend CREDs on rooms in the **Mothership** tab. Building a room costs **600 CRED
 
 Coming later: Intel Room, Security Post, Quarantine Bay.
 
+The tab shows the Mothership as a map: Hangar at the stern, a spine corridor down the middle, the Bridge at the bow, and five room slots on each side. Tap a room (or an empty slot marked with a +) to build or upgrade it. Upgraded rooms get more furniture and cover, which will matter when the Mothership itself is boarded.
+
 ### Booster packs
 
 | Pack | Price | Contents |

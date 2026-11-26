@@ -248,3 +248,6 @@ details.commend > div { margin-top: 6px; }
 .ms-room h4 { margin: 0; } .ms-icon { display: inline-block; width: 1.4em; text-align: center; }
 .ms-room.built { border-color: #2b5a74; }
 .ms-pips { display: inline-flex; gap: 3px; } .ms-pips i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid #2b5a74; background: #0d1820; } .ms-pips i.on { background: #5fd0ff; border-color: #5fd0ff; }
+.ms-stage { height: 420px; } .ms-hint { position: absolute; left: 10px; top: 10px; z-index: 1; pointer-events: none; background: rgba(11,15,20,.8); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+@media (max-width: 900px) { .ms-stage { height: 52vh; } }
+.ms-modal { max-width: 420px; } .ms-modal .card { margin: 0; }

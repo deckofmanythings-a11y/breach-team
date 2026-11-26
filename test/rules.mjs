@@ -455,5 +455,25 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
 }
 function createRngForTest(n) { let x = 12345 + n; return { int: (k) => (x = (x * 1103515245 + 12345) >>> 0) % k, roll: (p) => ((x = (x * 1103515245 + 12345) >>> 0) % 100) < p, range: (a, b) => a + ((x = (x * 1103515245 + 12345) >>> 0) % (b - a + 1)) }; }
 
+// ---- Mothership map (M3) ----
+{
+  const { buildMothershipMap, MS_LAYOUT } = await import('../js/engine/mothership-map.js');
+  const { T_FLOOR, T_WALL, T_VOID } = await import('../js/engine/mapgen.js');
+  const bare = buildMothershipMap({}), full = buildMothershipMap({ mothership: { rooms: { hangar: 3, med_bay: 3, training_deck: 3, armory: 3, teleporter: 3, chapel: 3 } } });
+  ok(bare.rooms[bare.airlock].key === 'hangar' && bare.rooms[bare.bridge].type === 'bridge', 'map: Hangar is room 0 (the airlock), the Bridge is the objective');
+  ok(bare.rooms.length === 5 && full.rooms.length === 10, `map: only built rooms exist (${bare.rooms.length} bare, ${full.rooms.length} full)`);
+  for (const m of [bare, full]) ok(m.distFromBridge.every(d => Number.isFinite(d)), 'map: every room is reachable from the Bridge');
+  const solid = (m) => Array.from(m.tiles).map(t => (t === T_VOID ? 0 : 1)).join('');
+  ok(solid(bare) === solid(full), 'map: the ship silhouette never changes as rooms are built');
+  const sealed = MS_LAYOUT.find(s => s.key === 'security');
+  let floor = 0; for (let y = sealed.y; y < sealed.y + sealed.h; y++) for (let x = sealed.x; x < sealed.x + sealed.w; x++) if (full.tiles[y * full.w + x] !== T_WALL) floor++;
+  ok(floor === 0, 'map: an unbuilt slot is sealed hull');
+  const again = buildMothershipMap({ mothership: { rooms: { hangar: 3, med_bay: 3, training_deck: 3, armory: 3, teleporter: 3, chapel: 3 } } });
+  ok(JSON.stringify([...again.cover]) === JSON.stringify([...full.cover]) && JSON.stringify(again.features) === JSON.stringify(full.features), 'map: same rooms and levels = same map');
+  const armory = (m) => m.features.filter(f => m.rooms[f.room].key === 'armory' && f.kind === 'turret').length;
+  ok(armory(buildMothershipMap({ mothership: { rooms: { armory: 1 } } })) === 0 && armory(full) === 1, 'map: upgrades add furniture (Armory turret from L2)');
+  ok(full.slots.length === MS_LAYOUT.length && full.slots.find(s => s.key === 'intel').level === 0, 'map: slots list built and sealed rooms');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

@@ -4,7 +4,9 @@ The squad's home ship: rooms and upgrades bought with **CREDs**, shown as a real
 Rarely, that map becomes a battlefield: the Mothership is boarded (or something you brought home
 gets loose) and every Soldier you have defends it.
 
-Status: **M1 (CREDs, Ver. 0.10.0) and M2 (rooms, Ver. 0.11.0) are live.** M3 onward is not built yet. The design decisions are in section 7.
+Status: **M1 (CREDs, Ver. 0.10.0), M2 (rooms, Ver. 0.11.0) and M3 (map, Ver. 0.12.0) are live.** M4 onward is not built yet.
+
+**M3 notes:** layout in `js/engine/mothership-map.js` (`MS_LAYOUT`, `buildMothershipMap(g)`), drawn by `js/render/ship-view.js` (a static copy of mission playback's map drawing; folding mission.js onto it is a later cleanup). Room furniture is seeded from room + level, so a map is a pure function of the save. The Intel Room's map preview is still to do: it needs a public per-ship map seed in the save, used as `input.mapSeed`. The design decisions are in section 7.
 
 **M2 notes:** six rooms shipped (Hangar, Med Bay, Training Deck, Armory, Teleporter Array, Memorial Chapel). Grit is +4/8/12; the Armory discount covers packs too. The Intel Room is deferred to M3 because pre-boarding scouting can't reveal anything that depends on the mission seed: the engine is deterministic and public, so a known seed means a known result. The plan is to give each ship a separate, public map seed for the Intel preview. Security Post and Quarantine Bay wait for the defense phases.
 

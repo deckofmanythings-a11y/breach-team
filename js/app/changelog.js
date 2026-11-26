@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.12.0', date: '2026-11-25', items: [
+    "The Mothership tab now shows your ship as a map. Tap any room to build or upgrade it; empty slots are sealed hull sections marked with a +.",
+    "Rooms fill in as you build them, and upgrades add furniture (more cover, consoles, an Armory turret at level 2). Your Soldiers hang around the ship: the injured in the Med Bay, Medics there too, fighters on the Training Deck.",
+  ] },
   { v: '0.11.0', date: '2026-11-25', items: [
     "The Mothership is open: a new tab where you spend CREDs on rooms for the squad's home ship. Building a room costs 600 CREDs, then 1,800 and 4,000 for levels 2 and 3.",
     "Six rooms to start: Hangar (faster retreat shuttle, then +1 squad size on every entry), Med Bay (faster healing, then better death-roll odds), Training Deck (more mission XP), Armory (Store discounts), Teleporter Array (fewer teleport misfires) and Memorial Chapel (more Grit on missions).",
