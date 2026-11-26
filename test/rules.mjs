@@ -290,5 +290,22 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   throws(() => setClassAccents(g, { wizard: '#ffffff' }), 'unknown class rejected');
 }
 
+// ---- Mission clock (v4): bridge pause + Grit push-on; v3 untouched ----
+{
+  const { makeSquad } = await import('./fixtures.mjs');
+  let pushOn = 0, overtimeWins = 0, v3Clock = 0;
+  for (let i = 0; i < 60; i++) {
+    const inp = { seed: 7000 + i, ship: 'raider', entry: 'shuttle', tactic: 'steady', retreat: 'teleport_recall', squad: makeSquad(i, ['assault', 'breacher', 'marksman', 'medic'], 5, 'milspec') };
+    const b4 = simulate({ ...inp, engineVersion: 4 });
+    if (b4.events.some(e => e[1] === 'pushon')) pushOn++;
+    if (b4.result === 'success' && b4.ticks > 720) overtimeWins++;
+    const b3 = simulate({ ...inp, engineVersion: 3 });
+    if (b3.events.some(e => ['clock', 'pushon', 'pushfail'].includes(e[1])) || b3.ticks > 840) v3Clock++;
+  }
+  ok(pushOn > 0, `v4 squads dig in on Grit sometimes (${pushOn}/60)`);
+  ok(overtimeWins > 0, `v4 squads can win past 90 s (${overtimeWins}/60)`);
+  ok(v3Clock === 0, 'v3 missions keep the old fixed clock');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);

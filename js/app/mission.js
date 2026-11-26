@@ -5,7 +5,7 @@ import { COMMENDATION_BY_ID } from '../data/commendations.js';
 import * as G from './state.js?v=3';
 import { T_VOID, T_WALL, T_DOOR } from '../engine/mapgen.js';
 import { simulate } from '../engine/battle.js';
-import { TICKS_PER_SEC } from '../data/stats.js';
+import { TICKS_PER_SEC, RETREAT_AT_TICK } from '../data/stats.js';
 import { UNIT_BY_ID, FACTION_BY_ID } from '../data/factions.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
@@ -43,7 +43,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   const faction = FACTION_BY_ID[ship.faction];
   const wrap = el(`<div class="mission">
     <div class="stage" id="stage"><div class="hudtop">
-      <div>${report.secret ? '<b class="bad">UNKNOWN CONTACT</b> · ' : ''}<b>${esc(ship.name)}</b> · ${ENTRY_BY_ID[battle.entry].name} · ${TACTIC_BY_ID[battle.tactic].name} · <span id="clock">0:00</span> · Alarm <b id="alarm" class="alarm0">CALM</b><span id="hold"></span><span id="grav"></span></div>
+      <div>${report.secret ? '<b class="bad">UNKNOWN CONTACT</b> · ' : ''}<b>${esc(ship.name)}</b> · ${ENTRY_BY_ID[battle.entry].name} · ${TACTIC_BY_ID[battle.tactic].name} · <span id="clock">0:00</span> · <span id="mclock" title="Mission clock. Pauses while a Soldier is on the bridge. When it runs out, a winning squad can dig in on Grit for more time.">⏱ 1:30</span> · Alarm <b id="alarm" class="alarm0">CALM</b><span id="hold"></span><span id="grav"></span></div>
       <div class="row"><button data-sp="1">1×</button><button data-sp="2">2×</button><button data-sp="4">4×</button><button id="skip">Skip ▶▶</button></div>
     </div></div>
     <div class="side"><div class="card squadhud" id="squad"></div><div class="feed" id="feed"></div></div>
@@ -211,6 +211,8 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   for (const r of map.rooms) if (r.hazard) hazards.push({ room: r.id, kind: r.hazard, until: 1e9 });
   const fx = [];
   let alarm = 0, hold = 0, holdNeed = OBJECTIVES.take_bridge.ticks, tick = 0, ei = 0, speed = 1, done = false;
+  // Mission clock: counts down from 90 s, paused while a Soldier is on the bridge (engine v4 'clock' events).
+  let mcBase = 0, mcAt = 0, mcPaused = false, mcLimit = RETREAT_AT_TICK, mcOff = false;
   const colorsByUnit = {}, sexByUnit = {};
   const squadIn = report.input?.squad || [];
   const portraitByUnit = {}, lookByUnit = {};
@@ -298,7 +300,10 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
       case 'objective': if (e[2] !== 'take_bridge') say(t, `Optional: <b>${OBJECTIVES[e[2]].name}</b>`, 'dim'); break;
       case 'objdone': say(t, e[2] === 'take_bridge' ? '<b>BRIDGE TAKEN</b>' : `✔ ${OBJECTIVES[e[2]].name}`, 'good'); break;
       case 'hold': hold = e[2]; holdNeed = e[3]; break;
-      case 'retreat': say(t, `<b>RETREAT</b> (${e[2] === 'time' ? 'out of time' : 'too many casualties'}): ${RETREAT_BY_ID[e[3]].name}`, 'warn'); break;
+      case 'clock': mcPaused = !!e[2]; mcBase = e[3]; mcAt = t; mcLimit = e[4]; break;
+      case 'pushon': mcLimit = e[4]; mcBase = e[5]; mcAt = t; say(t, `💪 <b>The squad digs in</b>: +15 s on the clock (Grit check ${e[3]}%)`, 'good'); break;
+      case 'pushfail': mcOff = true; say(t, e[3] ? (e[2] ? `Time's up. The squad tries to dig in, but fails the Grit check (${e[2]}%)` : "Time's up, and the squad has already dug in as long as it can") : "Time's up, and the squad isn't winning this fight: no chance to dig in", 'warn'); break;
+      case 'retreat': mcOff = true; say(t, `<b>RETREAT</b> (${e[2] === 'time' ? 'out of time' : 'too many casualties'}): ${RETREAT_BY_ID[e[3]].name}`, 'warn'); break;
       case 'misfire': say(t, e[3] === 'lost' ? `Teleport lock lost on <b>${name(e[2])}</b>!` : `Teleport misfire: ${name(e[2])} is delayed`, 'bad'); break;
       case 'rearguard': say(t, `<b>${name(e[2])}</b> stays behind as rear guard`, 'warn'); break;
       case 'dock': say(t, `Shuttle inbound to the ${map.rooms[e[2]].name}`); break;
@@ -414,7 +419,7 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   // ---- Loop ----
   const events = battle.events;
   const endTick = battle.ticks;
-  const clock = wrap.querySelector('#clock'), alarmEl = wrap.querySelector('#alarm'), holdEl = wrap.querySelector('#hold'), gravEl = wrap.querySelector('#grav');
+  const mclock = wrap.querySelector('#mclock'), clock = wrap.querySelector('#clock'), alarmEl = wrap.querySelector('#alarm'), holdEl = wrap.querySelector('#hold'), gravEl = wrap.querySelector('#grav');
   if (report.secret) say(0, `⚠ Contact mismatch: this isn't the ${esc(SHIPS_ALL[report.plannedShip]?.name || 'ship you picked')}. It's the <b>${esc(ship.name)}</b>.`, 'bad');
   // Sound: weapon type per unit (squad from their gear, enemies from their unit definition).
   const wtype = {};
@@ -458,6 +463,9 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
     }
     draw(); drawFog();
     clock.textContent = fmt(tick);
+    { const left = Math.max(0, mcLimit - (mcPaused ? mcBase : mcBase + (tick - mcAt)));
+      mclock.textContent = mcOff || done ? '⏱ —' : `⏱ ${fmt(left)}${mcPaused ? ' ⏸' : ''}`;
+      mclock.className = !mcOff && !done && left < 15 * TICKS_PER_SEC && !mcPaused ? 'bad' : ''; }
     gravEl.textContent = shipDef.gravity ? ` · Gravity ${gravity.toUpperCase()}` : '';
     alarmEl.textContent = ['CALM', 'ALERT', 'FULL'][alarm]; alarmEl.className = 'alarm' + alarm;
     holdEl.textContent = hold && !done ? ` · Holding bridge ${Math.min(100, Math.floor(hold * 100 / holdNeed))}%` : '';

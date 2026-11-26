@@ -10,6 +10,7 @@
 // }
 import { createRng, hashString, fnv1a } from './rng.js';
 import { generateShip, T_FLOOR, T_DOOR } from './mapgen.js';
+import { CLOCK, pushChance } from '../data/clock.js';
 import { shipAt } from './ship-at.js';
 import { sumMods, applyStatMods, itemMods, weaponProfile } from './progression.js';
 import { hitChance, critChance, applyDamage, evasionOf, ticksPerTile, panicChance, detectChance, RETREAT_AT_TICK, HARD_END_TICK } from '../data/stats.js';
@@ -1030,7 +1031,16 @@ export function simulate(input) {
   const bridgeObj = objectives[0];
   let wave = 0;
 
-  for (t = 0; t <= HARD_END_TICK; t++) {
+  // Mission clock (v4): runs only while nobody is on the bridge; Grit can push it past 90 s.
+  let clock = 0, clockLimit = RETREAT_AT_TICK, clockPaused = false, pushes = 0;
+  const hardEnd = () => (V < 4 ? HARD_END_TICK : retreat.on ? Math.max(HARD_END_TICK, retreat.at + CLOCK.extractTicks) : CLOCK.absEnd);
+  const seenEnemies = () => units.filter(e => e.side === 'E' && isTargetable(e) && !e.hidden && squad.some(s => {
+    if (s.state !== 'active') return false;
+    const sight = ship.dark ? DARK_SIGHT + (s.flags.tracker ? 4 : 0) + (s.st.tech >= 60 ? 2 : 0) : SIGHT;
+    return cheb(s, e) <= sight && los(s.x, s.y, e.x, e.y);
+  })).length;
+
+  for (t = 0; t <= hardEnd(); t++) {
     // Hazards.
     for (const h of hazards) {
       if (t > h.until || t % h.def.every) continue;
@@ -1117,7 +1127,19 @@ export function simulate(input) {
     if (!retreat.on) {
       if (casualties >= retreatAtCount && deployed > 1) startRetreat('casualties');
       else if (activeCount === 0) startRetreat('casualties');
-      else if (t >= RETREAT_AT_TICK) startRetreat('time');
+      else if (V < 4) { if (t >= RETREAT_AT_TICK) startRetreat('time'); }
+      else {
+        const onBridge = squad.some(s => s.state === 'active' && map.roomAt[idx(s.x, s.y)] === map.bridge);
+        if (onBridge !== clockPaused) { clockPaused = onBridge; ev(t, 'clock', onBridge ? 1 : 0, clock, clockLimit); }
+        if (!clockPaused) clock++;
+        if (clock >= clockLimit) {
+          const up = squad.filter(s => s.state === 'active');
+          const winning = up.length > seenEnemies();
+          const chance = winning && pushes < CLOCK.maxPushes ? pushChance(up.reduce((n, s) => n + s.st.grit, 0) / up.length, pushes) : 0;
+          if (chance && rng.roll(chance)) { pushes++; clockLimit += CLOCK.pushTicks; ev(t, 'pushon', pushes, chance, clockLimit, clock); }
+          else { ev(t, 'pushfail', chance, winning ? 1 : 0, pushes); startRetreat('time'); }
+        } else if (t >= CLOCK.absEnd - CLOCK.extractTicks) startRetreat('time');
+      }
     }
     // Extraction.
     if (retreat.on) {
@@ -1135,7 +1157,7 @@ export function simulate(input) {
       if (!pending) break;
     }
   }
-  const endT = Math.min(t, HARD_END_TICK);
+  const endT = Math.min(t, hardEnd());
   if (!result) result = squad.some(s => s.state === 'out') ? 'retreat' : 'wipe';
 
   // ---------- Outcome ----------

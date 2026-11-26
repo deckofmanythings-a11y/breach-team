@@ -10,7 +10,7 @@ export const STAT_INFO = {
   aim:  { name: 'Aim',     short: 'AIM',  desc: 'Hit chance and critical chance.' },
   arm:  { name: 'Armor',   short: 'ARM',  desc: 'Flat damage reduction (1 per 10 Armor).' },
   spd:  { name: 'Speed',   short: 'SPD',  desc: 'Movement speed and a little evasion.' },
-  grit: { name: 'Grit',    short: 'GRT',  desc: 'Morale. Resists panic and suppression.' },
+  grit: { name: 'Grit',    short: 'GRT',  desc: 'Morale. Resists panic and suppression, and helps a winning squad dig in for more time when the mission clock runs out.' },
   tech: { name: 'Tech',    short: 'TEC',  desc: 'Hacking, breaching, healing and gadget power.' },
   stl:  { name: 'Stealth', short: 'STL',  desc: 'How hard a Soldier is to detect.' },
 };

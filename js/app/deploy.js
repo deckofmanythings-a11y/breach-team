@@ -43,7 +43,7 @@ export function renderDeploy(panel) {
     <div class="section"><h3>3 · Squad <span class="dim small" id="count"></span></h3><div class="grid" id="squad"></div></div>
     <div class="section"><h3>4 · Tactic</h3>${optCards(TACTICS, 'tactic', t => `<div class="small dim">${esc(t.desc)}</div><div class="small" style="margin-top:4px">Retreats at ${t.retreatAt}% casualties</div>`)}</div>
     <div class="section"><h3>5 · Retreat plan</h3>${optCards(RETREATS, 'retreat', r => `<div class="small dim">${esc(r.desc)}</div>`)}
-      <div class="small dim" style="margin-top:6px">The retreat happens automatically if casualties pass your tactic's limit, or if the bridge isn't taken in 90 seconds.</div></div>
+      <div class="small dim" style="margin-top:6px">The retreat happens automatically if casualties pass your tactic's limit, or when the 90-second mission clock runs out. The clock pauses while anyone is on the bridge, and a squad that's winning when time runs out can dig in for more time: the higher its Grit, the better its chances.</div></div>
     <div class="launchbar"><span class="small" id="warn"></span><span class="dim small">Permadeath is on: any Soldier who goes Down can die, on any ship.</span><button class="primary" id="go">Launch boarding action</button></div>
   </div>`);
 

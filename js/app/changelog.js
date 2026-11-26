@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.8.0', date: '2026-11-25', items: [
+    "Mission clock rework. The 90-second clock now pauses while any Soldier is on the bridge, so a squad fighting for or holding the bridge is no longer pulled out mid-capture. The time left shows next to the elapsed time during a mission.",
+    "Digging in: when the clock runs out and the squad is winning (more Soldiers standing than enemies in sight), it rolls its average Grit to push on for another 15 seconds. Up to three times, each harder than the last. Slow & Steady, with its Grit bonus, benefits most.",
+    "Older replays and Ladder runs play out exactly as they did.",
+  ] },
   { v: '0.7.7', date: '2026-11-25', items: [
     "XP numbers now match the XP bar: they count progress through the current level (e.g. 130/400 toward Level 6) instead of total XP against the next level's total, which made bars look far emptier than the numbers. Total XP is still on the Soldier's page and in the tooltip.",
   ] },
