@@ -20,10 +20,11 @@ export function restartAccount(g, now = Date.now()) {
 
 export function newCommander(g, now = Date.now()) {
   if (!g.gameOver) throw new GameError('Your commander is still in charge: there is no Game Over to recover from.');
-  const memorial = g.memorial || [], mothership = g.mothership, generation = (g.generation || 1) + 1;
+  const memorial = g.memorial || [], accents = g.classAccents, mothership = g.mothership, generation = (g.generation || 1) + 1;
   replaceSave(g, newGame(now));
   g.memorial = memorial;
   if (mothership !== undefined) g.mothership = mothership;
   g.generation = generation;
+  if (accents) g.classAccents = accents;
   return { newCommander: generation };
 }

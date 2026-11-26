@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.7.6', date: '2026-11-25', items: [
+    "Accent colours now match the class: every Assault wears the same accent, every Medic another, and so on (level badge, card trim and map token), so you can tell classes apart at a glance.",
+    "Pick each class's accent with the new Class colours button in the Barracks, or from the Accent picker on any Soldier's page (it changes the whole class). Armour colour is still yours to set per Soldier.",
+  ] },
   { v: '0.7.5', date: '2026-11-25', items: [
     "Fixed XP bars for Soldiers hired above Level 1 (Seasoned, Veteran and Elite recruits): they started with no XP, so their bar sat empty until they had earned back the levels they were hired at. They now start with the XP for their level, and existing Soldiers have been corrected.",
   ] },

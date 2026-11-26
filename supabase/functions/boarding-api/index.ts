@@ -9,6 +9,8 @@ import { ENGINE_VERSION } from '../_shared/breach/data/version.js';
 import { weeklyContract, backfillStats } from '../_shared/breach/game/ladder.js';
 import { restartAccount, newCommander } from '../_shared/breach/game/commander.js';
 import { stripAll } from '../_shared/breach/game/armory.js';
+import { applyClassAccents, setClassAccents } from '../_shared/breach/game/class-colors.js';
+import { classAccent } from '../_shared/breach/data/class-colors.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -56,12 +58,12 @@ async function withSave(uid: string, fn: (g: any, now: number) => any, allowGame
   for (let attempt = 0; attempt < 3; attempt++) {
     const row = await loadRow(uid);
     if (!row) throw new Fail('No commander profile yet.', 409);
-    const g = R.migrate(row.save);
+    const g = applyClassAccents(R.migrate(row.save));
     if (g.gameOver && !allowGameOver) throw new Fail('Game over: your commander has no Soldiers left. Start a new commander first.', 409);
     const now = Date.now();
     const notes = R.upkeep(g, now);
     let out: any;
-    try { out = fn(g, now) || {}; }
+    try { out = fn(g, now) || {}; applyClassAccents(g); }
     catch (e) { if (e instanceof R.GameError) throw new Fail(e.message); throw e; }
     const w = await db.from('bp_players').update({ save: g, version: row.version + 1, updated_at: new Date(now).toISOString() })
       .eq('user_id', uid).eq('version', row.version).select('version');
@@ -73,7 +75,9 @@ async function withSave(uid: string, fn: (g: any, now: number) => any, allowGame
 
 const storeView = (g: any, now: number) => {
   const day = R.storeDay(now);
-  return { ...R.storeStock(day), bought: g.store?.day === day ? g.store.bought : [] };
+  const stock = R.storeStock(day);
+  stock.soldiers = stock.soldiers.map((s: any) => ({ ...s, colors: [s.colors[0], classAccent(g, s.specialty)] }));
+  return { ...stock, bought: g.store?.day === day ? g.store.bought : [] };
 };
 
 async function names(ids: string[]) {
@@ -127,7 +131,7 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
     const name = String(b.display_name || '').trim();
     if (name.length < 2 || name.length > 20 || !/^[\p{L}\p{N} _.'-]+$/u.test(name)) throw new Fail('Display name: 2–20 letters, numbers, spaces or _ . \' -');
     if (await loadRow(uid)) throw new Fail('You already have a commander profile.');
-    const g = R.newGame(Date.now());
+    const g = applyClassAccents(R.newGame(Date.now()));
     const r = await db.from('bp_players').insert({ user_id: uid, display_name: name, save: g });
     if (r.error) throw new Fail(r.error.code === '23505' ? 'That name is taken.' : 'Could not create profile: ' + r.error.message, r.error.code === '23505' ? 400 : 500);
     return { save: g, name, notes: [], store: storeView(g, Date.now()) };
@@ -137,6 +141,7 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
   heal: (uid, b) => withSave(uid, (g, now) => R.heal(g, b.soldier, now)),
   equip: (uid, b) => withSave(uid, (g) => R.equip(g, b.soldier, b.slot, b.item || null)),
   stripAll: (uid) => withSave(uid, (g) => stripAll(g)),
+  classColors: (uid, b) => withSave(uid, (g) => setClassAccents(g, b.colors)),
   perk: (uid, b) => withSave(uid, (g) => R.choosePerk(g, b.soldier, b.perk)),
   customize: (uid, b) => withSave(uid, (g) => R.customize(g, b.soldier, b.fields || {})),
   hire: (uid, b) => withSave(uid, (g, now) => R.hire(g, b.specialty, now)),

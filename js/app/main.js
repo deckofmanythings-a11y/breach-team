@@ -26,8 +26,9 @@ import { replayMission, setExit, setOpenSoldier } from './mission.js';
 import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
+import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.7.5';
+export const APP_VERSION = '0.7.6';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -194,7 +195,7 @@ function renderBarracks() {
   const S = G.state();
   const wrap = el(`<div><div class="spread section"><div><h2>Barracks</h2><div class="dim">${S.soldiers.length}/${ROSTER_CAP} Soldiers · ${S.missions} missions flown</div></div>
     <div class="row"><select id="hireSpec">${SPECIALTIES.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
-    <button id="hire">Hire Rookie (${G.HIRE_PRICE} BUCs)</button><button data-go="store" id="tostore">Store &amp; Packs</button></div></div><div class="grid" id="roster"></div></div>`);
+    <button id="hire">Hire Rookie (${G.HIRE_PRICE} BUCs)</button><button data-go="store" id="tostore">Store &amp; Packs</button><button id="classcol" title="Pick the accent colour each class wears">Class colours</button></div></div><div class="grid" id="roster"></div></div>`);
   const roster = wrap.querySelector('#roster');
   const perkers = S.soldiers.filter(s => s.pendingPerks.length);
   if (perkers.length) roster.before(el(`<div class="banner">★ ${perkers.map(s => esc(s.name)).join(', ')} ${perkers.length > 1 ? 'have' : 'has'} a perk to choose. Open their page.</div>`));
@@ -206,7 +207,27 @@ function renderBarracks() {
   hire.disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= ROSTER_CAP;
   hire.onclick = async () => { const r = await run(() => G.act('hire', { specialty: wrap.querySelector('#hireSpec').value })); if (r) { toast(`${G.soldierById(r.soldier)?.name} joined the team.`); render(); } };
   wrap.querySelector('#tostore').onclick = () => go('store');
+  wrap.querySelector('#classcol').onclick = openClassColors;
   panel.append(wrap);
+}
+
+// ---------- Class colours ----------
+function openClassColors() {
+  const S = G.state();
+  const box = el(`<div class="box" style="max-width:420px"><div class="spread"><h2>Class colours</h2><button id="x">✕</button></div>
+    <div class="small dim" style="margin-bottom:10px">Every Soldier wears their class's accent colour: level badge, card trim and map token. Armour colour is still set per Soldier.</div>
+    <div style="display:grid;gap:8px">${SPECIALTIES.map(sp => {
+      const n = S.soldiers.filter(x => x.specialty === sp.id).length;
+      return `<label class="spread"><span>${avatar({ specialty: sp.id, colors: ['#2a3442', classAccent(S, sp.id)] }, 32)} <b>${sp.name}</b> <span class="small dim">${n} in the Barracks</span></span>
+        <span class="row"><input type="color" data-spec="${sp.id}" value="${classAccent(S, sp.id)}">${S.classAccents?.[sp.id] ? `<button class="small" data-reset="${sp.id}" title="Back to the default">Reset</button>` : ''}</span></label>`;
+    }).join('')}</div>
+    <div class="spread" style="margin-top:14px"><button id="resetall">Reset all to defaults</button><button class="primary" id="done">Done</button></div></div>`);
+  const save = async (colors) => { if (await run(() => G.act('classColors', { colors }))) { render(); openClassColors(); } };
+  for (const i of box.querySelectorAll('input[data-spec]')) i.onchange = () => save({ [i.dataset.spec]: i.value });
+  for (const b of box.querySelectorAll('[data-reset]')) b.onclick = (e) => { e.preventDefault(); save({ [b.dataset.reset]: null }); };
+  box.querySelector('#resetall').onclick = () => save(Object.fromEntries(Object.keys(DEFAULT_CLASS_ACCENTS).map(k => [k, null])));
+  box.querySelector('#x').onclick = box.querySelector('#done').onclick = closeModal;
+  modal(box);
 }
 
 // ---------- Soldier detail ----------
@@ -265,9 +286,9 @@ export function openSoldier(s) {
       <label>Callsign <input id="cs" value="${esc(s.callsign)}" maxlength="16" style="width:110px"></label>
       <label>Sex <select id="sx"><option value="m" ${s.sex === 'm' ? 'selected' : ''}>Male</option><option value="f" ${s.sex === 'f' ? 'selected' : ''}>Female</option></select></label>
       <label>Armor <input type="color" id="c1" value="${s.colors[0]}"></label>
-      <label>Accent <input type="color" id="c2" value="${s.colors[1]}"></label>
+      <label title="Every ${sp.name} wears this accent">Accent (all ${sp.name}s) <input type="color" id="c2" value="${classAccent(S, s.specialty)}"></label>
     </div>
-    <div class="row" style="margin-top:6px">${COLOR_PRESETS.map((p, i) => `<button class="preset" data-i="${i}" title="Preset" style="padding:0;width:26px;height:26px;background:linear-gradient(135deg,${p[0]} 50%,${p[1]} 50%)"></button>`).join('')}</div>
+    <div class="row" style="margin-top:6px">${COLOR_PRESETS.map((p, i) => `<button class="preset" data-i="${i}" title="Armor colour" style="padding:0;width:26px;height:26px;background:${p[0]}"></button>`).join('')}</div>
     <div class="spread" style="margin-top:16px"><button class="danger" id="dismiss">Dismiss Soldier</button><span class="dim small">Dismissing is permanent. Gear goes back to the Armory.</span></div>
   </div>`);
 
@@ -310,12 +331,13 @@ export function openSoldier(s) {
 
   const saveCustom = async () => {
     const fields = { name: box.querySelector('#nm').value, callsign: box.querySelector('#cs').value, sex: box.querySelector('#sx').value,
-      colors: [box.querySelector('#c1').value, box.querySelector('#c2').value] };
+      colors: [box.querySelector('#c1').value, classAccent(G.state(), s.specialty)] };
     if (await run(() => G.act('customize', { soldier: s.uid, fields }))) { const n = G.soldierById(s.uid); box.querySelector('.avatar').outerHTML = avatar(n, 56); render(); }
   };
-  for (const id of ['nm', 'cs', 'sx', 'c1', 'c2']) box.querySelector('#' + id).onchange = saveCustom;
+  for (const id of ['nm', 'cs', 'sx', 'c1']) box.querySelector('#' + id).onchange = saveCustom;
+  box.querySelector('#c2').onchange = async (e) => { if (await run(() => G.act('classColors', { colors: { [s.specialty]: e.target.value } }))) reopen(); };
   for (const b of box.querySelectorAll('.face-btn')) b.onclick = async () => { if (await run(() => G.act('customize', { soldier: s.uid, fields: { look: +b.dataset.look } }))) reopen(); };
-  for (const b of box.querySelectorAll('.preset')) b.onclick = () => { const p = COLOR_PRESETS[+b.dataset.i]; box.querySelector('#c1').value = p[0]; box.querySelector('#c2').value = p[1]; saveCustom(); };
+  for (const b of box.querySelectorAll('.preset')) b.onclick = () => { const p = COLOR_PRESETS[+b.dataset.i]; box.querySelector('#c1').value = p[0]; saveCustom(); };
 
   box.querySelector('#x').onclick = closeModal;
   const heal = box.querySelector('#heal');

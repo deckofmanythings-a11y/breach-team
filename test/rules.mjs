@@ -274,5 +274,21 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(g.soldiers[1].xp === 1000, 'migrate leaves earned XP alone');
 }
 
+// ---- Class accent colours ----
+{
+  const { applyClassAccents, setClassAccents } = await import('../js/game/class-colors.js');
+  const { DEFAULT_CLASS_ACCENTS } = await import('../js/data/class-colors.js');
+  const g = applyClassAccents(R.newGame(0));
+  ok(g.soldiers.every(s => s.colors[1] === DEFAULT_CLASS_ACCENTS[s.specialty]), 'every Soldier wears their class default accent');
+  const spec = g.soldiers[0].specialty, armor = g.soldiers[0].colors[0];
+  setClassAccents(g, { [spec]: '#123ABC' });
+  ok(g.soldiers.filter(s => s.specialty === spec).every(s => s.colors[1] === '#123abc') && g.soldiers[0].colors[0] === armor, 'changing a class accent recolours that class, armour kept');
+  ok(g.soldiers.filter(s => s.specialty !== spec).every(s => s.colors[1] === DEFAULT_CLASS_ACCENTS[s.specialty]), 'other classes untouched');
+  setClassAccents(g, { [spec]: null });
+  ok(g.soldiers[0].colors[1] === DEFAULT_CLASS_ACCENTS[spec], 'reset returns to the default');
+  throws(() => setClassAccents(g, { assault: 'red' }), 'bad colour rejected');
+  throws(() => setClassAccents(g, { wizard: '#ffffff' }), 'unknown class rejected');
+}
+
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');
 process.exit(fails ? 1 : 0);
