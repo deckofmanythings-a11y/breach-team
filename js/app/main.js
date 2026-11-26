@@ -6,30 +6,31 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=11';
+import { renderDeploy } from './deploy.js?v=12';
 import { renderStore } from './store.js?v=3';
-import { renderLadder } from './ladder.js?v=6';
+import { renderLadder } from './ladder.js?v=7';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { memorialBadges } from './memorial-badge.js';
+import { shownCreds, backfillNotice } from './creds-view.js';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=11';
+import { setContract } from './deploy.js?v=12';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
-import { replayMission, setExit, setOpenSoldier } from './mission.js?v=4';
+import { replayMission, setExit, setOpenSoldier } from './mission.js?v=5';
 import { EASTER_EGGS } from '../data/easter-eggs.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.9.2';
+export const APP_VERSION = '0.10.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -40,11 +41,21 @@ let authMode = api.isRecoveryLink ? 'recover' : 'signin';
 
 function refreshTop() {
   document.getElementById('bucs').textContent = G.shownBucs().toLocaleString();
+  document.getElementById('creds').textContent = shownCreds().toLocaleString();
   const on = G.signedIn();
-  nav.hidden = !on; document.querySelector('.bucs').hidden = !on;
+  nav.hidden = !on; document.querySelector('.bucs').hidden = !on; document.querySelector('.creds').hidden = !on;
+  const note = on && backfillNotice();
+  if (note) showCredsNotice(note);
   acct.hidden = !on; acct.textContent = on ? `${G.playerName()} · Sign out` : '';
 }
 G.onChange(refreshTop);
+// Waits for any open modal (e.g. "What's new" after an update) to close first.
+function showCredsNotice(note) {
+  if (!document.getElementById('modal').hidden) { setTimeout(() => showCredsNotice(note), 800); return; }
+  const box = el(`<div class="box"><h2>CREDs</h2><p>${esc(note)}</p><p class="small dim">Capital Resource Exchange Denominations. They're separate from BUCs, and they'll be spent on the Mothership.</p><div class="row"><button class="primary">Got it</button></div></div>`);
+  box.querySelector('button').onclick = closeModal;
+  modal(box);
+}
 
 // Sound: a speaker button in the top bar (click = mute/unmute, the arrow opens a volume slider),
 // and a soft click on every button press.
@@ -406,7 +417,7 @@ function renderLog() {
   for (const h of S.history) {
     const kia = h.soldiers.filter(x => x.fate === 'kia').length;
     const row = el(`<div class="card"><div class="spread"><div><b class="result-${h.result}">${{ success: 'SHIP TAKEN', retreat: 'RETREAT', wipe: 'SQUAD LOST' }[h.result]}</b> · ${esc(h.shipName)}
-      <div class="small dim">${new Date(h.at).toLocaleString()} · ${h.entry} · ${h.tactic} · +${h.bucs} BUCs${kia ? ` · <span class="bad">${kia} KIA</span>` : ''}</div></div>
+      <div class="small dim">${new Date(h.at).toLocaleString()} · ${h.entry} · ${h.tactic} · +${h.bucs} BUCs${h.creds ? ` · +${h.creds} CREDs` : ''}${kia ? ` · <span class="bad">${kia} KIA</span>` : ''}</div></div>
       ${h.input ? '<button>Watch replay</button>' : ''}</div></div>`);
     const b = row.querySelector('button'); if (b) b.onclick = () => replayMission(panel, h);
     list.append(row);

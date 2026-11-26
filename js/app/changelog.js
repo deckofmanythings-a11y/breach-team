@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.10.0', date: '2026-11-25', items: [
+    "New currency: CREDs (Capital Resource Exchange Denominations). Every XP point your Soldiers earn on a mission adds 1 CRED, bonus XP included. They show in the top bar next to BUCs, and on each mission report.",
+    "Commanders who were already playing get CREDs for the XP their squad has earned so far, Memorial Wall included.",
+    "CREDs will pay for the Mothership, the squad's home ship, which is coming in a later update. They carry over a Game Over.",
+  ] },
   { v: '0.9.2', date: '2026-11-25', items: [
     "Soldiers who die on a Suicide Squad mission get a special ☠ Suicide Squad badge on the Memorial Wall. Earlier Suicide Squad losses get it too.",
   ] },

@@ -3,7 +3,7 @@
 // restartAccount: the player chose to wipe everything (from the landing page). A brand-new save.
 // newCommander:   after a Game Over (a mission ended with no living Soldiers). A new commander takes
 //                 over with a fresh crew and fresh BUCs, inheriting only the Memorial Wall and the
-//                 Mothership. Everything else (gear, stats, eggs, achievements, history) starts over.
+//                 Mothership (and its CREDs). Everything else (gear, stats, eggs, achievements, history) starts over.
 import { newGame, GameError } from './rules.js';
 
 // Swap the contents of `g` for `fresh` in place (the server writes back the object it loaded).
@@ -20,11 +20,12 @@ export function restartAccount(g, now = Date.now()) {
 
 export function newCommander(g, now = Date.now()) {
   if (!g.gameOver) throw new GameError('Your commander is still in charge: there is no Game Over to recover from.');
-  const memorial = g.memorial || [], accents = g.classAccents, mothership = g.mothership, generation = (g.generation || 1) + 1;
+  const memorial = g.memorial || [], accents = g.classAccents, mothership = g.mothership, creds = g.creds || 0, generation = (g.generation || 1) + 1;
   replaceSave(g, newGame(now));
   g.memorial = memorial;
   if (mothership !== undefined) g.mothership = mothership;
   g.generation = generation;
+  g.creds = creds;
   if (accents) g.classAccents = accents;
   return { newCommander: generation };
 }

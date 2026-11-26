@@ -12,6 +12,7 @@ import { INJURY_BY_ID } from '../data/injuries.js';
 import { OBJECTIVES, SHIP_BY_ID } from '../data/ships.js';
 import { ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
+import { holdCreds } from './creds-view.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { STAT_INFO } from '../data/stats.js';
 import { soldierToken, unitToken, FACTION_RING, loadImage, floorSrc } from '../render/tokens.js';
@@ -483,13 +484,13 @@ export async function playMission(panel, battle, report, colors, isReplay = fals
   let finished = false;
   function finish() { if (finished) return; finished = true; stopHum(); drawSquad(); showReport(panel, battle, report, isReplay); }
   current = { destroy() { app.destroy(true, { children: true }); current = null; } };
-  const stop = () => { G.holdBucs(0); if (current) current.destroy(); window.removeEventListener('hashchange', stop); };
+  const stop = () => { holdCreds(0); G.holdBucs(0); if (current) current.destroy(); window.removeEventListener('hashchange', stop); };
   window.addEventListener('hashchange', stop);
 }
 
 // ---------- Report ----------
 function showReport(panel, battle, report, isReplay) {
-  G.holdBucs(0);
+  holdCreds(0); G.holdBucs(0);
   sfx.stopHum();
   if (report.gameOver) sfx.gameOver(); else if (battle.result === 'success') sfx.victory(); else sfx.defeat();
   if (report.soldiers?.some(s => s.levelUps?.length)) setTimeout(() => sfx.levelUp(), 1300);
@@ -503,7 +504,7 @@ function showReport(panel, battle, report, isReplay) {
   const box = el(`<div class="box">
     <h2 class="result-${battle.result}" style="font-size:34px">${title}</h2>
     <div class="dim">${esc(report.shipName)} · ${(battle.ticks / TICKS_PER_SEC).toFixed(0)} s · ${battle.enemies.killed} enemies killed${battle.objectives.filter(o => o.done && o.id !== 'take_bridge').map(o => ' · ✔ ' + OBJECTIVES[o.id].name).join('')}</div>
-    <div style="font:700 26px Rajdhani;margin:10px 0">+${report.bucs} BUCs</div>
+    <div style="font:700 26px Rajdhani;margin:10px 0">+${report.bucs} BUCs${report.creds ? ` <span class="creds-gain" title="Capital Resource Exchange Denominations: 1 for every XP point earned">· +${report.creds} CREDs</span>` : ''}</div>
     ${report.timeBonus?.bucs ? `<div class="small good" style="margin:-6px 0 8px">Includes a Blitz time bonus: +${report.timeBonus.bucs} BUCs for ${Math.floor(report.timeBonus.secs / 60)}:${String(report.timeBonus.secs % 60).padStart(2, '0')} left on the clock</div>` : ''}
     ${isSuicideSquad(battle.retreat) && battle.result === 'success' ? `<div class="small good" style="margin:-6px 0 8px">☠ Suicide Squad pay: ${SUICIDE_SQUAD.rewardPct}% of the normal reward, and +${SUICIDE_SQUAD.xpBonusPct}% XP for every survivor</div>` : ''}
     ${report.gameOver ? '<div class="banner bad"><b>No Soldiers left.</b> This was your commander&rsquo;s last mission.</div>' : ''}

@@ -221,15 +221,19 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   ok(g.soldiers.length === 0, 'no free replacement after a Game Over');
   const fallen = g.memorial.length;
   g.bucs = 99999;
+  const credsBefore = g.creds;
+  ok(credsBefore > 0, 'missions earned CREDs');
   const r = C.newCommander(g);
   ok(r.newCommander === 2 && g.generation === 2 && !g.gameOver, 'a new commander takes over');
   ok(g.memorial.length === fallen && g.memorial.some(m => m.uid === 'old'), 'the Memorial Wall carries over');
   ok(g.mothership && g.mothership.level === 2, 'the Mothership carries over');
+  ok(g.creds === credsBefore, 'CREDs carry over a Game Over');
+  R.migrate(g); ok(g.creds === credsBefore, 'a new commander is not backfilled again');
   ok(g.soldiers.length === 4 && g.missions === 0 && g.stats.missions === 0 && g.bucs !== 99999, 'fresh crew, fresh BUCs, fresh record');
   let threw = false; try { C.newCommander(g); } catch { threw = true; }
   ok(threw, 'no new commander without a Game Over');
   C.restartAccount(g);
-  ok(g.memorial.length === 0 && !g.mothership && !g.generation && g.soldiers.length === 4, 'Restart Account wipes everything');
+  ok(g.memorial.length === 0 && !g.mothership && !g.generation && g.soldiers.length === 4 && g.creds === 0, 'Restart Account wipes everything');
 }
 
 // ---- Easy-ship balance (engine v3) and hired Rookies' standard kit ----
@@ -375,6 +379,27 @@ ok(JSON.stringify(R.storeStock(day)) !== JSON.stringify(R.storeStock('2026-11-25
   R.migrate(old);
   ok(old.memorial[0].suicideSquad === true && !old.memorial[1].suicideSquad, 'migrate badges earlier Suicide Squad deaths only');
   if (out.battle.result === 'wipe') ok(out.report.soldiers.every(l => l.fate === 'kia' && l.gearLost) && t.items.length < before, 'a lost squad takes its gear with it');
+}
+
+// ---- CREDs ----
+{
+  const { backfillCreds } = await import('../js/data/creds.js');
+  const { xpToReach } = await import('../js/data/stats.js');
+  const t = R.newGame();
+  ok(t.creds === 0, 'a new commander starts with 0 CREDs');
+  const out = R.runMission(t, { ship: 'hauler', entry: 'shuttle', tactic: 'balanced', retreat: 'teleport_recall', squad: t.soldiers.map(x => x.uid) });
+  const xp = out.after.soldiers.reduce((n, a) => n + a.xp, 0);
+  ok(out.report.creds === xp && t.creds === xp && xp > 0, `1 CRED per XP point, fallen included (${xp})`);
+  // Backfill: an old save with no creds field.
+  const old = R.newGame(); delete old.creds;
+  old.soldiers[0].xp = 500;                                         // starter, joined at Level 1 (0 XP)
+  old.soldiers[1].level = 5; old.soldiers[1].grade = 'veteran'; old.soldiers[1].xp = xpToReach(5) + 120;   // hired Veteran
+  old.memorial.push({ ...old.soldiers[2], uid: 'dead', xp: 300 });
+  old.soldiers[3] = { ...old.soldiers[3], cyborg: true, origin: 'dead', xp: 340 };   // rebuilt from 'dead' (started at 300)
+  ok(backfillCreds(old) === 500 + 120 + 300 + 40, 'backfill counts only XP earned since joining');
+  R.migrate(old);
+  ok(old.creds === 960 && old.credsBackfill === 960, 'migrate grants the backfill once');
+  old.creds = 5; R.migrate(old); ok(old.creds === 5, 'and never again');
 }
 
 console.log(fails ? `\n${fails} failure(s)` : 'All rules tests passed.');

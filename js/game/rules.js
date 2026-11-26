@@ -13,6 +13,7 @@ import { ITEMS, ITEM_BY_ID, ROLLABLE_ITEMS, SLOTS, RARITY_ORDER, RARITY_BY_ID } 
 import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '../data/injuries.js';
 import { MIA_RETURN_MIN, ENTRY_BY_ID, RETREAT_BY_ID } from '../data/entries.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
+import { credsForMission, backfillCreds } from '../data/creds.js';
 import { TACTIC_BY_ID } from '../data/tactics.js';
 import { SHIP_BY_ID } from '../data/ships.js';
 import { SECRET_SHIPS } from '../data/aliens.js';
@@ -47,7 +48,7 @@ const SERVICE_RECORD = () => ({ successes: 0, downed: 0, deathRolls: 0, revives:
 
 // ---------- Creation ----------
 export function newGame(now = Date.now()) {
-  const g = { v: SAVE_VERSION, bucs: STARTING_BUCS, soldiers: [], items: [], memorial: [], history: [], missions: 0, created: now,
+  const g = { v: SAVE_VERSION, bucs: STARTING_BUCS, creds: 0, soldiers: [], items: [], memorial: [], history: [], missions: 0, created: now,
     pity: 0, lastEmergency: 0, store: { day: '', bought: [] }, eggs: [], achievements: [], discovered: [], stats: emptyStats() };
   const rng = createRng(randomSeed());
   for (const st of STARTER_SQUAD) {
@@ -344,6 +345,7 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
     result: battle.result, bucs: after.bucs, ...(after.timeBonus?.bucs ? { timeBonus: after.timeBonus } : {}), hash: battle.hash, soldiers: [], extras: [], input,
     colors: Object.fromEntries(input.squad.map(sq => [sq.uid, soldierById(g, sq.uid)?.colors])) };
   g.bucs += after.bucs; g.missions++;
+  report.creds = credsForMission(after); g.creds = (g.creds || 0) + report.creds;
   const survivors = after.soldiers.filter(a => a.fate !== 'kia');
   const lone = after.soldiers.length >= 3 && survivors.length === 1 ? survivors[0].uid : null;
   after.soldiers.forEach((a, i) => {
@@ -423,6 +425,8 @@ export function migrate(g) {
   if (!g.achievements) g.achievements = [];
   if (!g.discovered) g.discovered = [];
   if (!g.stats) g.stats = backfillStats(g);
+  // CREDs arrived in 0.10.0: older saves get a one-time grant for the XP already earned.
+  if (g.creds === undefined) { g.creds = backfillCreds(g); g.credsBackfill = g.creds; }
   // 0.9.0 Suicide Squad deaths predate the memorial badge flag.
   for (const m of g.memorial) if (!m.suicideSquad && /^Fell with the Suicide Squad/.test(m.diedHow || '')) m.suicideSquad = true;
   for (const s of [...g.soldiers, ...g.memorial]) { if (!s.record) s.record = SERVICE_RECORD(); if (!s.medals) s.medals = [];

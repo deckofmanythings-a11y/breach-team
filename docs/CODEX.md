@@ -103,7 +103,7 @@ Rear Guard volunteers who fall get 80% of the left-behind death chance.
 
 Fallen Soldiers go to the **Memorial Wall**.
 
-**Game Over.** If a mission ends and you have **no living Soldiers left** (Missing Soldiers count as alive), your commander is relieved. A new commander takes over with a fresh starter squad and starting BUCs; gear, records, stats and the Mission Log start over. The **Memorial Wall** (and, once it exists, the **Mothership**) carries over. Fleet Command does not send a free replacement after a Game Over.
+**Game Over.** If a mission ends and you have **no living Soldiers left** (Missing Soldiers count as alive), your commander is relieved. A new commander takes over with a fresh starter squad and starting BUCs; gear, records, stats and the Mission Log start over. The **Memorial Wall** and your **CREDs** (and, once it exists, the **Mothership**) carry over. Fleet Command does not send a free replacement after a Game Over.
 
 **Restart Account** (Home page) wipes everything, Memorial Wall included, and starts a brand-new commander under the same name. Contract runs already on the current leaderboard stay there.
 
@@ -173,6 +173,9 @@ Some special items have fixed rarity and unique flavour. You'll find them in pac
 | Back to the Shuttle | Airlock if you came by shuttle, otherwise the hull room nearest the squad | Shuttle takes 10 s to arrive unless already docked. Soldiers take 25% less damage while falling back. Nobody gets lost. |
 | Escape Pods | Pod bay | Soldiers take 45% less damage while running for the pods. 10% per Soldier to drift: Missing for 30 min. |
 | Rear Guard | Everyone else gets out in under a second | The highest-Grit Soldier stays and fights for 15 s, then tries to get out. |
+| ☠ Suicide Squad | None | No retreat. See below. |
+
+**Suicide Squad.** Appears once you have a Level 5 Soldier. Only Level 5+ Soldiers can be committed, and only against ★★ ships or tougher. The squad never retreats: the mission ends when the bridge is taken, nobody is left standing, or after a 3-minute hard limit (no pausing, no digging in). The crew knows you can't leave: full alarm from the start, 25% more crew, and an extra reinforcement wave, with every wave 50% bigger. **A loss kills every Soldier deployed, their gear is lost, and it pays nothing.** A win pays 250% of the normal reward, survivors earn +100% XP, and anyone who dies on one gets a ☠ Suicide Squad badge on the Memorial Wall.
 
 For Shuttle and Escape Pods, the squad drags its Downed along: as soon as one Soldier reaches the exit, every Downed squadmate comes out with them. If nobody makes it, everyone Downed is left behind.
 
@@ -219,6 +222,10 @@ Your roster, BUCs, packs and Store purchases live on the server (sign in to play
 - **Success** pays the ship's reward + optional objective bonuses + 25 per loot crate.
 - **Retreat** pays salvage: 30% of the reward × % of rooms cleared.
 - Deaths pay nothing.
+
+### CREDs
+
+**CREDs** (Capital Resource Exchange Denominations) are a second currency, separate from BUCs, for building the **Mothership** (coming later). Every XP point your Soldiers earn on a mission adds **1 CRED**, bonus XP included, and so does the XP of a Soldier who doesn't make it home. A 4-Soldier squad earns about 200 per mission at any level. CREDs carry over a Game Over.
 
 ### Booster packs
 
