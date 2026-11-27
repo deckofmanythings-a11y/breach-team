@@ -270,3 +270,27 @@ details.commend > div { margin-top: 6px; }
 .tag.march-no { position: absolute; top: 6px; right: 6px; color: var(--accent); border-color: var(--accent); }
 .march-row { padding: 3px 0; border-top: 1px solid var(--line); gap: 6px; }
 .march-row:first-of-type { border-top: 0; }
+
+/* ---------- Gear icons on Soldier cards + inventory pool (drag and drop) ---------- */
+.gear-row { display: flex; gap: 6px; margin-bottom: 9px; }
+.gicon { --rc: #5a6672; width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 7px;
+  border: 2px solid var(--rc); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rc) 22%, #121820), #0c1117);
+  color: #dfe8f0; box-shadow: 0 0 6px color-mix(in srgb, var(--rc) 35%, transparent); }
+.gicon[data-drag] { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.gicon .ico { pointer-events: none; }
+.gicon.r-standard { --rc: var(--r-standard); } .gicon.r-milspec { --rc: var(--r-milspec); } .gicon.r-prototype { --rc: var(--r-prototype); }
+.gicon.r-relic { --rc: var(--r-relic); } .gicon.r-xeno { --rc: var(--r-xeno); }
+.gicon.empty { border: 2px dashed #3a4654; background: transparent; box-shadow: none; color: #3a4654; }
+.gicon.fixed { cursor: default; opacity: .85; }
+.gicon { position: relative; }
+.gicon.fixed::after { content: '🔒'; position: absolute; right: -3px; bottom: -4px; font-size: 10px; }
+.gicon.drag-src { opacity: .3; }
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; opacity: .92; box-shadow: 0 6px 18px #000a; }
+body.gear-dragging, body.gear-dragging * { cursor: grabbing !important; }
+body.gear-dragging .tip { display: none !important; }
+.pool { position: sticky; top: 0; z-index: 5; margin: 10px 0; padding: 8px 10px; }
+.pool-items { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; max-height: 132px; overflow-y: auto; }
+.drop-ok { outline: 2px dashed #6fd38a; outline-offset: 2px; }
+.drop-no { opacity: .45; }
+.pool.drop-no { opacity: .6; }
+.drop-ok.drop-hover { outline: 3px solid #6fd38a; box-shadow: 0 0 16px #6fd38a88; }

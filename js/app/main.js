@@ -17,10 +17,12 @@ import { renderMothership } from './mothership-view.js?v=5';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
+import { itemIcon, slotIcon } from './item-icons.js';
+import { enableGearDrag } from './gear-drag.js';
 import { levelBadge } from './badges.js';
 import { setContract } from './deploy.js?v=20';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
-import { ITEM_BY_ID, SLOTS, RARITY_ORDER, RARITY_BY_ID } from '../data/gear.js';
+import { ITEM_BY_ID, SLOTS, RARITY_ORDER, RARITY_BY_ID, WEAPON_TYPES } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
 import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
@@ -31,7 +33,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.18.0';
+export const APP_VERSION = '0.19.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 const panel = document.getElementById('panel');
@@ -189,7 +191,7 @@ function soldierCard(s) {
   const sp = SPECIALTY_BY_ID[s.specialty];
   const [a, b] = s.colors || ['#3a5a8c', '#f2c14e'];
   const next = s.level >= MAX_LEVEL ? null : xpToReach(s.level + 1);
-  return el(`<div class="card click scard ${c}" style="--sa:${a};--sb:${b}">
+  return el(`<div class="card click scard ${c}" style="--sa:${a};--sb:${b}" data-drop="soldier" data-sid="${s.uid}">
     <div class="portrait scard-art" data-tok="1" data-spec="${s.specialty}" data-sex="${s.sex === 'f' ? 'f' : 'm'}" data-look="${s.look || 0}"${s.portrait ? ` data-portrait="${s.portrait}"` : ''} data-a="${a}">
       <div class="scard-level">${levelBadge(s.level, b, 'lg')}</div>
       <div class="scard-tags"><span class="tag ${c}">${{ healthy: 'Ready', wounded: 'Wounded', benched: 'Recovering', mia: 'Missing' }[c]}</span>
@@ -202,6 +204,7 @@ function soldierCard(s) {
       </div>
     </div>
     <div class="scard-body">
+      ${gearRow(s)}
       ${statGrid(st, s.specialty)}
       <div class="scard-xp"><span>XP</span><div class="bar xpbar" title="${xpTip(s)}"><i style="width:${xpPct(s)}%"></i></div><span title="${xpTip(s)}">${next ? xpLevelText(s) : 'MAX'}</span></div>
       <div class="scard-foot"><span>${s.missions} missions</span><span>${s.kills} kills</span></div>
@@ -210,6 +213,69 @@ function soldierCard(s) {
   </div>`);
 }
 
+
+// ---------- Gear icons on the Soldier cards (drag between Soldiers or to the inventory pool) ----------
+const slotName = (slot) => slot[0].toUpperCase() + slot.slice(1);
+function gearIcon(it, sid) {
+  const fixed = ITEM_BY_ID[it.base].builtin;
+  return `<div class="gicon r-${it.rarity}${fixed ? ' fixed' : ''}" data-item="${it.uid}"${sid ? ` data-from="${sid}"` : ''}${fixed ? '' : ' data-drag="1"'}
+    data-tip="${esc(itemTipText(it) + (fixed ? '\n(built in: never comes off)' : '\nDrag to another Soldier or to the Inventory.'))}">${itemIcon(it, 26)}</div>`;
+}
+function gearRow(s) {
+  return `<div class="gear-row">${SLOTS.map(slot => {
+    const it = s.gear[slot] && G.itemById(s.gear[slot]);
+    return it ? gearIcon(it, s.uid) : `<div class="gicon empty" title="${slotName(slot)}: empty">${slotIcon(slot, 22)}</div>`;
+  }).join('')}</div>`;
+}
+function inventoryPool(S) {
+  const free = S.items.filter(it => !G.equippedBy(it.uid) && !ITEM_BY_ID[it.base].builtin)
+    .sort((a, b) => SLOTS.indexOf(ITEM_BY_ID[a.base].slot) - SLOTS.indexOf(ITEM_BY_ID[b.base].slot)
+      || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || cmpStr(ITEM_BY_ID[a.base].name, ITEM_BY_ID[b.base].name));
+  const box = el(`<div class="card pool" data-drop="pool">
+    <div class="spread"><b>Inventory <span class="dim small">${free.length} unequipped</span></b><span class="small dim">Drag gear between Soldiers to swap it, or here to take it off.</span></div>
+    <div class="pool-items">${free.map(it => gearIcon(it, '')).join('') || '<span class="small dim">Empty. Every item is equipped.</span>'}</div></div>`);
+  return box;
+}
+// Moves `itemUid` onto Soldier `toSid` (or off, to the pool). If it came from another Soldier, that
+// Soldier takes the target's old item in exchange when they can use it; otherwise it goes to the pool.
+async function moveGear(itemUid, fromSid, toSid) {
+  const it = G.itemById(itemUid); if (!it) return;
+  const base = ITEM_BY_ID[it.base], slot = base.slot;
+  const keep = window.scrollY, done = () => { render(); window.scrollTo(0, keep); };
+  if (toSid === 'pool') {
+    if (!fromSid) return;
+    if (await run(() => G.act('equip', { soldier: fromSid, slot, item: null }))) done();
+    return;
+  }
+  if (toSid === fromSid) return;
+  const B = G.soldierById(toSid), A = fromSid && G.soldierById(fromSid);
+  if (!B) return;
+  if (!G.canWield(B, it)) {
+    const w = WEAPON_TYPES[base.type]?.name || base.type;
+    toast(`${B.name} (${SPECIALTY_BY_ID[B.specialty].name}) can't use ${/^([AEIOU]|SMG|LMG)/i.test(w) ? 'an' : 'a'} ${w}.`); return;
+  }
+  const old = B.gear[slot] && G.itemById(B.gear[slot]);
+  if (old && ITEM_BY_ID[old.base].builtin) { toast(`${B.name}'s ${slot} is built in. It doesn't come off.`); return; }
+  if (!(await run(() => G.act('equip', { soldier: B.uid, slot, item: it.uid })))) { done(); return; }
+  if (old && A) {
+    if (G.canWield(A, old)) { await run(() => G.act('equip', { soldier: A.uid, slot, item: old.uid })); toast(`${A.name} and ${B.name} swapped ${slot}s.`); }
+    else toast(`${A.name} can't use ${ITEM_BY_ID[old.base].name}, so it went to the Inventory.`);
+  }
+  done();
+}
+// Marks every drop target as valid or not for the item being dragged.
+function markDropTargets(root, src) {
+  const it = G.itemById(src.dataset.item), slot = ITEM_BY_ID[it.base].slot, from = src.dataset.from || '';
+  for (const t of root.querySelectorAll('[data-drop]')) {
+    let ok;
+    if (t.dataset.drop === 'pool') ok = !!from;
+    else {
+      const s = G.soldierById(t.dataset.sid), cur = s?.gear[slot] && G.itemById(s.gear[slot]);
+      ok = !!s && t.dataset.sid !== from && G.canWield(s, it) && !(cur && ITEM_BY_ID[cur.base].builtin);
+    }
+    t.classList.add(ok ? 'drop-ok' : 'drop-no');
+  }
+}
 
 // ---------- List filter toolbars (Barracks / Armory) ----------
 function loadPrefs(key, defaults) {
@@ -275,7 +341,14 @@ function renderBarracks() {
     { k: 'q', label: 'Search name / callsign', search: true },
   ], [['default', 'Sort: Default'], ['level', 'Sort: Level'], ['name', 'Sort: Name'], ['class', 'Sort: Class'], ['missions', 'Sort: Missions'], ['kills', 'Sort: Kills'], ['xp', 'Sort: XP']], apply);
   roster.before(bar);
+  roster.before(inventoryPool(S));
   apply();
+  enableGearDrag(wrap, {
+    start: (src) => markDropTargets(wrap, src),
+    end: () => { for (const t of wrap.querySelectorAll('.drop-ok, .drop-no')) t.classList.remove('drop-ok', 'drop-no'); },
+    // A Soldier who can't take it still goes through moveGear, which says why.
+    drop: (src, t) => { if (t.classList.contains('drop-ok') || t.dataset.drop === 'soldier') moveGear(src.dataset.item, src.dataset.from || '', t.dataset.drop === 'pool' ? 'pool' : t.dataset.sid); },
+  });
   const hire = wrap.querySelector('#hire');
   hire.disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= ROSTER_CAP;
   hire.onclick = async () => { const r = await run(() => G.act('hire', { specialty: wrap.querySelector('#hireSpec').value })); if (r) { toast(`${G.soldierById(r.soldier)?.name} joined the team.`); render(); } };

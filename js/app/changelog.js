@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.19.0', date: '2026-11-27', items: [
+    "Soldier cards in the Barracks now show their equipped gear as icons, one per item type, with a border in the item's rarity colour. Hover or long-press an icon for its details.",
+    "Drag gear straight from one Soldier's card to another's (mouse or touch). If the other Soldier had something in that slot, the two swap; if the first Soldier can't use what comes back, it goes to the new Inventory instead.",
+    "The Inventory above the roster holds every unequipped item. Drag gear onto it to take it off, or drag from it onto any Soldier to equip.",
+  ] },
   { v: '0.18.0', date: '2026-11-26', items: [
     "Damage numbers pop off everyone who gets hit during a mission, with crits in bold and heals in green. Stealthed units now shimmer with a cyan cloak ring, including squads that start hidden on a Vent Crawl or under the Stealthy tactic.",
     "Marching order (engine v8): on the Deploy screen, arrange your squad with the arrows or tap 'Toughest first'. #1 is the point man: lands closest to the Bridge and leads, so they usually draw first fire, and nobody overtakes the Soldier ahead of them. A tough Soldier up front and the Medic at the back keeps the Medic standing far more often.",
