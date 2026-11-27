@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.20.0', date: '2026-11-27', items: [
+    "New anime art style for every portrait and token: your Soldiers, every enemy, alien and robot. Switch between Painted and Anime with the 🎨 button at the top. The choice is remembered on this device.",
+    "Gear icons now have a shape for each slot, so you can tell at a glance what goes where: weapons are squares, armour is a shield, utility items are circles and implants are hexagons.",
+  ] },
   { v: '0.19.0', date: '2026-11-27', items: [
     "Soldier cards in the Barracks now show their equipped gear as icons, one per item type, with a border in the item's rarity colour. Hover or long-press an icon for its details.",
     "Drag gear straight from one Soldier's card to another's (mouse or touch). If the other Soldier had something in that slot, the two swap; if the first Soldier can't use what comes back, it goes to the new Inventory instead.",

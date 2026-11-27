@@ -4,6 +4,48 @@
 // Easter-egg rule applies: no real movie characters, logos or exact costumes.
 
 export const STYLE = 'gritty painted sci-fi concept art, head and shoulders portrait bust, centered, facing the viewer, dramatic rim lighting, worn battle-scarred gear, detailed painterly brushwork, rich colour, plain dark steel bulkhead background';
+// Anime art style (alternate set, assets/tokens-anime/): Illustrious-family checkpoints, tag-style.
+export const ANIME_STYLE = 'masterpiece, best quality, amazing quality, anime style, anime coloring, cel shading, clean lineart, sci-fi, head and shoulders portrait, upper body, centered, facing viewer, dramatic rim lighting, detailed, simple dark steel bulkhead background';
+export const ANIME_OBJECT_STYLE = 'masterpiece, best quality, anime style, cel shading, clean lineart, sci-fi, a single machine centered in frame, seen from the front, no humans, dramatic rim lighting, simple dark steel bulkhead background';
+export const ANIME_SOLDIER_NEGATIVE = 'helmet, mecha, robot, mask, visor, faceless, skull, bald, text on clothes, english text, name tag, writing, green hair, green eyes, green skin, green background, emblem, insignia';
+export const ANIME_NEGATIVE = 'worst quality, low quality, lowres, bad anatomy, bad hands, text, watermark, signature, logo, frame, border, letters, realistic, photorealistic, photo, 3d, nsfw, nude, cleavage, revealing clothes, chibi, multiple people, full body, cropped head, bright background, blurry';
+// Turns a painted-set prompt into an anime one: "a man" / "a woman" get the solo 1boy / 1girl tags.
+// Soldiers get their own tag-style prompt: the painted set's armour wording made anime models draw
+// helmets and mecha, and the strong "green" leaked into hair and eyes (the game recolours green).
+const ANIME_LOOK = {
+  assault:     'assault trooper, carbine strap over the shoulder, determined expression',
+  breacher:    'breacher, heavy chest armor, demolition charges on the chest, soot on the cheek',
+  marksman:    'sniper, monocle scope over one eye, rifle barrel over the shoulder, calm expression',
+  medic:       'combat medic, white cross armband, headset, gentle expression',
+  tech:        'tech specialist, earpiece, holographic data pad on the forearm, focused expression',
+  heavy:       'heavy gunner, broad shoulders, big shoulder pauldrons, ammunition belt across the chest, confident grin',
+  infiltrator: 'stealth operative, goggles pushed up on the forehead, dark scarf around the neck, sly expression',
+};
+// Anime models lighten skin unless told with their own tags (looks.js ids).
+const SKIN = { 1: 'dark skin, very dark skin', 3: 'dark skin', 4: 'tan skin', 5: 'tan skin', 6: 'dark skin', 7: 'dark skin' };
+const HAIR = ['black', 'dark brown', 'brown', 'auburn', 'blonde', 'silver', 'navy blue', 'red', 'chestnut', 'white'];
+const RARE_HAIR = { 'egg-rec_dutch': 'slicked-back dark hair', 'egg-rec_trooper': 'short messy brown hair, empty hands', 'egg-rec_wisecrack': 'messy brown hair', 'egg-rec_mobile': 'neat short hair' };
+const HUMAN_ENEMY = /^(pirate_|corp_(crew|chief)|mil_officer|thrall_(host|brute))/;
+const hashId = (id) => [...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+export function animePrompt(t) {
+  if (t.anime) {
+    const { sx, spec, who } = t.anime, look = +(t.id.match(/-(\d)$/)?.[1] || 0);
+    const hair = HAIR[hashId(t.id) % HAIR.length], len = sx === 'f' ? (hashId(t.id) % 2 ? 'long' : 'short') : 'short';
+    return `${sx === 'm' ? '1boy, solo, young man' : '1girl, solo, young woman'}${who ? ' ' + who : ''}, ${SKIN[look] ? SKIN[look] + ', ' : ''}${len} ${hair} hair, ${ANIME_LOOK[spec]}, ` +
+      'starship soldier, olive green armor plates on the chest and shoulders, dark grey undersuit, bare head, detailed face, looking at viewer';
+  }
+  const p = t.prompt.replace(/^an? (man|woman)\b/, (m, w) => `${w === 'man' ? '1boy' : '1girl'}, solo, ${m}`);
+  if (/no human/.test(p) || t.object) return `no humans, ${p}`;
+  if (t.group === 'rare') {   // the word "helmet" in any form pulls a helmet in: drop it, name the hair instead
+    const q = p.replace(SOLDIER_ARMOR, 'olive green armor plates on the chest and shoulders, dark grey undersuit')
+      .replace(/, [^,]*helmet[^,]*/g, '');
+    const tag = /woman/.test(t.prompt) ? '1girl, solo, ' : '1boy, solo, male focus, ';
+    return `${tag}${q}${RARE_HAIR[t.id] ? ', ' + RARE_HAIR[t.id] : ''}, bare head, detailed face, visible hair`;
+  }
+  if (t.id === 'sys_turret') return 'no humans, still life, close-up of a sentry gun turret bolted to a metal ceiling mount, round armored gun pod, twin gun barrels pointing at the viewer, single red sensor lens, cables, mechanical object, weapon focus';
+  // Human enemies: anime models turned some of them into skulls, helmets or faceless figures.
+  return HUMAN_ENEMY.test(t.id) ? `${p}, human, detailed human face, anime face` : p;
+}
 export const NEGATIVE = 'text, watermark, signature, logo, frame, border, letters, cartoon, anime, chibi, 3d render, blurry, lowres, deformed face, extra limbs, cropped head, full body, multiple people, bright background';
 // Objects (no character) use this instead of STYLE, which asks for a portrait bust.
 export const OBJECT_STYLE = 'gritty painted sci-fi concept art, a single machine centered in frame, seen from the front, dramatic rim lighting, detailed painterly brushwork, rich colour, plain dark steel bulkhead background';
@@ -22,7 +64,7 @@ const SEX = { m: 'man', f: 'woman' };
 
 export const TOKENS = [];
 for (const [spec, look] of Object.entries(SPECIALTY_LOOK)) for (const [sx, word] of Object.entries(SEX)) {
-  TOKENS.push({ id: `soldier-${spec}-${sx}`, group: 'soldier', prompt: `a ${word}, starship boarding trooper, ${look}, ${SOLDIER_ARMOR}`, negative: 'helmet, visor, face mask, gas mask, respirator, covered face' });
+  TOKENS.push({ id: `soldier-${spec}-${sx}`, group: 'soldier', anime: { sx, spec, who: '' }, prompt: `a ${word}, starship boarding trooper, ${look}, ${SOLDIER_ARMOR}`, negative: 'helmet, visor, face mask, gas mask, respirator, covered face' });
 }
 // Extra faces (js/data/looks.js): the same Soldier art in many ethnicities.
 import { LOOKS } from '../../js/data/looks.js';
@@ -32,7 +74,7 @@ const LOOK_SPEC = { ...SPECIALTY_LOOK,
   breacher: 'breacher, bare head with short hair, demolition charges strapped to the chest, soot-smudged face',
   tech: 'tech specialist, bare head, a small earpiece and a cable-linked data pad on the forearm, focused eyes' };
 for (const L of LOOKS.slice(1)) for (const [spec, look] of Object.entries(LOOK_SPEC)) for (const [sx, word] of Object.entries(SEX)) {
-  TOKENS.push({ id: `soldier-${spec}-${sx}-${L.id}`, group: 'soldier', prompt: `a ${word} ${L.prompt}, starship boarding trooper, ${look}, ${SOLDIER_ARMOR}`, negative: 'helmet, visor, face mask, gas mask, respirator, covered face, green skin, hood over the head, skull' + (spec === 'tech' ? ', cyan, teal, blue armor, glowing visor' : '') + (L.id === 7 ? ', face paint, war paint, tribal markings, feathers, headdress, copper armor, bronze armor' : '') });
+  TOKENS.push({ id: `soldier-${spec}-${sx}-${L.id}`, group: 'soldier', anime: { sx, spec, who: L.prompt }, prompt: `a ${word} ${L.prompt}, starship boarding trooper, ${look}, ${SOLDIER_ARMOR}`, negative: 'helmet, visor, face mask, gas mask, respirator, covered face, green skin, hood over the head, skull' + (spec === 'tech' ? ', cyan, teal, blue armor, glowing visor' : '') + (L.id === 7 ? ', face paint, war paint, tribal markings, feathers, headdress, copper armor, bronze armor' : '') });
 }
 
 const ENEMY = {

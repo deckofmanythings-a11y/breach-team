@@ -273,19 +273,29 @@ details.commend > div { margin-top: 6px; }
 
 /* ---------- Gear icons on Soldier cards + inventory pool (drag and drop) ---------- */
 .gear-row { display: flex; gap: 6px; margin-bottom: 9px; }
-.gicon { --rc: #5a6672; width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 7px;
-  border: 2px solid var(--rc); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rc) 22%, #121820), #0c1117);
-  color: #dfe8f0; box-shadow: 0 0 6px color-mix(in srgb, var(--rc) 35%, transparent); }
+/* Each slot has its own shape (weapon = rounded square, armour = shield, utility = circle,
+   implant = hexagon); the outer layer is the rarity colour, the inner one the dark fill. */
+.gicon { --rc: #5a6672; --shape: inset(0 round 7px); position: relative; width: 38px; height: 38px; flex: none; display: grid; place-items: center; color: #dfe8f0; }
+.gicon::before, .gicon::after { content: ''; position: absolute; clip-path: var(--shape); }
+.gicon::before { inset: 0; background: var(--rc); }
+.gicon::after { inset: 2.5px; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rc) 24%, #121820), #0c1117); }
+.gicon > * { position: relative; z-index: 1; }
+.gicon.s-armor { --shape: polygon(50% 0, 100% 13%, 100% 52%, 50% 100%, 0 52%, 0 13%); }
+.gicon.s-armor .ico { margin-top: -4px; transform: scale(.85); }
+.gicon.s-utility { --shape: circle(50%); }
+.gicon.s-utility .ico { transform: scale(.85); }
+.gicon.s-implant { --shape: polygon(25% 2%, 75% 2%, 100% 50%, 75% 98%, 25% 98%, 0 50%); }
+.gicon.s-implant .ico { transform: scale(.8); }
 .gicon[data-drag] { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .gicon .ico { pointer-events: none; }
 .gicon.r-standard { --rc: var(--r-standard); } .gicon.r-milspec { --rc: var(--r-milspec); } .gicon.r-prototype { --rc: var(--r-prototype); }
 .gicon.r-relic { --rc: var(--r-relic); } .gicon.r-xeno { --rc: var(--r-xeno); }
-.gicon.empty { border: 2px dashed #3a4654; background: transparent; box-shadow: none; color: #3a4654; }
+.gicon.empty { --rc: #34404d; color: #3a4654; }
+.gicon.empty::after { background: #0d1218; }
 .gicon.fixed { cursor: default; opacity: .85; }
-.gicon { position: relative; }
-.gicon.fixed::after { content: '🔒'; position: absolute; right: -3px; bottom: -4px; font-size: 10px; }
+.gicon .lock { position: absolute; right: -3px; bottom: -4px; z-index: 2; font-size: 10px; }
 .gicon.drag-src { opacity: .3; }
-.drag-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; opacity: .92; box-shadow: 0 6px 18px #000a; }
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; opacity: .92; filter: drop-shadow(0 6px 10px #000c); }
 body.gear-dragging, body.gear-dragging * { cursor: grabbing !important; }
 body.gear-dragging .tip { display: none !important; }
 .pool { position: sticky; top: 0; z-index: 5; margin: 10px 0; padding: 8px 10px; }

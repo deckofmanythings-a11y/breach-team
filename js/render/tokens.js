@@ -4,6 +4,8 @@
 // every colour scheme. Enemies keep their painted colours and get a faction ring.
 // Portraits in assets/tokens/ are already cropped to the token framing (tools/art/pick.py).
 
+import { artStyle, animeSrc } from './art-style.js';
+
 export const TOKEN_PX = 128;                                   // canvas size of a finished token
 export const RAW_CROP = { cx: 0.5, cy: 0.40, size: 0.78 };     // framing for uncropped raw renders (tools/art)
 const FULL = { cx: 0.5, cy: 0.5, size: 1 };
@@ -19,6 +21,11 @@ const imgCache = new Map();
 export function loadImage(src) {
   if (!imgCache.has(src)) imgCache.set(src, new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }));
   return imgCache.get(src);
+}
+// The portrait for a token id in the current art style; falls back to the painted one when the
+// anime set has no picture for it.
+export function tokenImage(id) {
+  return artStyle() === 'anime' ? loadImage(animeSrc(id)).catch(() => loadImage(tokenSrc(id))) : loadImage(tokenSrc(id));
 }
 
 const hexRgb = (h) => { const n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -89,13 +96,13 @@ export function makeToken(img, opts = {}) {
 const tokCache = new Map();
 export async function soldierToken(s, opts = {}) {
   const [a, b] = s.colors || ['#3a5a8c', '#f2c14e'];
-  const key = `${soldierTokenId(s)}|${a}|${b}|${opts.grey ? 1 : 0}|${opts.size || TOKEN_PX}`;
-  if (!tokCache.has(key)) tokCache.set(key, loadImage(tokenSrc(soldierTokenId(s))).then(img => makeToken(img, { armor: a, ring: b, recolor: true, ...opts })));
+  const key = `${artStyle()}|${soldierTokenId(s)}|${a}|${b}|${opts.grey ? 1 : 0}|${opts.size || TOKEN_PX}`;
+  if (!tokCache.has(key)) tokCache.set(key, tokenImage(soldierTokenId(s)).then(img => makeToken(img, { armor: a, ring: b, recolor: true, ...opts })));
   return tokCache.get(key);
 }
 export async function unitToken(kind, ring, opts = {}) {
-  const key = `${kind}|${ring}|${opts.grey ? 1 : 0}|${opts.leader ? 1 : 0}|${opts.size || TOKEN_PX}`;
-  if (!tokCache.has(key)) tokCache.set(key, loadImage(tokenSrc(kind)).then(img => makeToken(img, { ring, ...opts })));
+  const key = `${artStyle()}|${kind}|${ring}|${opts.grey ? 1 : 0}|${opts.leader ? 1 : 0}|${opts.size || TOKEN_PX}`;
+  if (!tokCache.has(key)) tokCache.set(key, tokenImage(kind).then(img => makeToken(img, { ring, ...opts })));
   return tokCache.get(key);
 }
 
@@ -106,7 +113,7 @@ export function hydrateAvatars(root = document) {
   for (const el of root.querySelectorAll('.avatar[data-tok]:not([data-done])')) {
     el.dataset.done = '1';
     const s = { specialty: el.dataset.spec, sex: el.dataset.sex, look: +el.dataset.look || 0, portrait: el.dataset.portrait || undefined, colors: [el.dataset.a, el.dataset.b] };
-    const key = `${soldierTokenId(s)}|${s.colors.join('|')}`;
+    const key = `${artStyle()}|${soldierTokenId(s)}|${s.colors.join('|')}`;
     const p = urlCache.get(key) || soldierToken(s, { size: 96 }).then(c => c.toDataURL('image/png'));
     urlCache.set(key, p);
     p.then(url => { el.style.backgroundImage = `url(${url})`; el.classList.add('tok'); }).catch(() => {});

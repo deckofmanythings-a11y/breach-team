@@ -19,6 +19,7 @@ import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
 import { itemIcon, slotIcon } from './item-icons.js';
 import { enableGearDrag } from './gear-drag.js';
+import { artStyle, setArtStyle, ART_STYLES } from '../render/art-style.js';
 import { levelBadge } from './badges.js';
 import { setContract } from './deploy.js?v=20';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
@@ -33,8 +34,14 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.19.0';
+export const APP_VERSION = '0.20.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
+
+// Painted / anime portraits: a per-device choice; re-render so every portrait and token repaints.
+const artBtn = document.getElementById('artstyle');
+const showArt = () => { artBtn.textContent = `🎨 ${ART_STYLES.find(a => a.id === artStyle()).name}`; artBtn.title = 'Portrait art style (tap to switch)'; };
+showArt();
+artBtn.onclick = () => { setArtStyle(artStyle() === 'anime' ? 'painted' : 'anime'); showArt(); if (G.signedIn()) render(); toast(`Portraits: ${ART_STYLES.find(a => a.id === artStyle()).name}`); };
 
 const panel = document.getElementById('panel');
 const nav = document.getElementById('nav');
@@ -218,13 +225,13 @@ function soldierCard(s) {
 const slotName = (slot) => slot[0].toUpperCase() + slot.slice(1);
 function gearIcon(it, sid) {
   const fixed = ITEM_BY_ID[it.base].builtin;
-  return `<div class="gicon r-${it.rarity}${fixed ? ' fixed' : ''}" data-item="${it.uid}"${sid ? ` data-from="${sid}"` : ''}${fixed ? '' : ' data-drag="1"'}
-    data-tip="${esc(itemTipText(it) + (fixed ? '\n(built in: never comes off)' : '\nDrag to another Soldier or to the Inventory.'))}">${itemIcon(it, 26)}</div>`;
+  return `<div class="gicon s-${ITEM_BY_ID[it.base].slot} r-${it.rarity}${fixed ? ' fixed' : ''}" data-item="${it.uid}"${sid ? ` data-from="${sid}"` : ''}${fixed ? '' : ' data-drag="1"'}
+    data-tip="${esc(itemTipText(it) + (fixed ? '\n(built in: never comes off)' : '\nDrag to another Soldier or to the Inventory.'))}">${itemIcon(it, 26)}${fixed ? '<span class="lock">🔒</span>' : ''}</div>`;
 }
 function gearRow(s) {
   return `<div class="gear-row">${SLOTS.map(slot => {
     const it = s.gear[slot] && G.itemById(s.gear[slot]);
-    return it ? gearIcon(it, s.uid) : `<div class="gicon empty" title="${slotName(slot)}: empty">${slotIcon(slot, 22)}</div>`;
+    return it ? gearIcon(it, s.uid) : `<div class="gicon empty s-${slot}" title="${slotName(slot)}: empty">${slotIcon(slot, 22)}</div>`;
   }).join('')}</div>`;
 }
 function inventoryPool(S) {

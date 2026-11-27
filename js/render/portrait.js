@@ -1,13 +1,14 @@
 // Big square portraits (Barracks cards): the whole painted portrait, armor recoloured to the
 // Soldier's colour, no round crop. Elements rendered as <div class="portrait" data-tok ...> get
 // the image painted in as a background once it's ready.
-import { loadImage, recolorArmor, tokenSrc, soldierTokenId } from './tokens.js';
+import { recolorArmor, tokenImage, soldierTokenId } from './tokens.js';
+import { artStyle } from './art-style.js';
 
 const cache = new Map();
 export function portraitURL(s, size = 256) {
   const [a] = s.colors || ['#3a5a8c'];
-  const id = soldierTokenId(s), key = `${id}|${a}|${size}`;
-  if (!cache.has(key)) cache.set(key, loadImage(tokenSrc(id)).then(img => {
+  const id = soldierTokenId(s), key = `${artStyle()}|${id}|${a}|${size}`;
+  if (!cache.has(key)) cache.set(key, tokenImage(id).then(img => {
     const c = document.createElement('canvas'); c.width = c.height = size;
     const x = c.getContext('2d', { willReadFrequently: true });
     x.drawImage(img, 0, 0, size, size);
