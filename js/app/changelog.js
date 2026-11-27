@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.21.0', date: '2026-11-27', items: [
+    "Opening a Booster Pack is now an event. The foil pack drops in: drag (or swipe) across the top to tear it open, or hit 'Just rip it'.",
+    "Pull the cards out one at a time like real trading cards: drag the top card up, or tap. Each one flips over to a full card with its art, stats and rarity, and gets a celebration. Rare pulls build up longer and go much bigger, and the best card is always at the back of the pack.",
+    "Cards you've seen are kept along the bottom, and the haul is laid out at the end: tap any card to look at it up close. Skip jumps straight to the haul.",
+  ] },
   { v: '0.20.0', date: '2026-11-27', items: [
     "New anime art style for every portrait and token: your Soldiers, every enemy, alien and robot. Switch between Painted and Anime with the 🎨 button at the top. The choice is remembered on this device.",
     "Gear icons now have a shape for each slot, so you can tell at a glance what goes where: weapons are squares, armour is a shield, utility items are circles and implants are hexagons.",

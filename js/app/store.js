@@ -1,8 +1,8 @@
 // Store: Booster Packs + today's stock. Everything is bought on the server (boarding-api).
-import * as sfx from '../audio/sfx.js';
+import { openPackShow } from './pack-open.js';
 import { levelBadge } from './badges.js';
 import * as G from './state.js?v=3';
-import { el, esc, avatar, itemLabel, modal, closeModal, statGrid, toast } from './ui.js';
+import { el, esc, avatar, itemLabel, statGrid, toast } from './ui.js';
 import { PACKS, PITY_RELIC_AFTER, GRADE_BY_ID, ROSTER_CAP } from '../data/economy.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { ITEM_BY_ID } from '../data/gear.js';
@@ -63,8 +63,9 @@ export function renderStore(panel, run) {
     if (pb) {
       pb.disabled = true;
       const r = await run(() => G.act('pack', { pack: pb.dataset.pack }));
-      if (r) reveal(PACKS.find(p => p.id === pb.dataset.pack), r);
       renderAgain();
+      if (r) await openPackShow(PACKS.find(p => p.id === pb.dataset.pack), {
+        ...r, items: r.items.map(it => G.itemById(it.uid) || it), soldiers: r.soldiers.map(id => G.soldierById(id)).filter(Boolean) });
     } else if (bb) {
       bb.disabled = true;
       const r = await run(() => G.act('buy', { slot: bb.dataset.buy }));
@@ -74,22 +75,4 @@ export function renderStore(panel, run) {
   };
   const renderAgain = () => { panel.innerHTML = ''; renderStore(panel, run); };
   panel.append(wrap);
-}
-
-function reveal(pack, r) {
-  sfx.packOpen(!!((r.rare || []).length || (r.cyborg || []).length || r.items.some(it => ['relic', 'xeno'].includes(it.rarity))));
-  const items = r.items.map(it => G.itemById(it.uid) || it);
-  const soldiers = r.soldiers.map(id => G.soldierById(id)).filter(Boolean);
-  const box = el(`<div class="box"><h2>${esc(pack.name)}</h2>
-    ${r.pity ? '<div class="banner">Pity guarantee: a Relic!</div>' : ''}
-    ${(r.rare || []).length ? '<div class="banner info">★ A rare recruit has joined you!</div>' : ''}
-    ${(r.cyborg || []).length ? '<div class="banner bad">An unregistered unit has been delivered to your Barracks. No sender. No paperwork.</div>' : ''}
-    ${soldiers.map(s => `<div class="card" style="margin-bottom:8px"><div class="soldier-head">${avatar(s)}<div>
-      <div class="name">${esc(s.name)} ${s.callsign ? `<span class="callsign">"${esc(s.callsign)}"</span>` : ''}</div>
-      <div class="small dim">${levelBadge(s.level, (s.colors || [])[1], 'sm')} ${GRADE_BY_ID[s.grade]?.name || ''} ${SPECIALTY_BY_ID[s.specialty].name}</div>${s.bio ? `<div class="small"><i>${esc(s.bio)}</i></div>` : ''}</div></div>${statGrid(s.stats, s.specialty)}</div>`).join('')}
-    <div style="display:grid;gap:6px">${items.map(it => `<div class="item"><span>${itemLabel(it)} <span class="dim small">${ITEM_BY_ID[it.base].slot}</span>
-      ${ITEM_BY_ID[it.base].flavor ? `<div class="small dim"><i>${esc(ITEM_BY_ID[it.base].flavor)}</i></div>` : ''}</span></div>`).join('')}</div>
-    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="primary" id="ok">Nice</button></div></div>`);
-  box.querySelector('#ok').onclick = closeModal;
-  modal(box);
 }

@@ -7,7 +7,7 @@ import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js?v=20';
-import { renderStore } from './store.js?v=4';
+import { renderStore } from './store.js?v=5';
 import { renderLadder } from './ladder.js?v=11';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
@@ -34,7 +34,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.20.0';
+export const APP_VERSION = '0.21.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 // Painted / anime portraits: a per-device choice; re-render so every portrait and token repaints.
