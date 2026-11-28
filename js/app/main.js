@@ -36,7 +36,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.23.0';
+export const APP_VERSION = '0.23.1';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 // Painted / anime portraits: a per-device choice; re-render so every portrait and token repaints.

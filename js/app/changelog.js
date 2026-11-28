@@ -3,6 +3,9 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.23.1', date: '2026-11-28', items: [
+    "Breach Team 3D: fixed pack opening drawing cards in the wrong order, where a card behind could show through the card in front of it.",
+  ] },
   { v: '0.23.0', date: '2026-11-28', items: [
     "New on the Mothership: the Crew Quarters can now be expanded. It sets how many Soldiers you can have: 14 to start, and each expansion adds room for 7 more. There's no top level, but every expansion costs more CREDs than the last.",
     "If your roster is already bigger than your Crew Quarters allow, nobody leaves. You just can't hire, recruit or pull new Soldiers until you expand past your current headcount.",

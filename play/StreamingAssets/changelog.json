@@ -1,5 +1,12 @@
 [
  {
+  "v": "0.23.1",
+  "date": "2026-11-28",
+  "items": [
+   "Breach Team 3D: fixed pack opening drawing cards in the wrong order, where a card behind could show through the card in front of it."
+  ]
+ },
+ {
   "v": "0.23.0",
   "date": "2026-11-28",
   "items": [
