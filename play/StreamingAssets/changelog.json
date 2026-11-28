@@ -1,0 +1,332 @@
+[
+ {
+  "v": "0.22.1",
+  "date": "2026-11-28",
+  "items": [
+   "Breach Team 3D now plays right in your browser: open it from the new card on Home ('Play in your browser'). Same account, same save, no install. It's made for desktop browsers and the first load is a big download; after that it starts from cache.",
+   "Prefer an app? The Windows version is on the same card. It runs faster and keeps itself up to date."
+  ]
+ },
+ {
+  "v": "0.22.0",
+  "date": "2026-11-28",
+  "items": [
+   "New on the Mothership: hire a Quartermaster for the Armory (2,000 CREDs, Armory must be built). It unlocks Auto-equip in the Barracks and Armory: one click hands out the best gear you own, highest-level Soldiers first, picked to suit each class (Techs get Tech gear, Medics get healing gear, Infiltrators get Stealth...).",
+   "Auto-equip can outfit one of your saved squads first, so the team you're about to send gets first pick.",
+   "Saved squads on the Deploy screen: pick a squad and an entry method, then 'Save this squad'. Each saved squad remembers its entry method and marching order, and is never bigger than that entry allows. They're stored with your account, so they work on every device."
+  ]
+ },
+ {
+  "v": "0.21.0",
+  "date": "2026-11-27",
+  "items": [
+   "Opening a Booster Pack is now an event. The foil pack drops in: drag (or swipe) across the top to tear it open, or hit 'Just rip it'.",
+   "Pull the cards out one at a time like real trading cards: drag the top card up, or tap. Each one flips over to a full card with its art, stats and rarity, and gets a celebration. Rare pulls build up longer and go much bigger, and the best card is always at the back of the pack.",
+   "Cards you've seen are kept along the bottom, and the haul is laid out at the end: tap any card to look at it up close. Skip jumps straight to the haul."
+  ]
+ },
+ {
+  "v": "0.20.0",
+  "date": "2026-11-27",
+  "items": [
+   "New anime art style for every portrait and token: your Soldiers, every enemy, alien and robot. Switch between Painted and Anime with the 🎨 button at the top. The choice is remembered on this device.",
+   "Gear icons now have a shape for each slot, so you can tell at a glance what goes where: weapons are squares, armour is a shield, utility items are circles and implants are hexagons."
+  ]
+ },
+ {
+  "v": "0.19.0",
+  "date": "2026-11-27",
+  "items": [
+   "Soldier cards in the Barracks now show their equipped gear as icons, one per item type, with a border in the item's rarity colour. Hover or long-press an icon for its details.",
+   "Drag gear straight from one Soldier's card to another's (mouse or touch). If the other Soldier had something in that slot, the two swap; if the first Soldier can't use what comes back, it goes to the new Inventory instead.",
+   "The Inventory above the roster holds every unequipped item. Drag gear onto it to take it off, or drag from it onto any Soldier to equip."
+  ]
+ },
+ {
+  "v": "0.18.0",
+  "date": "2026-11-26",
+  "items": [
+   "Damage numbers pop off everyone who gets hit during a mission, with crits in bold and heals in green. Stealthed units now shimmer with a cyan cloak ring, including squads that start hidden on a Vent Crawl or under the Stealthy tactic.",
+   "Marching order (engine v8): on the Deploy screen, arrange your squad with the arrows or tap 'Toughest first'. #1 is the point man: lands closest to the Bridge and leads, so they usually draw first fire, and nobody overtakes the Soldier ahead of them. A tough Soldier up front and the Medic at the back keeps the Medic standing far more often.",
+   "The Barracks and the Armory can be filtered and sorted: by class, condition, slot, rarity, weapon type, equipped or not, plus a name search. Your choices are remembered.",
+   "New recruits start without a callsign and earn one when they reach Level 3. Veterans hired at Level 3 or higher arrive with one. You can still set or change a callsign yourself at any time."
+  ]
+ },
+ {
+  "v": "0.17.0",
+  "date": "2026-11-26",
+  "items": [
+   "Every entry method now has a Mothership room that upgrades it. Two new rooms sit fore and aft of the Hangar:",
+   "Pod Bay (Breaching Pod): level 1 lets the pod land right next to the Bridge, level 2 adds an impact that stuns the crew in the neighbouring rooms, and level 3 fits one more Soldier in the pods.",
+   "Infiltration Suite (Vent Crawl): level 1 lets the vents come out one room closer to the Bridge, level 2 makes every shot fired from hiding a critical hit, and level 3 fits one more Soldier in the vents.",
+   "Entry cards on the Deploy screen now list what your Mothership adds to each entry."
+  ]
+ },
+ {
+  "v": "0.16.0",
+  "date": "2026-11-26",
+  "items": [
+   "The Intel Room can be built, completing the Mothership. It scouts every target on the Deploy screen before you board: the crew (level 1), the optional objectives (level 2) and the ship's full map with its turrets (level 3).",
+   "Scouting is real: the crew and objectives you see are the ones you'll find. Where everyone stands, their reinforcements and the fight itself are still unknown, and scouting refreshes after every mission. Contracts can't be scouted.",
+   "When the Mothership is boarded, the Intel Room's sensors track every attacker: defenders get +4 / 8 / 12 Aim."
+  ]
+ },
+ {
+  "v": "0.15.0",
+  "date": "2026-11-26",
+  "items": [
+   "Two new Mothership rooms. The Security Post adds 1 / 2 / 3 turrets that fight for you when you're boarded, and at level 3 blast doors seal the Bridge: your Soldiers open them freely, boarders take far longer to force them.",
+   "The Quarantine Bay makes parasite outbreaks after alien ships 25 / 50 / 75% rarer, and the ones that still happen start sealed inside the bay.",
+   "Your Mothership has its own look now: a clean command ship with dark slate decks and white hull plating, on the Mothership tab and in defense battles.",
+   "A damaged room is now switched off in defense battles too (no turrets, bonus or containment), not just on missions.",
+   "Three new achievements for defending the Mothership, plus new sounds for blast doors, outbreaks and a falling Bridge."
+  ]
+ },
+ {
+  "v": "0.14.0",
+  "date": "2026-11-26",
+  "items": [
+   "The Mothership can be boarded. Rarely (never before your 12th mission, and not again for a while after), something follows the squad home: a corporate repo team, pirates, Fleet Marines, or, after an alien ship, a parasite outbreak. It's fought straight after the mission report, with every Soldier aboard, wounded or not.",
+   "Hold the Bridge until every wave is down or the attackers give up after 3 minutes. One Soldier in four stands Bridge watch; the rest fight from their stations, and the Mothership's turrets fight with you. Your rooms matter: more cover, Armory and Med Bay bonuses, Chapel Grit.",
+   "Win and you keep the salvage (BUCs) and the XP (CREDs). Lose and the attackers steal some of your BUCs and damage one or two rooms, which then give no bonus until you repair them in the Mothership tab. It's fully deadly: Downed defenders make death rolls, and if every Soldier dies, it's a Game Over.",
+   "Soldiers who fall defending the Mothership get a memorial badge. Defenses show in the Mission Log under the mission that triggered them, with their own replay."
+  ]
+ },
+ {
+  "v": "0.13.0",
+  "date": "2026-11-26",
+  "items": [
+   "Engine v5: the groundwork for defending the Mothership if it's ever boarded. Boarding missions play exactly as before.",
+   "On the Mothership map, every fourth Soldier now stands Bridge watch, and everyone else waits at the station they'd fight from."
+  ]
+ },
+ {
+  "v": "0.12.0",
+  "date": "2026-11-25",
+  "items": [
+   "The Mothership tab now shows your ship as a map. Tap any room to build or upgrade it; empty slots are sealed hull sections marked with a +.",
+   "Rooms fill in as you build them, and upgrades add furniture (more cover, consoles, an Armory turret at level 2). Your Soldiers hang around the ship: the injured in the Med Bay, Medics there too, fighters on the Training Deck."
+  ]
+ },
+ {
+  "v": "0.11.0",
+  "date": "2026-11-25",
+  "items": [
+   "The Mothership is open: a new tab where you spend CREDs on rooms for the squad's home ship. Building a room costs 600 CREDs, then 1,800 and 4,000 for levels 2 and 3.",
+   "Six rooms to start: Hangar (faster retreat shuttle, then +1 squad size on every entry), Med Bay (faster healing, then better death-roll odds), Training Deck (more mission XP), Armory (Store discounts), Teleporter Array (fewer teleport misfires) and Memorial Chapel (more Grit on missions).",
+   "Intel Room, Security Post and Quarantine Bay are listed but arrive in later updates. Rooms carry over a Game Over."
+  ]
+ },
+ {
+  "v": "0.10.0",
+  "date": "2026-11-25",
+  "items": [
+   "New currency: CREDs (Capital Resource Exchange Denominations). Every XP point your Soldiers earn on a mission adds 1 CRED, bonus XP included. They show in the top bar next to BUCs, and on each mission report.",
+   "Commanders who were already playing get CREDs for the XP their squad has earned so far, Memorial Wall included.",
+   "CREDs will pay for the Mothership, the squad's home ship, which is coming in a later update. They carry over a Game Over."
+  ]
+ },
+ {
+  "v": "0.9.2",
+  "date": "2026-11-25",
+  "items": [
+   "Soldiers who die on a Suicide Squad mission get a special ☠ Suicide Squad badge on the Memorial Wall. Earlier Suicide Squad losses get it too."
+  ]
+ },
+ {
+  "v": "0.9.1",
+  "date": "2026-11-25",
+  "items": [
+   "Suicide Squad survivors earn +100% XP on a win.",
+   "The Suicide Squad plan only appears once you have a Level 5 Soldier."
+  ]
+ },
+ {
+  "v": "0.9.0",
+  "date": "2026-11-25",
+  "items": [
+   "New retreat plan: Suicide Squad. No retreat at all: the squad fights until it takes the bridge or nobody is left standing (3-minute hard limit). If it fails, every Soldier deployed dies and their gear is lost.",
+   "A Suicide Squad win pays 250% of the normal reward, the most of any plan. Only Level 5+ Soldiers can be committed, and only against two-star ships or tougher.",
+   "The crew knows a Suicide Squad can't leave: full alarm from the first second, a bigger crew, and extra, larger reinforcement waves."
+  ]
+ },
+ {
+  "v": "0.8.1",
+  "date": "2026-11-25",
+  "items": [
+   "Blitz time bonus: a successful Blitz pays extra BUCs for time left on the mission clock: +1% of the ship's reward for every 2 seconds, up to +30%. The mission report shows how much of your pay it was."
+  ]
+ },
+ {
+  "v": "0.8.0",
+  "date": "2026-11-25",
+  "items": [
+   "Mission clock rework. The 90-second clock now pauses while any Soldier is on the bridge, so a squad fighting for or holding the bridge is no longer pulled out mid-capture. The time left shows next to the elapsed time during a mission.",
+   "Digging in: when the clock runs out and the squad is winning (more Soldiers standing than enemies in sight), it rolls its average Grit to push on for another 15 seconds. Up to three times, each harder than the last. Slow & Steady, with its Grit bonus, benefits most.",
+   "Older replays and Ladder runs play out exactly as they did."
+  ]
+ },
+ {
+  "v": "0.7.7",
+  "date": "2026-11-25",
+  "items": [
+   "XP numbers now match the XP bar: they count progress through the current level (e.g. 130/400 toward Level 6) instead of total XP against the next level's total, which made bars look far emptier than the numbers. Total XP is still on the Soldier's page and in the tooltip."
+  ]
+ },
+ {
+  "v": "0.7.6",
+  "date": "2026-11-25",
+  "items": [
+   "Accent colours now match the class: every Assault wears the same accent, every Medic another, and so on (level badge, card trim and map token), so you can tell classes apart at a glance.",
+   "Pick each class's accent with the new Class colours button in the Barracks, or from the Accent picker on any Soldier's page (it changes the whole class). Armour colour is still yours to set per Soldier."
+  ]
+ },
+ {
+  "v": "0.7.5",
+  "date": "2026-11-25",
+  "items": [
+   "Fixed XP bars for Soldiers hired above Level 1 (Seasoned, Veteran and Elite recruits): they started with no XP, so their bar sat empty until they had earned back the levels they were hired at. They now start with the XP for their level, and existing Soldiers have been corrected."
+  ]
+ },
+ {
+  "v": "0.7.4",
+  "date": "2026-11-25",
+  "items": [
+   "Strip all Equipment: a new button on the Armory screen takes every piece of gear off every Soldier at once (after you confirm). Built-in enhancements stay put.",
+   "Commendations on a Soldier's page are folded away by default. Earned ribbons still show; click the heading to see the full list.",
+   "Changing a Soldier's gear no longer jumps their page back to the top."
+  ]
+ },
+ {
+  "v": "0.7.3",
+  "date": "2026-11-24",
+  "items": [
+   "The Cargo Hauler is easier, as a one-star ship should be: no defence turret and a smaller security team. A fresh Level 1 squad now takes it about 85% of the time (it was closer to 65%), and losses are much rarer.",
+   "Hired Rookies now report with a standard-issue weapon and armour for their specialty, instead of turning up with a sidearm and no armour."
+  ]
+ },
+ {
+  "v": "0.7.2",
+  "date": "2026-11-24",
+  "items": [
+   "Mission map camera: drag to pan, scroll the mouse wheel or pinch to zoom, double-click to zoom in. The + / − buttons zoom too, and the percentage button snaps back to the whole ship.",
+   "Ship walls are now painted: every faction has its own bulkhead plating, with raised edges and shadows so rooms and corridors read at a glance."
+  ]
+ },
+ {
+  "v": "0.7.1",
+  "date": "2026-11-24",
+  "items": [
+   "Stats are colour-coded against a new Soldier's starting values for that specialty: red below, white about the same, green higher, gold exceptional. Hover or long-press a stat for the exact numbers.",
+   "Levels now stand out: a big level medallion on every Barracks card and Soldier page, and smaller ones in Deploy, the Store and the Memorial."
+  ]
+ },
+ {
+  "v": "0.7.0",
+  "date": "2026-11-24",
+  "items": [
+   "New Home page: your commander at a glance, with your top Soldiers, service record, the current contract, your last mission and quick links.",
+   "Restart Account (on the Home page): wipe all progress and start over with a fresh squad.",
+   "Game Over: if a mission ends with no living Soldiers, your commander is relieved. A new commander takes over with a fresh crew and starting BUCs, and the Memorial Wall carries over.",
+   "Sound effects: gunfire for every weapon type, breaching charges, alarms, alien screams, pack openings, victory and defeat stingers. Use the speaker button in the top bar to mute or set the volume.",
+   "Hover over (or long-press) any item to see exactly what it and each of its affixes do. The equipped item’s affixes also show under each gear slot.",
+   "Eight faces for every Soldier: recruits now come from all over Earth, with many more names. Pick a Soldier's face on their page."
+  ]
+ },
+ {
+  "v": "0.6.4",
+  "date": "2026-11-24",
+  "items": [
+   "Bigger Barracks cards: each Soldier now shows their full painted portrait in their own colours, with larger, easier-to-read stats."
+  ]
+ },
+ {
+  "v": "0.6.3",
+  "date": "2026-11-24",
+  "items": [
+   "Small text fixes."
+  ]
+ },
+ {
+  "v": "0.6.2",
+  "date": "2026-11-24",
+  "items": [
+   "Fleet R&D has requested access to the Memorial Wall records. Request approved."
+  ]
+ },
+ {
+  "v": "0.6.1",
+  "date": "2026-11-24",
+  "items": [
+   "The Weekly Contract is now a 72-Hour Contract: a new ship and map every 3 days, resetting at midnight Pacific.",
+   "Vent Crawl, explained: a stealth insertion where a handful of small one-man pods enter through the hull into the service tunnels of the ship."
+  ]
+ },
+ {
+  "v": "0.6.0",
+  "date": "2026-11-24",
+  "items": [
+   "New Ladder tab. The Weekly Contract: every commander boards the same ship on the same map each week (it changes Monday, Pacific). Your best run is scored and ranked.",
+   "Watch any run on the contract leaderboard: it replays the exact mission in your browser.",
+   "Career board: compare ships taken, kills, alien ships taken, BUCs earned, best Soldier level and more with everyone else.",
+   "Contract runs are real missions: normal rewards, and Soldiers can still die."
+  ]
+ },
+ {
+  "v": "0.5.0",
+  "date": "2026-11-24",
+  "items": [
+   "Six alien ships to board: the Fungal Derelict, Gravity Anomaly, Hive Ship, Crystal Spire, Void Hulk and Parasite Ship. Each has its own deadly trick: spores that turn Soldiers on each other, shifting gravity, hatching eggs and acid blood, ricocheting shots, total darkness, and parasites that take over the Downed.",
+   "Xeno gear: the rarest equipment in the game, found only by taking alien ships.",
+   "Achievements: four of them, tracked in the Mission Log.",
+   "Your Soldiers now say the odd familiar line at the right moment.",
+   "Space is big. Not every contact is what it seems."
+  ]
+ },
+ {
+  "v": "0.4.0",
+  "date": "2026-11-24",
+  "items": [
+   "Art pass: every Soldier and enemy now has a painted portrait token on the mission map.",
+   "Your Soldier's armor colour is painted onto their portrait, and their accent colour is the ring. Change colours in the Barracks and the token updates instantly.",
+   "Each enemy faction has its own ring colour (Pirates orange, Corporate teal, Marines grey), and leaders wear a gold star.",
+   "Each ship class has its own deck: rusty pirate plating, clean corporate panels, olive military tread.",
+   "Muzzle flashes and impact sparks; Downed units grey out with a red X.",
+   "Portraits replace the initials everywhere: Barracks, Deploy, Store, Memorial."
+  ]
+ },
+ {
+  "v": "0.3.0",
+  "date": "2026-11-24",
+  "items": [
+   "Online accounts: sign in to keep your roster on the server and play from any device. Old browser-only saves don't carry over: everyone starts with a fresh starter squad.",
+   "Store: four Booster Packs (Recruit, Armory, Boarding Crate, Elite Crate) with guaranteed rarities, plus a daily stock of gear and recruits that is the same for every player.",
+   "Pity guarantee: twelve item packs in a row without a Relic and the next one has one.",
+   "Sell unequipped gear from the Armory for a quarter of its Store price.",
+   "Missions are fought on the server, then replayed in your browser from the same seed."
+  ]
+ },
+ {
+  "v": "0.2.0",
+  "date": "2026-11-24",
+  "items": [
+   "Commendations: Soldiers earn 15 different medals from their service record. See them on the Soldier page, their Barracks card and the Memorial Wall.",
+   "Service record on every Soldier page: ships taken, kills, times Downed, death rolls survived, revives and injuries.",
+   "The Memorial Wall now says how each Soldier fell.",
+   "Level-ups that unlock a perk show a \"Choose perk\" button right on the mission report, and the Barracks reminds you who has one waiting.",
+   "Fleet Command sends a free Rookie if you are broke and can't field two Soldiers (once every 10 minutes).",
+   "Deploy warns you when you are about to send a very small squad.",
+   "New Codex tab: every rule and number in the game.",
+   "XP bars on Barracks cards."
+  ]
+ },
+ {
+  "v": "0.1.0",
+  "date": "2026-11-24",
+  "items": [
+   "First playable version: Barracks, Deploy, mission playback, mission report, Mission Log replays, Armory and Memorial Wall.",
+   "Three ships to board: Cargo Hauler, Pirate Raider and Patrol Corvette.",
+   "Permadeath is on: any Soldier who goes Down can die, on any mission."
+  ]
+ }
+]

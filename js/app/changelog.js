@@ -3,6 +3,10 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.22.1', date: '2026-11-28', items: [
+    "Breach Team 3D now plays right in your browser: open it from the new card on Home ('Play in your browser'). Same account, same save, no install. It's made for desktop browsers and the first load is a big download; after that it starts from cache.",
+    "Prefer an app? The Windows version is on the same card. It runs faster and keeps itself up to date.",
+  ] },
   { v: '0.22.0', date: '2026-11-28', items: [
     "New on the Mothership: hire a Quartermaster for the Armory (2,000 CREDs, Armory must be built). It unlocks Auto-equip in the Barracks and Armory: one click hands out the best gear you own, highest-level Soldiers first, picked to suit each class (Techs get Tech gear, Medics get healing gear, Infiltrators get Stealth...).",
     "Auto-equip can outfit one of your saved squads first, so the team you're about to send gets first pick.",

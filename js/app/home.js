@@ -64,6 +64,11 @@ export function renderHome(panel, { go, run, boardContract }) {
           <div class="small dim">${new Date(last.at).toLocaleString()} · ${last.bucs} BUCs${last.soldiers?.some(x => x.fate === 'kia') ? ` · <span class="bad">${last.soldiers.filter(x => x.fate === 'kia').length} killed</span>` : ''}</div>
           <button style="margin-top:8px" data-go="log">Mission Log</button>`
         : '<div class="dim">No missions yet. Your squad is waiting.</div><button class="primary" style="margin-top:8px" data-go="deploy">Plan your first boarding</button>'}</div>
+      <div class="card play3d"><h3>Breach Team 3D</h3>
+        <div class="small dim">The same game, account and save, rebuilt in 3D: modelled ships, lighting, effects and a battle camera.</div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap"><a class="btn primary" href="play/" target="_blank" rel="noopener">▶ Play in your browser</a>
+          <a class="btn" href="https://github.com/deckofmanythings-a11y/breach-team-releases/releases/latest" target="_blank" rel="noopener">Windows download</a></div>
+        <div class="small dim" style="margin-top:6px">Browser version: desktop only, a big first download (cached after). The Windows app runs faster and updates itself.</div></div>
       <div class="card"><h3>What's new · Ver. ${esc(latest.v)}</h3><ul class="small">${latest.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
     </div>
     <div class="card danger-zone">

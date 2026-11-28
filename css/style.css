@@ -12,6 +12,9 @@ button:hover:not(:disabled) { border-color: var(--accent2); }
 button:disabled { opacity: .45; cursor: not-allowed; }
 button.primary { background: var(--accent); color: #1b1200; border-color: var(--accent); font-weight: 800; }
 button.danger { border-color: #6b2222; color: #ffb4b4; }
+a.btn { display: inline-block; text-decoration: none; color: inherit; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; }
+a.btn:hover { border-color: var(--accent2); }
+a.btn.primary { background: var(--accent); color: #1b1200; border-color: var(--accent); font-weight: 800; }
 input, select { font: inherit; color: var(--text); background: #0d141c; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
 h1, h2, h3 { font-family: Rajdhani, sans-serif; letter-spacing: .04em; margin: 0 0 10px; }
 h2 { font-size: 26px; } h3 { font-size: 18px; color: var(--accent2); }

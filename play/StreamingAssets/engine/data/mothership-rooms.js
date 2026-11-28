@@ -1,0 +1,123 @@
+// Mothership rooms (docs/MOTHERSHIP.md, phase M2). Bought and upgraded with CREDs.
+// Save shape: g.mothership = { rooms: { [id]: level } }. A missing room is level 0 (not built),
+// except rooms with `start`, which every Mothership has from the beginning.
+//
+// Effect keys per level (each level lists its TOTAL effect, not the step):
+//   healTimePct, survivalPct, xpPct   aftermath (injury heal time, death-roll survival, mission XP)
+//   grit                              squad-wide stat on missions (engine mods)
+//   storePct                          price change on everything in the Store (packs + daily stock)
+//   teleportFailPct                   change to teleport misfires: Teleport entry and Teleport Recall
+//   shuttleArrivePct                  change to how long the shuttle takes to come for a retreat
+//   squadAdd                          extra squad size on every entry (still capped at MAX_DEPLOY)
+//   turrets, blastDoors               defense only (shown, not summed into missions): the map places the
+//                                     turrets; blast doors seal the Bridge in a defense (engine, Security L3)
+//   outbreakPct                       change to the chance of a parasite outbreak after an alien ship
+//   podShock, podClose                Breaching Pod (engine v7+): the impact stuns enemies in the rooms next
+//                                     to the breach for this many ticks; podClose lets the pod land right
+//                                     next to the Bridge
+//   ventClose, ventAmbush             Vent Crawl (engine v7+): vents can come out one room closer to the
+//                                     Bridge; every shot fired from hiding is a critical hit
+//   podSquadAdd, ventSquadAdd         extra squad size for that entry only (still capped at MAX_DEPLOY)
+//   intel                             scouting depth shown before boarding (engine/scout.js); defense: faster reactions
+import { MAX_DEPLOY } from './economy.js';
+
+export const ROOM_PRICES = [600, 1800, 4000];   // CREDs to reach level 1 / 2 / 3
+
+export const MS_ROOMS = [
+  { id: 'hangar', name: 'Hangar', icon: '🚀', start: 1,
+    desc: 'Where the shuttle and boarding pods live. Upgrades get your squad out faster and bigger.',
+    levels: [{}, { shuttleArrivePct: -50 }, { shuttleArrivePct: -50, squadAdd: 1 }] },
+  { id: 'med_bay', name: 'Med Bay', icon: '✚',
+    desc: 'A proper surgery deck. Injuries heal faster, and at full spec it saves lives.',
+    levels: [{ healTimePct: -10 }, { healTimePct: -20 }, { healTimePct: -30, survivalPct: 5 }] },
+  { id: 'training_deck', name: 'Training Deck', icon: '🎯',
+    desc: 'Firing ranges and sims. Soldiers learn more from every mission (and earn more CREDs).',
+    levels: [{ xpPct: 5 }, { xpPct: 10 }, { xpPct: 15 }] },
+  { id: 'armory', name: 'Armory', icon: '🛠',
+    desc: 'Your own quartermaster haggles with suppliers. Everything in the Store costs less.',
+    levels: [{ storePct: -5 }, { storePct: -10 }, { storePct: -15 }] },
+  { id: 'teleporter', name: 'Teleporter Array', icon: '✦',
+    desc: 'A stronger lock-on for beaming in and out. Fewer teleport misfires, and none at full spec.',
+    levels: [{ teleportFailPct: -33 }, { teleportFailPct: -66 }, { teleportFailPct: -100 }] },
+  { id: 'chapel', name: 'Memorial Chapel', icon: '🕯',
+    desc: 'The names of the fallen, where everyone walks past them. The squad fights with more Grit.',
+    levels: [{ grit: 4 }, { grit: 8 }, { grit: 12 }] },
+  { id: 'pod_bay', name: 'Pod Bay', icon: '☄',
+    desc: 'Heavier breaching pods with shaped charges and better guidance. Upgrades the Breaching Pod entry.',
+    levels: [{ podClose: 1 }, { podClose: 1, podShock: 60 }, { podClose: 1, podShock: 60, podSquadAdd: 1 }] },
+  { id: 'infiltration', name: 'Infiltration Suite', icon: '🕶',
+    desc: 'Duct schematics, sound dampers and ambush drills. Upgrades the Vent Crawl entry.',
+    levels: [{ ventClose: 1 }, { ventClose: 1, ventAmbush: 1 }, { ventClose: 1, ventAmbush: 1, ventSquadAdd: 1 }] },
+  { id: 'security', name: 'Security Post', icon: '🛡',
+    desc: 'Turrets and blast doors for when someone boards YOU. No help on missions.',
+    levels: [{ turrets: 1 }, { turrets: 2 }, { turrets: 3, blastDoors: 1 }] },
+  { id: 'quarantine', name: 'Quarantine Bay', icon: '☣',
+    desc: 'Keeps whatever you brought back from alien ships locked away. Fewer outbreaks, and the ones that happen start sealed in here.',
+    levels: [{ outbreakPct: -25 }, { outbreakPct: -50 }, { outbreakPct: -75 }] },
+  { id: 'intel', name: 'Intel Room', icon: '📡',
+    desc: 'Scouts every target before you board. When you are boarded, early warning gets your Soldiers moving sooner.',
+    levels: [{ intel: 1 }, { intel: 2 }, { intel: 3 }] },
+];
+export const MS_ROOM_BY_ID = Object.fromEntries(MS_ROOMS.map(r => [r.id, r]));
+export const MAX_ROOM_LEVEL = ROOM_PRICES.length;
+
+export function roomLevel(g, id) {
+  const r = MS_ROOM_BY_ID[id];
+  return g?.mothership?.rooms?.[id] ?? (r?.start || 0);
+}
+// Price to reach the next level, or null when maxed / not buildable.
+export function nextRoomPrice(g, id) {
+  const r = MS_ROOM_BY_ID[id];
+  if (!r || r.soon) return null;
+  const lv = roomLevel(g, id);
+  return lv >= MAX_ROOM_LEVEL ? null : ROOM_PRICES[lv];
+}
+export const roomEffect = (id, level) => (level > 0 ? MS_ROOM_BY_ID[id]?.levels[level - 1] || {} : {});
+
+// Summed effects of every room this Mothership has. Rooms damaged in a lost defense (M5) count for
+// nothing until repaired.
+export function mothershipEffects(g) {
+  const out = {};
+  for (const r of MS_ROOMS) if (!g?.mothership?.damaged?.[r.id]) for (const [k, v] of Object.entries(roomEffect(r.id, roomLevel(g, r.id)))) out[k] = (out[k] || 0) + v;
+  return out;
+}
+
+// What a mission takes from the Mothership: the engine input's `mothership` field (null = nothing
+// to add, so the input stays exactly as it was before rooms existed).
+export function mothershipInput(g) {
+  const e = mothershipEffects(g);
+  const pick = (keys) => { const o = {}; for (const k of keys) if (e[k]) o[k] = e[k]; return o; };
+  const ms = { mods: pick(['grit']), entry: pick(['teleportFailPct', 'squadAdd', 'podShock', 'podClose', 'podSquadAdd', 'ventClose', 'ventAmbush', 'ventSquadAdd']), retreat: pick(['teleportFailPct', 'shuttleArrivePct']),
+    after: pick(['xpPct', 'healTimePct', 'survivalPct']) };
+  return Object.values(ms).some(o => Object.keys(o).length) ? ms : null;
+}
+
+export const entryMaxSquad = (entry, msEntry) => Math.min(MAX_DEPLOY, entry.maxSquad + (msEntry?.squadAdd || 0)
+  + ((entry.id === 'breach_pod' ? msEntry?.podSquadAdd : entry.id === 'vent_crawl' ? msEntry?.ventSquadAdd : 0) || 0));
+// Integer % scaling used by the engine: scalePct(8, -33) = 5.
+export const scalePct = (n, pct) => Math.max(0, Math.floor((n * (100 + (pct || 0))) / 100));
+export const storePrice = (g, price) => scalePct(price, mothershipEffects(g).storePct);
+
+// Player-facing text for one level's effect.
+export function describeEffect(eff) {
+  const parts = [];
+  if (eff.healTimePct) parts.push(`Injuries heal ${-eff.healTimePct}% faster`);
+  if (eff.survivalPct) parts.push(`+${eff.survivalPct}% death-roll survival`);
+  if (eff.xpPct) parts.push(`+${eff.xpPct}% mission XP`);
+  if (eff.grit) parts.push(`+${eff.grit} Grit for the squad on missions`);
+  if (eff.storePct) parts.push(`Store prices ${eff.storePct}%`);
+  if (eff.teleportFailPct) parts.push(eff.teleportFailPct <= -100 ? 'No teleport misfires' : `${-eff.teleportFailPct}% fewer teleport misfires`);
+  if (eff.shuttleArrivePct) parts.push(`Retreat shuttle arrives ${-eff.shuttleArrivePct}% faster`);
+  if (eff.squadAdd) parts.push(`+${eff.squadAdd} squad size on every entry (max ${MAX_DEPLOY})`);
+  if (eff.podShock) parts.push(`Breaching Pod impact stuns the neighbouring rooms for ${Math.round(eff.podShock / 8)}s`);
+  if (eff.podClose) parts.push('pods can land right next to the Bridge');
+  if (eff.podSquadAdd) parts.push(`+${eff.podSquadAdd} Breaching Pod squad size`);
+  if (eff.ventClose) parts.push('Vent Crawl can come out closer to the Bridge');
+  if (eff.ventAmbush) parts.push('shots fired from hiding always crit');
+  if (eff.ventSquadAdd) parts.push(`+${eff.ventSquadAdd} Vent Crawl squad size`);
+  if (eff.turrets) parts.push(`${eff.turrets} turret${eff.turrets > 1 ? 's' : ''} defend${eff.turrets > 1 ? '' : 's'} the Mothership`);
+  if (eff.blastDoors) parts.push('Blast doors seal the Bridge when boarded');
+  if (eff.intel) parts.push(['', 'Scouts each target\'s crew before you board', 'Scouts crew and optional objectives', 'Scouts crew, objectives and the full map'][Math.min(3, eff.intel)] + `; +${4 * eff.intel} Aim for defenders when boarded`);
+  if (eff.outbreakPct) parts.push(`${-eff.outbreakPct}% fewer parasite outbreaks; outbreaks start sealed in the bay`);
+  return parts.join(' · ') || 'Basic facilities';
+}
