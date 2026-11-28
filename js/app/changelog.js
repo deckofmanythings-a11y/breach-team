@@ -6,6 +6,8 @@ export const CHANGELOG = [
   { v: '0.22.1', date: '2026-11-28', items: [
     "Breach Team 3D now plays right in your browser: open it from the new card on Home ('Play in your browser'). Same account, same save, no install. It's made for desktop browsers and the first load is a big download; after that it starts from cache.",
     "Prefer an app? The Windows version is on the same card. It runs faster and keeps itself up to date.",
+    "The 3D version has new sci-fi fonts: Rajdhani for titles and names (the same as the web game's headings), Exo 2 for everything else.",
+    "Barracks: the Hire Rookie class picker now remembers your choice instead of jumping back to Assault after every hire.",
   ] },
   { v: '0.22.0', date: '2026-11-28', items: [
     "New on the Mothership: hire a Quartermaster for the Armory (2,000 CREDs, Armory must be built). It unlocks Auto-equip in the Barracks and Armory: one click hands out the best gear you own, highest-level Soldiers first, picked to suit each class (Techs get Tech gear, Medics get healing gear, Infiltrators get Stealth...).",

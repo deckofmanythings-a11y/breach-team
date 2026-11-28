@@ -321,7 +321,7 @@ const cap = (s) => s[0].toUpperCase() + s.slice(1);
 function renderBarracks() {
   const S = G.state();
   const wrap = el(`<div><div class="spread section"><div><h2>Barracks</h2><div class="dim">${S.soldiers.length}/${ROSTER_CAP} Soldiers · ${S.missions} missions flown</div></div>
-    <div class="row"><select id="hireSpec">${SPECIALTIES.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+    <div class="row"><select id="hireSpec">${SPECIALTIES.map(s => `<option value="${s.id}" ${s.id === localStorage.getItem('bt.hireSpec') ? 'selected' : ''}>${s.name}</option>`).join('')}</select>
     <button id="hire">Hire Rookie (${G.HIRE_PRICE} BUCs)</button><button data-go="store" id="tostore">Store &amp; Packs</button><button id="classcol" title="Pick the accent colour each class wears">Class colours</button></div></div><div class="grid" id="roster"></div></div>`);
   const roster = wrap.querySelector('#roster');
   const perkers = S.soldiers.filter(s => s.pendingPerks.length);
@@ -359,6 +359,7 @@ function renderBarracks() {
   });
   const hire = wrap.querySelector('#hire');
   hire.disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= ROSTER_CAP;
+  wrap.querySelector('#hireSpec').onchange = (e) => localStorage.setItem('bt.hireSpec', e.target.value);
   hire.onclick = async () => { const r = await run(() => G.act('hire', { specialty: wrap.querySelector('#hireSpec').value })); if (r) { toast(`${G.soldierById(r.soldier)?.name} joined the team.`); render(); } };
   wrap.querySelector('#tostore').onclick = () => go('store');
   wrap.querySelector('#classcol').onclick = openClassColors;
