@@ -98,9 +98,10 @@ import * as msMap from './engine/mothership-map.js';
 import * as defenseSetup from './engine/defense-setup.js';
 import * as quartermaster from './game/quartermaster.js';
 import * as qmData from './data/quartermaster.js';
+import * as crewQuarters from './data/crew-quarters.js';
 
 const MODULES = { rules, ladder, economy, msRooms, defenseEvents, threats, looks, gear, specialties, factions, ships,
-  progression, scout, msMap, defenseSetup, quartermaster, qmData };
+  progression, scout, msMap, defenseSetup, quartermaster, qmData, crewQuarters };
 
 function plain(_k, v) {
   if (ArrayBuffer.isView(v)) return Array.from(v);

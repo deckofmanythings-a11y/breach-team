@@ -8,6 +8,7 @@ import { simulate } from '../engine/battle.js';
 import { rollAftermath } from '../engine/aftermath.js';
 import { STARTING_BUCS, STARTER_SQUAD, ROSTER_CAP, FIRST_NAMES, LAST_NAMES, CALLSIGNS, CALLSIGN_LEVEL, COLOR_PRESETS, SEXES, GRADES, GRADE_BY_ID,
   PACK_BY_ID, PITY_RELIC_AFTER, SPECIAL_ITEM_PCT, STORE, ITEM_PRICE, SELL_PCT } from '../data/economy.js';
+import { rosterCap, rosterFull, FULL_MESSAGE } from '../data/crew-quarters.js';
 import { SPECIALTIES, SPECIALTY_BY_ID } from '../data/specialties.js';
 import { ITEMS, ITEM_BY_ID, ROLLABLE_ITEMS, SLOTS, RARITY_ORDER, RARITY_BY_ID } from '../data/gear.js';
 import { INJURY_BY_ID, healMs, HEAL_COST, BENCH_SEVERITY, MAX_INJURIES } from '../data/injuries.js';
@@ -146,7 +147,7 @@ export function upkeep(g, now = Date.now()) {
     }
   }
   const ready = g.soldiers.filter(canDeploy).length;
-  if (!g.gameOver && ready < 2 && g.bucs < HIRE_PRICE && g.soldiers.length < ROSTER_CAP && now - (g.lastEmergency || 0) >= EMERGENCY_COOLDOWN_MS) {
+  if (!g.gameOver && ready < 2 && g.bucs < HIRE_PRICE && g.soldiers.length < rosterCap(g) && now - (g.lastEmergency || 0) >= EMERGENCY_COOLDOWN_MS) {
     const rng = createRng(randomSeed());
     const sp = SPECIALTIES[rng.int(SPECIALTIES.length)];
     const s = makeRecruit(rng, sp.id, 1, now);
@@ -203,7 +204,7 @@ export function customize(g, sid, f) {
 }
 export function hire(g, specialty, now = Date.now()) {
   if (!SPECIALTY_BY_ID[specialty]) fail('Unknown specialty.');
-  if (g.soldiers.length >= ROSTER_CAP) fail('The Barracks are full.');
+  if (rosterFull(g)) fail(FULL_MESSAGE);
   spend(g, HIRE_PRICE);
   const s = makeRecruit(createRng(randomSeed()), specialty, 1, now);
   for (const [slot, base] of Object.entries(HIRE_KIT[specialty] || {})) s.gear[slot] = addItem(g, { base, rarity: 'standard', affixes: [] }).uid;
@@ -243,7 +244,7 @@ function rollGrade(rng, floorId) {
 }
 export function openPack(g, packId, now = Date.now()) {
   const pack = PACK_BY_ID[packId] || fail('Unknown pack.');
-  if (pack.soldiers && g.soldiers.length + pack.soldiers > ROSTER_CAP) fail('The Barracks are full: make room first.');
+  if (pack.soldiers && rosterFull(g, pack.soldiers)) fail(FULL_MESSAGE);
   spend(g, storePrice(g, pack.price));
   const rng = createRng(randomSeed());
   const boost = pack.rarityBoost || 100;
@@ -317,7 +318,7 @@ export function buyStore(g, slot, now = Date.now()) {
   const it = stock.items.find(x => x.slot === slot);
   const so = stock.soldiers.find(x => x.slot === slot);
   if (!it && !so) fail('Not in stock.');
-  if (so && g.soldiers.length >= ROSTER_CAP) fail('The Barracks are full.');
+  if (so && rosterFull(g)) fail(FULL_MESSAGE);
   spend(g, storePrice(g, (it || so).price));
   g.store.bought.push(slot);
   if (it) return { item: addItem(g, it).uid };
@@ -515,7 +516,7 @@ export function applyMission(g, input, battle, after, shipName, now = Date.now()
   if (after.soldiers.some((a, i) => a.fate === 'kia' && input.squad[i].level >= 10)) grant('ach_tears_rain');
   g.achievements = [...have];
   report.achievements = earned;
-  if (after.prisoner && g.soldiers.length < ROSTER_CAP) {
+  if (after.prisoner && !rosterFull(g)) {
     const r = makeRecruit(rng, SPECIALTIES[rng.int(SPECIALTIES.length)].id, 1 + rng.int(3), now);
     g.soldiers.push(r); report.extras.push({ kind: 'recruit', name: r.name, specialty: r.specialty });
   }
