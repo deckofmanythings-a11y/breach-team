@@ -6,14 +6,15 @@ import { el, esc, toast, modal, closeModal, avatar, statGrid, itemLabel, timeLef
 import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
-import { renderDeploy } from './deploy.js?v=20';
+import { renderDeploy } from './deploy.js?v=21';
 import { renderStore } from './store.js?v=5';
 import { renderLadder } from './ladder.js?v=11';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js';
 import { memorialBadges } from './memorial-badge.js';
 import { shownCreds, backfillNotice } from './creds-view.js';
-import { renderMothership } from './mothership-view.js?v=5';
+import { renderMothership } from './mothership-view.js?v=6';
+import { autoEquipButton } from './auto-equip.js?v=1';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
 import { itemTipText, affixSummary } from './itemtip.js';
@@ -21,7 +22,7 @@ import { itemIcon, slotIcon } from './item-icons.js';
 import { enableGearDrag } from './gear-drag.js';
 import { artStyle, setArtStyle, ART_STYLES } from '../render/art-style.js';
 import { levelBadge } from './badges.js';
-import { setContract } from './deploy.js?v=20';
+import { setContract } from './deploy.js?v=21';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER, RARITY_BY_ID, WEAPON_TYPES } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
@@ -34,7 +35,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.21.0';
+export const APP_VERSION = '0.22.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 // Painted / anime portraits: a per-device choice; re-render so every portrait and token repaints.
@@ -361,6 +362,7 @@ function renderBarracks() {
   hire.onclick = async () => { const r = await run(() => G.act('hire', { specialty: wrap.querySelector('#hireSpec').value })); if (r) { toast(`${G.soldierById(r.soldier)?.name} joined the team.`); render(); } };
   wrap.querySelector('#tostore').onclick = () => go('store');
   wrap.querySelector('#classcol').onclick = openClassColors;
+  const ae = autoEquipButton(run, render); if (ae) wrap.querySelector('#classcol').after(ae);
   panel.append(wrap);
 }
 
@@ -507,8 +509,9 @@ function renderArmory() {
   const S = G.state();
   const worn = S.items.filter(it => G.equippedBy(it.uid) && !ITEM_BY_ID[it.base].builtin).length;
   const wrap = el(`<div><div class="spread section" style="max-width:900px"><div><h2>Armory</h2><div class="dim">${S.items.length} items. Equip gear from a Soldier's page in the Barracks. Unequipped gear can be sold for a quarter of its Store price.</div></div>
-    <button class="danger" id="strip" ${worn ? '' : 'disabled'}>Strip all Equipment</button></div><div id="list" style="display:grid;gap:6px;max-width:900px"></div></div>`);
+    <div class="row" id="armorybtns"><button class="danger" id="strip" ${worn ? '' : 'disabled'}>Strip all Equipment</button></div></div><div id="list" style="display:grid;gap:6px;max-width:900px"></div></div>`);
   const list = wrap.querySelector('#list');
+  const ae = autoEquipButton(run, render); if (ae) wrap.querySelector('#armorybtns').prepend(ae);
   wrap.querySelector('#strip').onclick = () => {
     const box = el(`<div class="box" style="width:min(460px,94vw)"><h2>Strip all Equipment?</h2>
       <p>Every Soldier hands in their gear: <b>${worn}</b> item${worn === 1 ? '' : 's'} go${worn === 1 ? 'es' : ''} back to the Armory. Nothing is sold or lost, but your Soldiers will be unarmed until you re-equip them.</p>

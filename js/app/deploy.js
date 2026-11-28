@@ -14,6 +14,7 @@ import { holdCreds } from './creds-view.js';
 import { mothershipInput, entryMaxSquad } from '../data/mothership-rooms.js';
 import { SUICIDE_SQUAD, isSuicideSquad } from '../data/suicide-squad.js';
 import { intelPanel } from './intel-view.js?v=4';
+import { presetBar } from './squad-presets.js?v=1';
 
 const LAST = 'bt_last_deploy';
 let pick = null;
@@ -78,6 +79,7 @@ export function renderDeploy(panel) {
   for (const c of wrap.querySelectorAll('.card[data-k]')) c.onclick = () => { p[c.dataset.k] = c.dataset.v; persist(); renderDeploy(panel.replaceChildren() || panel); };
 
   const sq = wrap.querySelector('#squad');
+  sq.before(presetBar(p, { ready: (uid) => ready.some(s => s.uid === uid && eligible(s)), maxOf, persist, rerender: () => renderDeploy(panel.replaceChildren() || panel) }));
   if (!ready.length) sq.append(el('<div class="dim">Nobody is fit to deploy. Wait for injuries to heal, pay to heal them in the Barracks, or hire a Rookie.</div>'));
   for (const s of ready) {
     const on = p.squad.includes(s.uid);

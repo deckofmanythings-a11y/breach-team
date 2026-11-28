@@ -12,6 +12,7 @@ import { stripAll } from '../_shared/breach/game/armory.js';
 import { applyClassAccents, setClassAccents } from '../_shared/breach/game/class-colors.js';
 import { classAccent } from '../_shared/breach/data/class-colors.js';
 import { buildRoom, repairRoom } from '../_shared/breach/game/mothership.js';
+import { buyQuartermaster, autoEquip, saveSquads } from '../_shared/breach/game/quartermaster.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -151,6 +152,9 @@ const actions: Record<string, (uid: string, b: any) => Promise<unknown>> = {
   pack: (uid, b) => withSave(uid, (g, now) => R.openPack(g, b.pack, now)),
   buildRoom: (uid, b) => withSave(uid, (g) => buildRoom(g, String(b.room || ''))),
   repairRoom: (uid, b) => withSave(uid, (g) => repairRoom(g, String(b.room || ''))),
+  buyQuartermaster: (uid) => withSave(uid, (g) => buyQuartermaster(g)),
+  autoEquip: (uid, b) => withSave(uid, (g) => autoEquip(g, Array.isArray(b.soldiers) ? b.soldiers.slice(0, 48) : [])),
+  saveSquads: (uid, b) => withSave(uid, (g) => saveSquads(g, b.squads)),
   buy: (uid, b) => withSave(uid, (g, now) => ({ ...R.buyStore(g, b.slot, now), store: storeView(g, now) })),
   async deploy(uid, b) {
     let mission: any = null;

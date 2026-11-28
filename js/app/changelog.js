@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.22.0', date: '2026-11-28', items: [
+    "New on the Mothership: hire a Quartermaster for the Armory (2,000 CREDs, Armory must be built). It unlocks Auto-equip in the Barracks and Armory: one click hands out the best gear you own, highest-level Soldiers first, picked to suit each class (Techs get Tech gear, Medics get healing gear, Infiltrators get Stealth...).",
+    "Auto-equip can outfit one of your saved squads first, so the team you're about to send gets first pick.",
+    "Saved squads on the Deploy screen: pick a squad and an entry method, then 'Save this squad'. Each saved squad remembers its entry method and marching order, and is never bigger than that entry allows. They're stored with your account, so they work on every device.",
+  ] },
   { v: '0.21.0', date: '2026-11-27', items: [
     "Opening a Booster Pack is now an event. The foil pack drops in: drag (or swipe) across the top to tear it open, or hit 'Just rip it'.",
     "Pull the cards out one at a time like real trading cards: drag the top card up, or tap. Each one flips over to a full card with its art, stats and rarity, and gets a celebration. Rare pulls build up longer and go much bigger, and the best card is always at the back of the pack.",

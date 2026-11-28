@@ -7,6 +7,8 @@ import { createShipView } from '../render/ship-view.js';
 import { stationKey } from '../engine/defense-setup.js';
 import { DEFENSE } from '../data/threats.js';
 import { isDamaged, repairPrice } from '../data/defense-events.js';
+import { QUARTERMASTER } from '../data/quartermaster.js';
+import { hasQuartermaster } from '../game/quartermaster.js';
 
 let view = null;
 const dropView = () => { if (view) { view.destroy(); view = null; } };
@@ -76,11 +78,28 @@ function roomCard(S, r, creds) {
     ${fix !== null ? '<div class="small bad" style="margin-top:6px"><b>⚠ DAMAGED</b> in a boarding: its bonus is off until repaired.</div>' : ''}
     ${now ? `<div class="small" style="margin-top:6px${fix !== null ? ';text-decoration:line-through;opacity:.6' : ''}"><b>Now (L${lv}):</b> ${esc(now)}</div>` : '<div class="small dim" style="margin-top:6px">Not built yet.</div>'}
     ${next ? `<div class="small" style="margin-top:2px"><b>${lv ? `L${lv + 1}` : 'Build'}:</b> ${esc(next)}</div>` : ''}
-    <div style="margin-top:8px">${action}</div>`}
+    <div style="margin-top:8px">${action}</div>
+    ${r.id === 'armory' ? qmBlock(S, lv, creds) : ''}`}
   </div>`);
 }
 
+// Quartermaster: a one-off add-on to the Armory, outside its levels. Unlocks Auto-equip in the Barracks and Armory.
+function qmBlock(S, armoryLv, creds) {
+  const q = QUARTERMASTER, owned = hasQuartermaster(S), damaged = isDamaged(S, 'armory');
+  const action = owned ? (damaged ? '<span class="small bad">Off until the Armory is repaired.</span>' : '<span class="good small">Hired: Auto-equip is on in the Barracks and Armory.</span>')
+    : armoryLv < q.requires.armory ? '<span class="small dim">Build the Armory first.</span>'
+    : `<button class="primary" data-qm="1" ${creds < q.price || damaged ? 'disabled' : ''}>Hire · ${q.price.toLocaleString()} CREDs</button>`;
+  return `<div class="ms-addon"><h4 style="margin:0"><span class="ms-icon">${q.icon}</span> ${esc(q.name)} <span class="small dim">(Armory add-on)</span></h4>
+    <div class="small dim">${esc(q.desc)}</div><div style="margin-top:6px">${action}</div></div>`;
+}
+
 async function onBuild(e, S, panel, run) {
+  if (e.target.closest('[data-qm]')) {
+    if (!confirm(`Hire a Quartermaster for ${QUARTERMASTER.price.toLocaleString()} CREDs? Auto-equip unlocks in the Barracks and Armory.`)) return;
+    const out = await run(() => G.act('buyQuartermaster'));
+    if (out) { closeModal(); toast('Quartermaster hired. Auto-equip is ready in the Barracks and Armory.'); panel.replaceChildren(); renderMothership(panel, run); }
+    return;
+  }
   const rp = e.target.closest('[data-repair]');
   if (rp) {
     const r = MS_ROOM_BY_ID[rp.dataset.repair], price = repairPrice(S, r.id);
