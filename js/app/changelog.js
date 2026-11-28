@@ -3,6 +3,11 @@
 import { el, esc, modal, closeModal } from './ui.js';
 
 export const CHANGELOG = [
+  { v: '0.23.0', date: '2026-11-28', items: [
+    "New on the Mothership: the Crew Quarters can now be expanded. It sets how many Soldiers you can have: 14 to start, and each expansion adds room for 7 more. There's no top level, but every expansion costs more CREDs than the last.",
+    "If your roster is already bigger than your Crew Quarters allow, nobody leaves. You just can't hire, recruit or pull new Soldiers until you expand past your current headcount.",
+    "Tap the Crew Quarters on the Mothership map, or find it at the top of the room list.",
+  ] },
   { v: '0.22.1', date: '2026-11-28', items: [
     "Breach Team 3D now plays right in your browser: open it from the new card on Home ('Play in your browser'). Same account, same save, no install. It's made for desktop browsers and the first load is a big download; after that it starts from cache.",
     "Prefer an app? The Windows version is on the same card. It runs faster and keeps itself up to date.",

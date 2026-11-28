@@ -3,7 +3,7 @@
 // shows results. These tables are shared by both.
 
 export const STARTING_BUCS = 500;
-export const ROSTER_CAP = 24;
+export const ROSTER_CAP = 24;   // LEGACY (pre-0.23.0 flat cap). The real cap is rosterCap(g) in js/data/crew-quarters.js.
 export const MAX_DEPLOY = 6;            // absolute cap; the entry method usually caps lower
 
 // Starter squad: everyone begins with these four, each with standard gear.

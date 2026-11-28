@@ -2,5 +2,5 @@
   "name": "breach-team",
   "private": true,
   "type": "module",
-  "scripts": { "check": "node test/data-check.mjs", "test": "node test/syntax.mjs && node test/data-check.mjs && node test/determinism.mjs && node test/rules.mjs && node test/quartermaster.mjs && node test/aliens.mjs 15 && node test/effects.mjs 20 && node test/defense.mjs 20", "balance": "node test/balance.mjs" }
+  "scripts": { "check": "node test/data-check.mjs", "test": "node test/syntax.mjs && node test/data-check.mjs && node test/determinism.mjs && node test/rules.mjs && node test/quartermaster.mjs && node test/crew-quarters.mjs && node test/aliens.mjs 15 && node test/effects.mjs 20 && node test/defense.mjs 20", "balance": "node test/balance.mjs" }
 }

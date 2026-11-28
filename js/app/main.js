@@ -7,13 +7,13 @@ import { COMMENDATIONS } from '../data/commendations.js';
 import { renderCodex } from './codex.js';
 import { initWhatsNew } from './changelog.js';
 import { renderDeploy } from './deploy.js?v=21';
-import { renderStore } from './store.js?v=5';
+import { renderStore } from './store.js?v=6';
 import { renderLadder } from './ladder.js?v=11';
 import './../render/portrait.js';
 import { renderHome, renderGameOver, faceStrip } from './home.js?v=2';
 import { memorialBadges } from './memorial-badge.js';
 import { shownCreds, backfillNotice } from './creds-view.js';
-import { renderMothership } from './mothership-view.js?v=6';
+import { renderMothership } from './mothership-view.js?v=7';
 import { autoEquipButton } from './auto-equip.js?v=1';
 import { LOOKS } from '../data/looks.js';
 import * as sfx from '../audio/sfx.js';
@@ -26,7 +26,8 @@ import { setContract } from './deploy.js?v=21';
 import { SPECIALTIES, SPECIALTY_BY_ID, ABILITIES } from '../data/specialties.js';
 import { ITEM_BY_ID, SLOTS, RARITY_ORDER, RARITY_BY_ID, WEAPON_TYPES } from '../data/gear.js';
 import { INJURY_BY_ID } from '../data/injuries.js';
-import { ROSTER_CAP, COLOR_PRESETS } from '../data/economy.js';
+import { COLOR_PRESETS } from '../data/economy.js';
+import { rosterCap } from '../data/crew-quarters.js';
 import { xpToReach, MAX_LEVEL, PERK_LEVELS } from '../data/stats.js';
 import { ENGINE_VERSION } from '../data/version.js';
 import { replayMission, setExit, setOpenSoldier } from './mission.js?v=8';
@@ -35,7 +36,7 @@ import { SECRET_SHIPS } from '../data/aliens.js';
 import './../render/tokens.js';
 import { DEFAULT_CLASS_ACCENTS, classAccent } from '../data/class-colors.js';
 
-export const APP_VERSION = '0.22.1';
+export const APP_VERSION = '0.23.0';
 document.getElementById('ver').textContent = `Ver. ${APP_VERSION} · engine v${ENGINE_VERSION}`;
 
 // Painted / anime portraits: a per-device choice; re-render so every portrait and token repaints.
@@ -320,7 +321,7 @@ const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
 function renderBarracks() {
   const S = G.state();
-  const wrap = el(`<div><div class="spread section"><div><h2>Barracks</h2><div class="dim">${S.soldiers.length}/${ROSTER_CAP} Soldiers · ${S.missions} missions flown</div></div>
+  const wrap = el(`<div><div class="spread section"><div><h2>Barracks</h2><div class="dim">${S.soldiers.length}/${rosterCap(S)} Soldiers · ${S.missions} missions flown${S.soldiers.length >= rosterCap(S) ? ` · <span class="warn">Barracks full: expand the Crew Quarters on the Mothership</span>` : ''}</div></div>
     <div class="row"><select id="hireSpec">${SPECIALTIES.map(s => `<option value="${s.id}" ${s.id === localStorage.getItem('bt.hireSpec') ? 'selected' : ''}>${s.name}</option>`).join('')}</select>
     <button id="hire">Hire Rookie (${G.HIRE_PRICE} BUCs)</button><button data-go="store" id="tostore">Store &amp; Packs</button><button id="classcol" title="Pick the accent colour each class wears">Class colours</button></div></div><div class="grid" id="roster"></div></div>`);
   const roster = wrap.querySelector('#roster');
@@ -358,7 +359,7 @@ function renderBarracks() {
     drop: (src, t) => { if (t.classList.contains('drop-ok') || t.dataset.drop === 'soldier') moveGear(src.dataset.item, src.dataset.from || '', t.dataset.drop === 'pool' ? 'pool' : t.dataset.sid); },
   });
   const hire = wrap.querySelector('#hire');
-  hire.disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= ROSTER_CAP;
+  hire.disabled = S.bucs < G.HIRE_PRICE || S.soldiers.length >= rosterCap(S);
   wrap.querySelector('#hireSpec').onchange = (e) => localStorage.setItem('bt.hireSpec', e.target.value);
   hire.onclick = async () => { const r = await run(() => G.act('hire', { specialty: wrap.querySelector('#hireSpec').value })); if (r) { toast(`${G.soldierById(r.soldier)?.name} joined the team.`); render(); } };
   wrap.querySelector('#tostore').onclick = () => go('store');

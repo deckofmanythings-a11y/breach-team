@@ -3,7 +3,8 @@ import { openPackShow } from './pack-open.js';
 import { levelBadge } from './badges.js';
 import * as G from './state.js?v=3';
 import { el, esc, avatar, itemLabel, statGrid, toast } from './ui.js';
-import { PACKS, PITY_RELIC_AFTER, GRADE_BY_ID, ROSTER_CAP } from '../data/economy.js';
+import { PACKS, PITY_RELIC_AFTER, GRADE_BY_ID } from '../data/economy.js';
+import { rosterFull } from '../data/crew-quarters.js';
 import { SPECIALTY_BY_ID } from '../data/specialties.js';
 import { ITEM_BY_ID } from '../data/gear.js';
 import { storePrice, mothershipEffects } from '../data/mothership-rooms.js';
@@ -20,7 +21,7 @@ function untilRestock() {
 export function renderStore(panel, run) {
   const S = G.state();
   const stock = G.store();
-  const full = S.soldiers.length >= ROSTER_CAP;
+  const full = rosterFull(S);
   const P = (n) => storePrice(S, n);   // Armory discount
   const disc = mothershipEffects(S).storePct;
   const wrap = el(`<div>
@@ -30,7 +31,7 @@ export function renderStore(panel, run) {
       <div class="dim small" style="margin-bottom:8px">Every pack's best item is guaranteed at least its listed rarity. Go ${PITY_RELIC_AFTER} item packs in a row without a Relic and the next one has one. <span id="pity"></span></div>
       <div class="opt">${PACKS.map(p => `<div class="card"><h4>${p.name}</h4><div class="small dim">${esc(p.desc)}</div>
         <div class="spread" style="margin-top:8px"><b style="color:var(--accent)">${P(p.price)} BUCs</b>${disc ? ` <s class="dim small">${p.price}</s>` : ''}
-        <button class="primary" data-pack="${p.id}" ${S.bucs < P(p.price) || (p.soldiers && full) ? 'disabled' : ''}>Open</button></div></div>`).join('')}</div>
+        <button class="primary" data-pack="${p.id}" ${S.bucs < P(p.price) || (p.soldiers && rosterFull(S, p.soldiers)) ? 'disabled' : ''}>Open</button></div></div>`).join('')}</div>
     </div>
     <div class="section"><div class="spread"><h3>Today's stock</h3><span class="dim small">Restocks in ${untilRestock()} (midnight Pacific). Same stock for everyone.</span></div>
       <div id="stock" style="display:grid;gap:6px;max-width:900px"></div>

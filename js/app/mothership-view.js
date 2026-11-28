@@ -3,12 +3,13 @@ import * as G from './state.js?v=3';
 import { el, esc, toast, modal, closeModal } from './ui.js';
 import { MS_ROOMS, MS_ROOM_BY_ID, MAX_ROOM_LEVEL, roomLevel, nextRoomPrice, roomEffect, describeEffect, mothershipEffects } from '../data/mothership-rooms.js';
 import { buildMothershipMap } from '../engine/mothership-map.js';
-import { createShipView } from '../render/ship-view.js';
+import { createShipView } from '../render/ship-view.js?v=2';
 import { stationKey } from '../engine/defense-setup.js';
 import { DEFENSE } from '../data/threats.js';
 import { isDamaged, repairPrice } from '../data/defense-events.js';
 import { QUARTERMASTER } from '../data/quartermaster.js';
 import { hasQuartermaster } from '../game/quartermaster.js';
+import { CREW_QUARTERS, CREW_PER_LEVEL, quartersLevel, rosterCap, nextQuartersPrice } from '../data/crew-quarters.js';
 
 let view = null;
 const dropView = () => { if (view) { view.destroy(); view = null; } };
@@ -37,6 +38,7 @@ export function renderMothership(panel, run) {
     <div class="grid ms-grid" id="rooms"></div>
   </div>`);
   const list = wrap.querySelector('#rooms');
+  list.append(quartersCard(S, creds));
   for (const r of MS_ROOMS) list.append(roomCard(S, r, creds));
   wrap.onclick = (e) => onBuild(e, S, panel, run);
   panel.append(wrap);
@@ -47,13 +49,14 @@ export function renderMothership(panel, run) {
   const soldiers = S.soldiers.filter(s => s.status !== 'mia').map((s, i) => ({ s, room: hangout(S, s, i) }));
   const msMap = buildMothershipMap(S);
   for (const sl of msMap.slots) if (sl.room && isDamaged(S, sl.room)) sl.name += ' ⚠ DAMAGED';
+  for (const sl of msMap.slots) if (sl.key === 'quarters') sl.tap = true;   // Crew Quarters: expandable, not a normal room
   createShipView(stage, msMap, {
     faction: 'mothership', soldiers,
     onTap: (slot) => {
       if (!slot) return;
       view?.select(slot.key);
       const box = el('<div class="box ms-modal"></div>');
-      box.append(roomCard(S, MS_ROOM_BY_ID[slot.room], creds));
+      box.append(slot.key === 'quarters' ? quartersCard(S, creds) : roomCard(S, MS_ROOM_BY_ID[slot.room], creds));
       box.append(el('<div class="row" style="margin-top:8px"><button class="ms-close">Close</button></div>'));
       box.onclick = (e) => { if (e.target.closest('.ms-close')) { closeModal(); view?.select(null); return; } onBuild(e, S, panel, run); };
       modal(box);
@@ -83,6 +86,20 @@ function roomCard(S, r, creds) {
   </div>`);
 }
 
+// Crew Quarters (0.23.0): sets the roster cap. No top level: each expansion costs more than the last.
+function quartersCard(S, creds) {
+  const q = CREW_QUARTERS, lv = quartersLevel(S), cap = rosterCap(S), price = nextQuartersPrice(S), n = S.soldiers.length;
+  const over = n > cap;
+  return el(`<div class="card ms-room built">
+    <div class="spread"><h4><span class="ms-icon">${q.icon}</span> ${esc(q.name)}</h4><span class="small dim">${lv ? `Level ${lv}` : 'Standard'}</span></div>
+    <div class="small dim">${esc(q.desc)}</div>
+    <div class="small" style="margin-top:6px"><b>Now:</b> room for ${cap} Soldiers (you have ${n})</div>
+    ${over ? `<div class="small warn" style="margin-top:4px">Your roster is over the limit. Everyone stays, but no one new can join until there's room for ${n + 1}.</div>` : ''}
+    <div class="small" style="margin-top:2px"><b>Next:</b> room for ${cap + CREW_PER_LEVEL} Soldiers</div>
+    <div style="margin-top:8px"><button class="primary" data-quarters="1" ${creds < price ? 'disabled' : ''}>Expand · ${price.toLocaleString()} CREDs</button></div>
+  </div>`);
+}
+
 // Quartermaster: a one-off add-on to the Armory, outside its levels. Unlocks Auto-equip in the Barracks and Armory.
 function qmBlock(S, armoryLv, creds) {
   const q = QUARTERMASTER, owned = hasQuartermaster(S), damaged = isDamaged(S, 'armory');
@@ -94,6 +111,13 @@ function qmBlock(S, armoryLv, creds) {
 }
 
 async function onBuild(e, S, panel, run) {
+  if (e.target.closest('[data-quarters]')) {
+    const price = nextQuartersPrice(S), cap = rosterCap(S) + CREW_PER_LEVEL;
+    if (!confirm(`Expand the Crew Quarters to fit ${cap} Soldiers for ${price.toLocaleString()} CREDs?`)) return;
+    const out = await run(() => G.act('expandQuarters'));
+    if (out) { closeModal(); toast(`Crew Quarters expanded: room for ${out.cap} Soldiers.`); panel.replaceChildren(); renderMothership(panel, run); }
+    return;
+  }
   if (e.target.closest('[data-qm]')) {
     if (!confirm(`Hire a Quartermaster for ${QUARTERMASTER.price.toLocaleString()} CREDs? Auto-equip unlocks in the Barracks and Armory.`)) return;
     const out = await run(() => G.act('buyQuartermaster'));

@@ -245,6 +245,8 @@ Spend CREDs on rooms in the **Mothership** tab. Building a room costs **600 CRED
 | Infiltration Suite | Vent Crawl can come out one room closer to the Bridge | Also: every shot fired from hiding is a critical hit | Also: +1 Vent Crawl squad size |
 | Intel Room | Scouts each target's crew before you board; +4 Aim for defenders when boarded | Also the optional objectives; +8 Aim | Also the full map and turrets; +12 Aim |
 
+**Crew Quarters (roster size).** The Crew Quarters set how many Soldiers you can have: **14** to start, and each expansion adds room for **7** more. There's no top level, but each expansion costs more than the last (800, 1,300, 2,050, 3,300, 5,250 CREDs and climbing about 60% a time). Expansions stay through a Game Over. A roster that's already over the limit keeps everyone, but nobody new joins (hiring, Store recruits, packs with Soldiers, rescued prisoners, the emergency Rookie) until there's room.
+
 **Quartermaster (Armory add-on).** Once the Armory is built you can hire a Quartermaster for **2,000 CREDs** (one-off, outside the room levels; it stays through a Game Over like the rest of the Mothership). It unlocks **📦 Auto-equip** in the Barracks and Armory: every piece of gear goes back on the shelf and is handed out again, highest-level Soldiers first (or a saved squad first, if you pick one), each taking the best item for their class in every slot. Items are scored for the class: stats the class grows into count more and its primary stat most, weapons by damage per second, range and accuracy, and class gear counts extra for the class that uses it (healing and revive gear for Medics, hacking for Techs and Infiltrators, breaching for Breachers). Built-in enhancements stay put, MIA Soldiers keep what they took, and a damaged Armory switches the Quartermaster off until it's repaired.
 
 **Saved squads.** On the Deploy screen you can save up to 8 squads, each with a name, its preferred entry method and its marching order. Picking one sets the entry and the squad; a saved squad can never be bigger than its entry allows (including Mothership seat bonuses). Soldiers who are recovering, missing or no longer on the roster are left out when you pick it. Saved squads are stored with your account.
@@ -284,7 +286,7 @@ The tab shows the Mothership as a map: Hangar at the stern, a spine corridor dow
 - Daily rotation (midnight Pacific): 6 items + 2 Soldiers, the same for every player. Each can be bought once per player per day.
 - Item prices: Standard 60, Mil-Spec 150, Prototype 400, Relic 1,100. Xeno is never sold.
 - Soldier prices: Rookie 150, Seasoned 400, Veteran 900, Elite 2,000.
-- Selling returns 25%. Roster cap: 24 Soldiers.
+- Selling returns 25%. Roster cap: set by the Crew Quarters on the Mothership (14 Soldiers to start, +7 per expansion).
 
 ## 8b. Alien ships
 

@@ -69,7 +69,7 @@ export async function createShipView(stageEl, map, opts = {}) {
     if (wasTap && e.type === 'pointerup') {
       const [px, py] = local(e);
       const tx = Math.floor((px - world.x) / (TS * world.scale.x)), ty = Math.floor((py - world.y) / (TS * world.scale.y));
-      const slot = (map.slots || []).find(s => tx >= s.x - 1 && tx <= s.x + s.w && ty >= s.y - 1 && ty <= s.y + s.h && s.room) || null;
+      const slot = (map.slots || []).find(s => tx >= s.x - 1 && tx <= s.x + s.w && ty >= s.y - 1 && ty <= s.y + s.h && (s.room || s.tap)) || null;
       opts.onTap?.(slot);
     }
     down = null;
